@@ -241,7 +241,7 @@ def cmd_git_verify(args):
 
 def main():
     repo_parent = argparse.ArgumentParser(add_help=False)
-    repo_parent.add_argument("--repo", help="Repository in 'owner/repo' format (defaults to origin URL)")
+    repo_parent.add_argument("--repo", default=argparse.SUPPRESS, help="Repository in 'owner/repo' format (defaults to origin URL)")
 
     parser = argparse.ArgumentParser(description="GitHub PR and Git repository helper", parents=[repo_parent])
 
@@ -307,6 +307,8 @@ def main():
     p_vc.set_defaults(func=cmd_git_verify)
 
     args = parser.parse_args()
+    if not hasattr(args, "repo"):
+        args.repo = None
     args.func(args)
 
 

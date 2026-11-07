@@ -65,15 +65,28 @@ def fnv1a_32(key: str) -> int:
 
 
 def is_valid_numeric_value(val: Any) -> bool:
-    """Returns True if val is a finite int or float (and not a boolean or inf/nan/overflowing)."""
+    """Returns True if val is a finite int or float within single-precision limits."""
     if isinstance(val, bool):
         return False
     if not isinstance(val, (int, float)):
         return False
-    if not math.isfinite(val):
+
+    # Guard against OverflowError for arbitrarily large Python integers (e.g. 10**400)
+    if isinstance(val, int):
+        if val.bit_length() > 128:
+            return False
+        if abs(val) > 340282346638528859811704183484516925440:
+            return False
+        return True
+
+    try:
+        if not math.isfinite(val):
+            return False
+        if abs(val) > 3.4e38:
+            return False
+    except (OverflowError, ValueError):
         return False
-    if abs(val) > 3.4e38:
-        return False
+
     return True
 
 
