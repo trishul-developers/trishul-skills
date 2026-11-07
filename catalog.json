@@ -1,11 +1,11 @@
 {
   "version": "4.2.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 14,
+  "total_skills": 12,
   "categories": {
     "headless": 3,
     "platform": 4,
-    "projects": 7
+    "projects": 5
   },
   "skills": [
     {
@@ -90,11 +90,11 @@
       "has_tests": false
     },
     {
-      "name": "tte-content-asset",
-      "description": "Create a game content definition asset plus its register and licence entries in the correct content-pack paths, then validate. Use when adding or changing units, weapons, sensors, factions, missions or register values. Implementor or executor.",
+      "name": "tte-content-pipeline",
+      "description": "Create, validate, and bake game content definition assets and register entries in the correct content-pack paths using scripts/validate_content_asset.py. Use when adding or changing units, weapons, sensors, factions, missions, or register values. Implementor or executor role.",
       "category": "projects",
-      "local_path": "skills\\projects\\tte-content-asset",
-      "has_scripts": false,
+      "local_path": "skills\\projects\\tte-content-pipeline",
+      "has_scripts": true,
       "has_references": false,
       "has_tests": false
     },
@@ -109,28 +109,10 @@
     },
     {
       "name": "tte-phase-evidence",
-      "description": "Assemble the phase-end review package for the architect (step table, CI links, empty red list, differential report, capture, state-inventory diff, deviations). Use when all steps of a phase are done and you must request review. Orchestrator role.",
+      "description": "Assemble and verify the phase-end acceptance review package for the architect (preconditions, step commit table, CI run status, state-inventory diff, deviations) using scripts/assemble_phase_evidence.py. Use when all steps of a phase are complete. Orchestrator role.",
       "category": "projects",
       "local_path": "skills\\projects\\tte-phase-evidence",
-      "has_scripts": false,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "tte-spec-step",
-      "description": "The test-first loop for implementing a phase spec step batch in this project (read the file list, write failing tests, compile, implement, update the red list, hand off). Use when assigned steps such as G01.04-G01.06. Implementor role.",
-      "category": "projects",
-      "local_path": "skills\\projects\\tte-spec-step",
-      "has_scripts": false,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "tte-unity-test",
-      "description": "Run Unity tests for this project by class, name or category in batch mode and return only counts plus the first failure. Use whenever you need to run EditMode or PlayMode tests, read a CI test artifact, or check one test. Executor role.",
-      "category": "projects",
-      "local_path": "skills\\projects\\tte-unity-test",
-      "has_scripts": false,
+      "has_scripts": true,
       "has_references": false,
       "has_tests": false
     }

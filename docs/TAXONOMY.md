@@ -1,15 +1,15 @@
 # Custom Agent Skills Registry & Taxonomy
 
-This document catalogs and classifies the **14 high-leverage custom skills and script-backed harnesses** created by agents on this machine across Claude, Codex, Antigravity, and active projects (`trishul-tactical-engine`, `trishul-agent-hub`, `agent-control-plane`). All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated.
+This document catalogs and classifies the **12 high-leverage custom skills and script-backed harnesses** created by agents on this machine across Claude, Codex, Antigravity, and active projects (`trishul-tactical-engine`, `trishul-agent-hub`, `agent-control-plane`). All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated.
 
 ---
 
 ## 1. High-Level Summary by Category
 
 ```mermaid
-pie title Custom Skills Distribution by Category (14 Total)
+pie title Custom Skills Distribution by Category (12 Total)
     "Platform Core Skills (4)" : 4
-    "Project-Specific (7)" : 7
+    "Project-Specific (5)" : 5
     "Universal Headless Runners (3)" : 3
 ```
 
@@ -38,8 +38,6 @@ pie title Custom Skills Distribution by Category (14 Total)
 *Custom skills residing inside repository trees, backed by executable scripts.*
 1. **[`chatgpt-role-bridge`](file:///E:/Projects/Skills/skills/projects/chatgpt-role-bridge/SKILL.md)**: Persistent cloud ChatGPT session bridge (`scripts/bridge.mjs`, `bridge-lib.mjs`, `acp-loader.mjs`) enabling Antigravity to communicate with cloud roles (`DESIGN_OWNER`, `REVIEWER`) via CDP.
 2. **[`handoff`](file:///E:/Projects/Skills/skills/projects/handoff/SKILL.md)**: File-based handoff worker for `trishul-agent-hub`.
-3. **[`tte-content-asset`](file:///E:/Projects/Skills/skills/projects/tte-content-asset/SKILL.md)**: Content catalog and vehicle/infantry asset ingestion for TTE.
+3. **[`tte-content-pipeline`](file:///E:/Projects/Skills/skills/projects/tte-content-pipeline/SKILL.md)**: Fast offline register JSON validator, unit vocabulary checker, and 32-bit FNV-1a collision auditor for TTE (`scripts/validate_content_asset.py`).
 4. **[`tte-golden-recapture`](file:///E:/Projects/Skills/skills/projects/tte-golden-recapture/SKILL.md)**: Re-baselining and validating golden simulation replay recordings for TTE.
-5. **[`tte-phase-evidence`](file:///E:/Projects/Skills/skills/projects/tte-phase-evidence/SKILL.md)**: Generating structured phase acceptance evidence blocks for TTE.
-6. **[`tte-spec-step`](file:///E:/Projects/Skills/skills/projects/tte-spec-step/SKILL.md)**: Test-first phase spec step implementation loop for TTE.
-7. **[`tte-unity-test`](file:///E:/Projects/Skills/skills/projects/tte-unity-test/SKILL.md)**: High-speed batchmode Unity test execution for TTE.
+5. **[`tte-phase-evidence`](file:///E:/Projects/Skills/skills/projects/tte-phase-evidence/SKILL.md)**: Automated acceptance evidence block generator auditing preconditions, step commit tables, CI status, and state changes (`scripts/assemble_phase_evidence.py`).

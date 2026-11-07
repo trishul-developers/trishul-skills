@@ -1,17 +1,17 @@
 # AI Agent Skill Hub & Custom Registry
 
-Welcome to the central **AIAgent Skill Hub** (`E:\Projects\Skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, and **Google Antigravity (AGY)**.
+Welcome to the central **AIAgent Skill Hub** (`E:\Projects\Skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
 
-All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **14 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
+All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **12 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **14 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
+- **Total Custom Skills Registered**: **12 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
 - **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](file:///E:/Projects/Skills/skills)
 - **Consolidated Platform Skills**: 4 skills directly in [`skills/`](file:///E:/Projects/Skills/skills)
-- **Project-Specific Skills**: 7 custom skills residing in project repositories in [`skills/projects/`](file:///E:/Projects/Skills/skills/projects)
+- **Project-Specific Skills**: 5 custom skills residing in project repositories in [`skills/projects/`](file:///E:/Projects/Skills/skills/projects)
 
 ---
 
@@ -19,11 +19,12 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 ```
 E:\Projects\Skills/
-  ├── catalog.json                             # Machine-readable registry of all 14 custom skills
+  ├── catalog.json                             # Machine-readable registry of all 12 custom skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
-  │     └── validate_skills.py                 # Lint & verify SKILL.md, Python, and Node scripts
+  │     ├── validate_skills.py                 # Lint & verify SKILL.md, Python, and Node scripts
+  │     └── deploy_global_skills.py            # Global synchronization across all providers
   ├── skills/
   │     ├── agy-headless/                      # Universal runner & SKILL.md for `agy -p`
   │     ├── claude-headless/                   # Universal runner & SKILL.md for `claude -p`
@@ -35,16 +36,14 @@ E:\Projects\Skills/
   │     └── projects/                          # Project-specific custom skills
   │           ├── chatgpt-role-bridge/         # Persistent cloud role bridge (agent-control-plane)
   │           ├── handoff/                     # Agent Hub handoff worker (trishul-agent-hub)
-  │           ├── tte-content-asset/           # Vehicle/infantry catalog asset ingestion (TTE)
+  │           ├── tte-content-pipeline/        # Register validation, key hashing & asset baking (TTE)
   │           ├── tte-golden-recapture/        # Simulation replay golden re-baseliner (TTE)
-  │           ├── tte-phase-evidence/          # Structured phase acceptance evidence (TTE)
-  │           ├── tte-spec-step/               # Test-first spec step batch loop (TTE)
-  │           └── tte-unity-test/              # Batchmode Unity test runner (TTE)
+  │           └── tte-phase-evidence/          # Automated phase acceptance evidence block generator (TTE)
   └── docs/
         ├── SKILL_ARCHITECTURE.md              # Comparative skill architecture across platforms
         ├── HEADLESS_CLI_GUIDE.md              # Comprehensive headless CLI execution manual
         ├── MEMORY_AND_PROCESS_ANALYSIS.md     # Deep dive into project memories & rationale
-        └── TAXONOMY.md                        # Master classification matrix of all 14 custom skills
+        └── TAXONOMY.md                        # Master classification matrix of all 12 custom skills
 ```
 
 ---
@@ -89,7 +88,7 @@ python "skills/claude-headless/scripts/claude_headless.py" \
 
 ---
 
-## 4. Consolidated Platform Skills
+## 4. Consolidated High-Leverage Skills
 
 ### A. Unified Unity Pipeline (`unity-pipeline`)
 Consolidates fast compile checks, determinism audits, batchmode testing, NUnit XML parsing, failure log extraction, and composite Pair Gates into a single tool:
@@ -106,12 +105,19 @@ python skills/github-pr-workflow/scripts/gh_helper.py comments post --pr 28 --fi
 ```
 *Docs*: [`skills/github-pr-workflow/SKILL.md`](file:///E:/Projects/Skills/skills/github-pr-workflow/SKILL.md)
 
-### C. ChatGPT Role Bridge (`chatgpt-role-bridge`)
-Portable session bridge with dynamic ACP loader enabling seamless communication with persistent cloud ChatGPT roles:
+### C. Automated TTE Phase Evidence (`tte-phase-evidence`)
+Audits repository preconditions (`HOLD(Qn)`, red list, CI head status) and automatically generates the complete 9-part acceptance evidence package:
 ```powershell
-node skills/projects/chatgpt-role-bridge/scripts/bridge.mjs status
+python skills/projects/tte-phase-evidence/scripts/assemble_phase_evidence.py --phase G01 --output scratch/evidence.md
 ```
-*Docs*: [`skills/projects/chatgpt-role-bridge/SKILL.md`](file:///E:/Projects/Skills/skills/projects/chatgpt-role-bridge/SKILL.md)
+*Docs*: [`skills/projects/tte-phase-evidence/SKILL.md`](file:///E:/Projects/Skills/skills/projects/tte-phase-evidence/SKILL.md)
+
+### D. TTE Content Pipeline & Register Validator (`tte-content-pipeline`)
+Fast offline validation of register JSON, unit vocabulary, and 32-bit FNV-1a `DefinitionId` collision checks:
+```powershell
+python skills/projects/tte-content-pipeline/scripts/validate_content_asset.py --key plc.mbt.a
+```
+*Docs*: [`skills/projects/tte-content-pipeline/SKILL.md`](file:///E:/Projects/Skills/skills/projects/tte-content-pipeline/SKILL.md)
 
 ---
 
