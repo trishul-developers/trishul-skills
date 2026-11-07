@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-r"""Sync and catalog ONLY custom skills and scripts created by agents on this system into E:\Projects\Skills.
+r"""Sync and catalog custom skills and scripts created by agents on this system into E:\Projects\Skills.
 
-Excludes all public, marketplace, and provider-bundled skills.
+Layout:
+  skills/headless/   - Universal CLI headless runners
+  skills/collected/  - Custom platform skills (Antigravity, Codex, Claude)
+  skills/projects/   - Project-specific skills (TTE, ACP, Agent Hub)
 """
 
 import json
@@ -14,7 +17,9 @@ from typing import Any, Dict, List
 
 WORKSPACE_ROOT = Path(r"E:\Projects\Skills")
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
+HEADLESS_DIR = SKILLS_DIR / "headless"
 COLLECTED_DIR = SKILLS_DIR / "collected"
+PROJECTS_DIR = SKILLS_DIR / "projects"
 CATALOG_FILE = WORKSPACE_ROOT / "catalog.json"
 
 EXCLUDE_PATTERNS = {
@@ -22,47 +27,41 @@ EXCLUDE_PATTERNS = {
     ".mypy_cache", ".ruff_cache", "worktrees", "sessions", "archived_sessions"
 }
 
-# Strictly defined sources for custom skills created by agents on this machine
 CUSTOM_SOURCES = [
     {
+        "category": "collected",
         "platform": "antigravity",
-        "category": "user-custom",
         "path": Path(r"C:\Users\tosum\.gemini\config\skills"),
     },
     {
+        "category": "collected",
         "platform": "codex",
-        "category": "user-custom",
         "path": Path(r"C:\Users\tosum\.codex\skills\github-pr-comment-watcher"),
     },
     {
+        "category": "collected",
         "platform": "claude",
-        "category": "user-custom",
         "path": Path(r"C:\Users\tosum\.claude\skills\agy-cli"),
     },
     {
+        "category": "collected",
         "platform": "claude",
-        "category": "user-custom",
         "path": Path(r"C:\Users\tosum\.claude\skills\codex-cli"),
     },
     {
-        "platform": "projects",
-        "category": "trishul-tactical-engine",
+        "category": "projects",
+        "platform": "trishul-tactical-engine",
         "path": Path(r"E:\Projects\trishul-tactical-engine\.agents\skills"),
     },
     {
-        "platform": "projects",
-        "category": "agent-control-plane",
+        "category": "projects",
+        "platform": "agent-control-plane",
         "path": Path(r"E:\Projects\agent-control-plane\.agents\skills\cloud-role-bridge"),
     },
     {
-        "platform": "projects",
-        "category": "trishul-agent-hub",
+        "category": "projects",
+        "platform": "trishul-agent-hub",
         "path": Path(r"E:\Projects\trishul-agent-hub\.agents\skills\handoff"),
-    },
-    {
-        "platform": "headless",
-        "category": "cli-runners",
-        "path": Path(r"E:\Projects\Skills\skills\headless"),
     },
 ]
 
@@ -121,20 +120,40 @@ def copy_skill_directory(src_dir: Path, dest_dir: Path) -> None:
                 print(f"Warning: could not copy {src_file}: {e}", file=sys.stderr)
 
 
-def collect_custom_skills() -> List[Dict[str, Any]]:
+def collect_skills() -> List[Dict[str, Any]]:
     catalog_entries: List[Dict[str, Any]] = []
     seen_destinations: set[str] = set()
 
+    # 1. Index headless runners
+    if HEADLESS_DIR.exists():
+        for skill_dir in HEADLESS_DIR.iterdir():
+            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                skill_md_path = skill_dir / "SKILL.md"
+                content = skill_md_path.read_text(encoding="utf-8", errors="replace")
+                meta = parse_frontmatter(content)
+                entry = {
+                    "name": meta.get("name") or skill_dir.name,
+                    "description": meta.get("description", "")[:500],
+                    "category": "headless",
+                    "origin_platform": "internal",
+                    "original_path": str(skill_md_path),
+                    "local_path": str(skill_dir.relative_to(WORKSPACE_ROOT)),
+                    "has_scripts": (skill_dir / "scripts").is_dir(),
+                    "has_references": (skill_dir / "references").is_dir(),
+                }
+                catalog_entries.append(entry)
+
+    # 2. Collect from custom sources into collected/ and projects/
     for source in CUSTOM_SOURCES:
         src_path = source["path"]
-        platform = source["platform"]
         category = source["category"]
+        platform = source["platform"]
+        target_base = PROJECTS_DIR if category == "projects" else COLLECTED_DIR
+        target_base.mkdir(parents=True, exist_ok=True)
+
         if not src_path.exists():
             continue
 
-        is_internal_authored = platform == "headless"
-
-        # Discover skill directories: either src_path itself has SKILL.md, or its children do
         candidate_dirs: List[Path] = []
         if (src_path / "SKILL.md").exists():
             candidate_dirs.append(src_path)
@@ -155,41 +174,23 @@ def collect_custom_skills() -> List[Dict[str, Any]]:
             skill_name = meta.get("name") or skill_dir.name
             description = meta.get("description") or ""
 
-            if is_internal_authored:
-                entry = {
-                    "name": skill_name,
-                    "description": description[:500],
-                    "platform": platform,
-                    "source_category": category,
-                    "original_path": str(skill_md_path),
-                    "local_path": str(skill_dir.relative_to(WORKSPACE_ROOT)),
-                    "has_scripts": (skill_dir / "scripts").is_dir(),
-                    "has_references": (skill_dir / "references").is_dir() or (skill_dir / "assets").is_dir(),
-                }
-                catalog_entries.append(entry)
+            # Dedup handoff across projects vs collected
+            dest_dir = target_base / skill_name
+            if skill_name == "handoff" and category == "collected" and (PROJECTS_DIR / "handoff").exists():
                 continue
 
-            dest_subpath = Path(platform) / skill_name
-            dest_full = COLLECTED_DIR / dest_subpath
-
-            counter = 1
-            while str(dest_full) in seen_destinations:
-                dest_subpath = Path(platform) / f"{skill_name}_{category}_{counter}"
-                dest_full = COLLECTED_DIR / dest_subpath
-                counter += 1
-
-            seen_destinations.add(str(dest_full))
-            copy_skill_directory(skill_dir, dest_full)
+            seen_destinations.add(str(dest_dir))
+            copy_skill_directory(skill_dir, dest_dir)
 
             entry = {
                 "name": skill_name,
                 "description": description[:500],
-                "platform": platform,
-                "source_category": category,
+                "category": category,
+                "origin_platform": platform,
                 "original_path": str(skill_md_path),
-                "local_path": str(dest_full.relative_to(WORKSPACE_ROOT)),
-                "has_scripts": (dest_full / "scripts").is_dir(),
-                "has_references": (dest_full / "references").is_dir() or (dest_full / "assets").is_dir(),
+                "local_path": str(dest_dir.relative_to(WORKSPACE_ROOT)),
+                "has_scripts": (dest_dir / "scripts").is_dir(),
+                "has_references": (dest_dir / "references").is_dir() or (dest_dir / "assets").is_dir(),
             }
             catalog_entries.append(entry)
 
@@ -197,33 +198,27 @@ def collect_custom_skills() -> List[Dict[str, Any]]:
 
 
 def main():
-    print("Starting sync of CUSTOM skills created on this system...")
-    if COLLECTED_DIR.exists():
-        shutil.rmtree(COLLECTED_DIR)
-    COLLECTED_DIR.mkdir(parents=True, exist_ok=True)
-
-    catalog = collect_custom_skills()
-    catalog_sorted = sorted(catalog, key=lambda x: (x["platform"], x["name"]))
+    print("Syncing custom skills into skills/headless/, skills/collected/, and skills/projects/...")
+    catalog = collect_skills()
+    catalog_sorted = sorted(catalog, key=lambda x: (x["category"], x["name"]))
 
     metadata = {
-        "version": "2.0.0",
-        "description": "Catalog of custom skills and scripts created by agents on this system, plus new headless CLI skills.",
+        "version": "3.0.0",
+        "description": "Catalog of custom skills created on this machine across headless runners, collected platform skills, and project skills.",
         "total_skills": len(catalog_sorted),
-        "platforms": {
-            "headless": sum(1 for s in catalog_sorted if s["platform"] == "headless"),
-            "antigravity": sum(1 for s in catalog_sorted if s["platform"] == "antigravity"),
-            "codex": sum(1 for s in catalog_sorted if s["platform"] == "codex"),
-            "claude": sum(1 for s in catalog_sorted if s["platform"] == "claude"),
-            "projects": sum(1 for s in catalog_sorted if s["platform"] == "projects"),
+        "categories": {
+            "headless": sum(1 for s in catalog_sorted if s["category"] == "headless"),
+            "collected": sum(1 for s in catalog_sorted if s["category"] == "collected"),
+            "projects": sum(1 for s in catalog_sorted if s["category"] == "projects"),
         },
         "skills": catalog_sorted,
     }
 
     CATALOG_FILE.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    print(f"\nSuccessfully collected {len(catalog_sorted)} custom skills into {COLLECTED_DIR}")
+    print(f"\nSuccessfully indexed {len(catalog_sorted)} skills.")
     print(f"Catalog written to {CATALOG_FILE}")
-    for p, count in metadata["platforms"].items():
-        print(f"  - {p}: {count} skills")
+    for cat, count in metadata["categories"].items():
+        print(f"  - skills/{cat}/: {count} skills")
 
 
 if __name__ == "__main__":

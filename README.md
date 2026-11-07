@@ -2,15 +2,16 @@
 
 Welcome to the central **AIAgent Skill Hub** (`E:\Projects\Skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, and **Google Antigravity (AGY)**.
 
-All generic vendor-bundled, official marketplace, and speculative skills have been removed. This repository strictly contains **22 custom skills and scripts developed by agents on this machine**, plus the 3 universal headless CLI execution harnesses.
+All generic vendor-bundled, official marketplace, and speculative skills have been removed. This repository strictly contains **21 custom skills and scripts developed by agents on this machine**, organized into flat, clean categories.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **22 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
+- **Total Custom Skills Registered**: **21 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
 - **Universal Headless CLI Runners**: 3 execution harnesses in [`skills/headless/`](file:///E:/Projects/Skills/skills/headless)
-- **Collected Custom Skills**: 19 platform & project skills created by agents across Antigravity, Codex, Claude, and active repositories.
+- **Collected Platform Custom Skills**: 11 custom skills created across Antigravity, Codex, and Claude in [`skills/collected/`](file:///E:/Projects/Skills/skills/collected)
+- **Project-Specific Skills**: 7 custom skills residing in project repositories in [`skills/projects/`](file:///E:/Projects/Skills/skills/projects)
 
 ---
 
@@ -18,7 +19,7 @@ All generic vendor-bundled, official marketplace, and speculative skills have be
 
 ```
 E:\Projects\Skills/
-  ├── catalog.json                             # Machine-readable registry of all 22 custom skills
+  ├── catalog.json                             # Machine-readable registry of all 21 custom skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from custom sources
@@ -28,16 +29,31 @@ E:\Projects\Skills/
   │     │     ├── codex-headless/              # Runner & SKILL.md for `codex exec`
   │     │     ├── agy-headless/                # Runner & SKILL.md for `agy -p`
   │     │     └── claude-headless/             # Runner & SKILL.md for `claude -p`
-  │     └── collected/                         # Collected custom skills from this system
-  │           ├── antigravity/                 # 9 Antigravity custom skills (engineering-orchestrator, sim-contract-audit, etc.)
-  │           ├── codex/                       # 1 Codex custom skill (github-pr-comment-watcher)
-  │           ├── claude/                      # 2 Claude custom runners (agy-cli, codex-cli)
-  │           └── projects/                    # 7 Project skills (TTE, ACP, Agent Hub)
+  │     ├── collected/                         # Flat list of collected platform custom skills
+  │     │     ├── agy-cli/                     # Claude -> AGY runner
+  │     │     ├── codex-cli/                   # Claude -> Codex runner
+  │     │     ├── engineering-orchestrator/    # Canonical roles & compute governance
+  │     │     ├── github-pr-comment-watcher/   # PR polling & role routing daemon
+  │     │     ├── github-pr-git-workflow/      # Safe PR comments & fast-forward push
+  │     │     ├── pair-gate-verification/      # Composite Pair Gates (A/B) runner
+  │     │     ├── pr-handoff-lifecycle/        # Automated PR role handoffs
+  │     │     ├── sim-contract-audit/          # Determinism & zero-GC invariant scanner
+  │     │     ├── snapshot-replay-verifier/    # Snapshot serialization & state hasher verifier
+  │     │     ├── unity-log-inspector/         # Diagnostics & compile error log scraper
+  │     │     └── unity-testing-workflow/      # Batchmode testing & NUnit XML report parser
+  │     └── projects/                          # Project-specific custom skills
+  │           ├── cloud-role-bridge/           # Persistent cloud role bridge (ACP)
+  │           ├── handoff/                     # Agent Hub handoff worker
+  │           ├── tte-content-asset/           # Vehicle/infantry catalog asset ingestion (TTE)
+  │           ├── tte-golden-recapture/        # Simulation replay golden re-baseliner (TTE)
+  │           ├── tte-phase-evidence/          # Structured phase acceptance evidence (TTE)
+  │           ├── tte-spec-step/               # Test-first spec step batch loop (TTE)
+  │           └── tte-unity-test/              # Batchmode Unity test runner (TTE)
   └── docs/
         ├── SKILL_ARCHITECTURE.md              # Comparative skill architecture across platforms
         ├── HEADLESS_CLI_GUIDE.md              # Comprehensive headless CLI execution manual
         ├── MEMORY_AND_PROCESS_ANALYSIS.md     # Deep dive into project memories & rationale
-        └── TAXONOMY.md                        # Master classification matrix of all 22 custom skills
+        └── TAXONOMY.md                        # Master classification matrix of all 21 custom skills
 ```
 
 ---
