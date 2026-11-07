@@ -1,10 +1,9 @@
 {
   "version": "2.0.0",
   "description": "Catalog of custom skills and scripts created by agents on this system, plus new headless CLI skills.",
-  "total_skills": 26,
+  "total_skills": 22,
   "platforms": {
     "headless": 3,
-    "multi-agent-process": 4,
     "antigravity": 9,
     "codex": 1,
     "claude": 2,
@@ -159,46 +158,6 @@
       "original_path": "E:\\Projects\\Skills\\skills\\headless\\codex-headless\\SKILL.md",
       "local_path": "skills\\headless\\codex-headless",
       "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "coverage-auditor",
-      "description": "Audit pull requests, diffs, and codebase state with rigorous coverage accounting. Enforces the strict rule that reviewers must explicitly categorize reviewed files into 'Read in Full', 'Grep / Signature Checked', and 'Unread / Out of Scope', and strictly bans claiming unread areas are sound.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\coverage-auditor\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\coverage-auditor",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "gate-verifier",
-      "description": "Execute composite verification gates (FastCompile, EditMode tests, PlayMode tests, NUnit XML report parsing, and determinism checks) before any task handoff, PR creation, or branch merge. Use whenever validating code changes, parsing CI test output, or proving zero regressions.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\gate-verifier\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\gate-verifier",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "git-committer",
-      "description": "Manage Git commits, branches, and merges adhering strictly to project hygiene standards: absolute ban on AI attribution (no 'Co-authored-by', no assistant signatures), atomic staging by explicit path, commit message decision logging ('Decisions:'), and standing merge execution on green verification gates.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\git-committer\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\git-committer",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "thub-messenger",
-      "description": "Send, receive, and orchestrate messages between agent sessions (Claude Code, Codex, Antigravity, and headless participants) via the Trishul Agent Hub (`thub`). Use this whenever coordinating tasks between sessions, waiting on external agent deliverables with `inbox_wait`, dispatching headless participants, inspecting dead letters, or checking project mailboxes.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\thub-messenger\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\thub-messenger",
-      "has_scripts": false,
       "has_references": false
     },
     {

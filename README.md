@@ -2,15 +2,14 @@
 
 Welcome to the central **AIAgent Skill Hub** (`E:\Projects\Skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, and **Google Antigravity (AGY)**.
 
-All generic vendor-bundled, official marketplace, and public provider skills have been filtered out. This repository contains **only custom skills and scripts developed by agents on this machine**, plus universal headless runners and governance skills.
+All generic vendor-bundled, official marketplace, and speculative skills have been removed. This repository strictly contains **22 custom skills and scripts developed by agents on this machine**, plus the 3 universal headless CLI execution harnesses.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **26 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
-- **Universal Headless CLI Runners**: 3 first-class execution harnesses in [`skills/headless/`](file:///E:/Projects/Skills/skills/headless)
-- **Multi-Agent Process Skills**: 4 specialized governance skills in [`skills/multi-agent-process/`](file:///E:/Projects/Skills/skills/multi-agent-process)
+- **Total Custom Skills Registered**: **22 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
+- **Universal Headless CLI Runners**: 3 execution harnesses in [`skills/headless/`](file:///E:/Projects/Skills/skills/headless)
 - **Collected Custom Skills**: 19 platform & project skills created by agents across Antigravity, Codex, Claude, and active repositories.
 
 ---
@@ -19,7 +18,7 @@ All generic vendor-bundled, official marketplace, and public provider skills hav
 
 ```
 E:\Projects\Skills/
-  ├── catalog.json                             # Machine-readable registry of all 26 custom skills
+  ├── catalog.json                             # Machine-readable registry of all 22 custom skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from custom sources
@@ -29,11 +28,6 @@ E:\Projects\Skills/
   │     │     ├── codex-headless/              # Runner & SKILL.md for `codex exec`
   │     │     ├── agy-headless/                # Runner & SKILL.md for `agy -p`
   │     │     └── claude-headless/             # Runner & SKILL.md for `claude -p`
-  │     ├── multi-agent-process/               # Governance skills derived from project memories
-  │     │     ├── thub-messenger/              # Trishul Agent Hub messaging & polling
-  │     │     ├── gate-verifier/               # Dual-gate verification & NUnit XML parsing
-  │     │     ├── git-committer/               # Git hygiene & absolute ban on AI attribution
-  │     │     └── coverage-auditor/            # Explicit 3-tier review coverage accounting
   │     └── collected/                         # Collected custom skills from this system
   │           ├── antigravity/                 # 9 Antigravity custom skills (engineering-orchestrator, sim-contract-audit, etc.)
   │           ├── codex/                       # 1 Codex custom skill (github-pr-comment-watcher)
@@ -43,7 +37,7 @@ E:\Projects\Skills/
         ├── SKILL_ARCHITECTURE.md              # Comparative skill architecture across platforms
         ├── HEADLESS_CLI_GUIDE.md              # Comprehensive headless CLI execution manual
         ├── MEMORY_AND_PROCESS_ANALYSIS.md     # Deep dive into project memories & rationale
-        └── TAXONOMY.md                        # Master classification matrix of all 26 custom skills
+        └── TAXONOMY.md                        # Master classification matrix of all 22 custom skills
 ```
 
 ---

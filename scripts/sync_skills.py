@@ -64,11 +64,6 @@ CUSTOM_SOURCES = [
         "category": "cli-runners",
         "path": Path(r"E:\Projects\Skills\skills\headless"),
     },
-    {
-        "platform": "multi-agent-process",
-        "category": "process-skills",
-        "path": Path(r"E:\Projects\Skills\skills\multi-agent-process"),
-    },
 ]
 
 
@@ -137,7 +132,7 @@ def collect_custom_skills() -> List[Dict[str, Any]]:
         if not src_path.exists():
             continue
 
-        is_internal_authored = platform in ("headless", "multi-agent-process")
+        is_internal_authored = platform == "headless"
 
         # Discover skill directories: either src_path itself has SKILL.md, or its children do
         candidate_dirs: List[Path] = []
@@ -216,7 +211,6 @@ def main():
         "total_skills": len(catalog_sorted),
         "platforms": {
             "headless": sum(1 for s in catalog_sorted if s["platform"] == "headless"),
-            "multi-agent-process": sum(1 for s in catalog_sorted if s["platform"] == "multi-agent-process"),
             "antigravity": sum(1 for s in catalog_sorted if s["platform"] == "antigravity"),
             "codex": sum(1 for s in catalog_sorted if s["platform"] == "codex"),
             "claude": sum(1 for s in catalog_sorted if s["platform"] == "claude"),

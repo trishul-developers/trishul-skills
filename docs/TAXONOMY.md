@@ -1,6 +1,6 @@
 # Custom Agent Skills Registry & Taxonomy
 
-This document catalogs and classifies the **26 custom skills and scripts** created by agents on this machine across Claude, Codex, Antigravity, and active projects (`trishul-tactical-engine`, `trishul-agent-hub`, `agent-control-plane`). All public, vendor-bundled, and marketplace skills have been filtered out.
+This document catalogs and classifies the **22 custom skills and scripts** created by agents on this machine across Claude, Codex, Antigravity, and active projects (`trishul-tactical-engine`, `trishul-agent-hub`, `agent-control-plane`). All generic vendor-bundled, official marketplace, and speculative skills have been removed.
 
 ---
 
@@ -10,7 +10,6 @@ This document catalogs and classifies the **26 custom skills and scripts** creat
 pie title Custom Skills Distribution by Source Platform
     "Antigravity Custom (9)" : 9
     "Project-Specific (7)" : 7
-    "Multi-Agent Process (4)" : 4
     "Headless Runners (3)" : 3
     "Claude Custom CLI (2)" : 2
     "Codex Custom Watcher (1)" : 1
@@ -28,16 +27,7 @@ pie title Custom Skills Distribution by Source Platform
 
 ---
 
-### B. Multi-Agent Governance & Workflow Process (`skills/multi-agent-process/`)
-*Operational workflow skills derived from project memories and multi-agent coordination requirements.*
-1. **[`thub-messenger`](file:///E:/Projects/Skills/skills/multi-agent-process/thub-messenger/SKILL.md)**: Inter-agent messaging, participant session binding, long-poll `inbox_wait`, and headless participant dispatch via Trishul Agent Hub (`thub`).
-2. **[`gate-verifier`](file:///E:/Projects/Skills/skills/multi-agent-process/gate-verifier/SKILL.md)**: Composite dual-gate verification pipeline (FastCompile + EditMode + PlayMode + NUnit XML report parsing), returning concise metrics ($<50$ lines).
-3. **[`git-committer`](file:///E:/Projects/Skills/skills/multi-agent-process/git-committer/SKILL.md)**: Disciplined Git workflow enforcing zero AI attribution, atomic commits by explicit path, commit decision logging (`Decisions:`), and standing merge execution on green gates.
-4. **[`coverage-auditor`](file:///E:/Projects/Skills/skills/multi-agent-process/coverage-auditor/SKILL.md)**: PR and code review auditor enforcing explicit 3-tier coverage classification (`READ_IN_FULL`, `GREP_CHECKED`, `UNREAD_OUT_OF_SCOPE`) and banning speculative soundness claims on unread code.
-
----
-
-### C. Antigravity Custom Skills (`skills/collected/antigravity/`)
+### B. Antigravity Custom Skills (`skills/collected/antigravity/`)
 *Custom skills and scripts developed on this machine under `C:\Users\tosum\.gemini\config\skills`.*
 1. **[`engineering-orchestrator`](file:///E:/Projects/Skills/skills/collected/antigravity/engineering-orchestrator/SKILL.md)**: Multi-agent orchestration, canonical roles (Architect, Implementor, Reviewer, Executor), subagent lifecycle, compute governance.
 2. **[`github-pr-git-workflow`](file:///E:/Projects/Skills/skills/collected/antigravity/github-pr-git-workflow/SKILL.md)**: Safe PR comments via `scripts/gh_helper.py`, git clean status, exact SHA matching, fast-forward pushing.
@@ -51,20 +41,20 @@ pie title Custom Skills Distribution by Source Platform
 
 ---
 
-### D. Codex Custom Skills (`skills/collected/codex/`)
+### C. Codex Custom Skills (`skills/collected/codex/`)
 *Custom skill and scripts created on this machine under `C:\Users\tosum\.codex\skills`.*
 1. **[`github-pr-comment-watcher`](file:///E:/Projects/Skills/skills/collected/codex/github-pr-comment-watcher/SKILL.md)**: PR comment polling, role routing, and watcher daemon (`scripts/gh_watch.py`, `scripts/pr_handoff_router_poll.py`).
 
 ---
 
-### E. Claude Custom Skills (`skills/collected/claude/`)
+### D. Claude Custom Skills (`skills/collected/claude/`)
 *Custom runner scripts created on this machine under `C:\Users\tosum\.claude\skills`.*
 1. **[`agy-cli`](file:///E:/Projects/Skills/skills/collected/claude/agy-cli/SKILL.md)**: Antigravity task runner (`scripts/agy_task.py`) for delegating tasks from Claude to `agy`.
 2. **[`codex-cli`](file:///E:/Projects/Skills/skills/collected/claude/codex-cli/SKILL.md)**: Codex task runner (`scripts/codex_task.py`) for delegating tasks from Claude to `codex exec`.
 
 ---
 
-### F. Project-Specific Skills (`skills/collected/projects/`)
+### E. Project-Specific Skills (`skills/collected/projects/`)
 *Custom skills residing inside repository trees.*
 1. **[`tte-content-asset`](file:///E:/Projects/Skills/skills/collected/projects/tte-content-asset/SKILL.md)**: Content catalog and vehicle/infantry asset ingestion for TTE.
 2. **[`tte-golden-recapture`](file:///E:/Projects/Skills/skills/collected/projects/tte-golden-recapture/SKILL.md)**: Re-baselining and validating golden simulation replay recordings for TTE.
