@@ -8,7 +8,7 @@ This document catalogs and classifies the **14 high-leverage custom skills and s
 
 ```mermaid
 pie title Custom Skills Distribution by Category (14 Total)
-    "Collected Platform Custom (4)" : 4
+    "Platform Core Skills (4)" : 4
     "Project-Specific (7)" : 7
     "Universal Headless Runners (3)" : 3
 ```
@@ -25,12 +25,12 @@ pie title Custom Skills Distribution by Category (14 Total)
 
 ---
 
-### B. Consolidated Platform Custom Skills (`skills/collected/`)
-*High-leverage, script-backed tools consolidating multi-turn manual processes into single-turn automated workflows.*
-1. **[`engineering-orchestrator`](file:///E:/Projects/Skills/skills/collected/engineering-orchestrator/SKILL.md)**: Multi-agent orchestration, canonical roles (Architect, Implementor, Reviewer, Executor), subagent lifecycle, compute governance.
-2. **[`github-pr-workflow`](file:///E:/Projects/Skills/skills/collected/github-pr-workflow/SKILL.md)**: Unified GitHub PR operations consolidating `github-pr-comment-watcher` and `github-pr-git-workflow` into pure-Python REST API tooling (`scripts/gh_helper.py`), daemon polling (`scripts/gh_watch.py`), and git fast-forward safety checks.
-3. **[`pr-handoff-lifecycle`](file:///E:/Projects/Skills/skills/collected/pr-handoff-lifecycle/SKILL.md)**: Drafting and verifying structured PR role handoffs (`[IMPLEMENTOR-1]`, `[COORDINATOR]`, `[REVIEWER-1A/B]`) directly from git history, diffs, and NUnit reports via `scripts/handoff.py`.
-4. **[`unity-pipeline`](file:///E:/Projects/Skills/skills/collected/unity-pipeline/SKILL.md)**: Unified pipeline consolidating `sim-contract-audit`, `snapshot-replay-verifier`, `unity-log-inspector`, `pair-gate-verification`, and `unity-testing-workflow` into `scripts/unity_pipeline.py`. Features mandatory `<1s` static pre-check, fast C# compilation, batchmode testing, NUnit 3 XML report parsing, failure log extraction, and composite Pair Gates.
+### B. Consolidated Platform Skills (`skills/`)
+*High-leverage, script-backed tools consolidating multi-turn manual processes into single-turn automated workflows directly in the root skills directory.*
+1. **[`engineering-orchestrator`](file:///E:/Projects/Skills/skills/engineering-orchestrator/SKILL.md)**: Multi-agent orchestration, canonical roles (Architect, Implementor, Reviewer, Executor), subagent lifecycle, compute governance.
+2. **[`github-pr-workflow`](file:///E:/Projects/Skills/skills/github-pr-workflow/SKILL.md)**: Unified GitHub PR operations consolidating `github-pr-comment-watcher` and `github-pr-git-workflow` into pure-Python REST API tooling (`scripts/gh_helper.py`), daemon polling (`scripts/gh_watch.py`), and git fast-forward safety checks.
+3. **[`pr-handoff-lifecycle`](file:///E:/Projects/Skills/skills/pr-handoff-lifecycle/SKILL.md)**: Drafting and verifying structured PR role handoffs (`[IMPLEMENTOR-1]`, `[COORDINATOR]`, `[REVIEWER-1A/B]`) directly from git history, diffs, and NUnit reports via `scripts/handoff.py`.
+4. **[`unity-pipeline`](file:///E:/Projects/Skills/skills/unity-pipeline/SKILL.md)**: Unified pipeline consolidating `sim-contract-audit`, `snapshot-replay-verifier`, `unity-log-inspector`, `pair-gate-verification`, and `unity-testing-workflow` into `scripts/unity_pipeline.py`. Features mandatory `<1s` static pre-check, fast C# compilation, batchmode testing, NUnit 3 XML report parsing, failure log extraction, and composite Pair Gates.
 
 ---
 

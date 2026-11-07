@@ -19,7 +19,7 @@ This skill provides an authoritative, zero-dependency suite for GitHub Pull Requ
 
 ### 1. Safely Publishing a PR Comment from File
 ```bash
-python "skills/collected/github-pr-workflow/scripts/gh_helper.py" comment \
+python "skills/github-pr-workflow/scripts/gh_helper.py" comment \
   --repo "tosumitdhaka/trishul-tactical-engine" \
   --pr 28 \
   --body-file "briefs/handoff-block.md"
@@ -27,13 +27,13 @@ python "skills/collected/github-pr-workflow/scripts/gh_helper.py" comment \
 
 ### 2. Checking Local Git Status & SHA
 ```bash
-python "skills/collected/github-pr-workflow/scripts/gh_helper.py" verify-clean \
+python "skills/github-pr-workflow/scripts/gh_helper.py" verify-clean \
   -C "E:/Projects/trishul-tactical-engine"
 ```
 
 ### 3. Watching for Role Assignments
 ```bash
-python "skills/collected/github-pr-workflow/scripts/gh_watch.py" \
+python "skills/github-pr-workflow/scripts/gh_watch.py" \
   --repo "tosumitdhaka/trishul-tactical-engine" \
   --pr 28 \
   --role "IMPLEMENTOR-1" \

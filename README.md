@@ -10,7 +10,7 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 - **Total Custom Skills Registered**: **14 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
 - **Universal Headless CLI Runners**: 3 execution harnesses in [`skills/headless/`](file:///E:/Projects/Skills/skills/headless)
-- **Collected Platform Custom Skills**: 4 consolidated skills in [`skills/collected/`](file:///E:/Projects/Skills/skills/collected)
+- **Consolidated Platform Skills**: 4 skills directly in [`skills/`](file:///E:/Projects/Skills/skills)
 - **Project-Specific Skills**: 7 custom skills residing in project repositories in [`skills/projects/`](file:///E:/Projects/Skills/skills/projects)
 
 ---
@@ -25,15 +25,14 @@ E:\Projects\Skills/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
   │     └── validate_skills.py                 # Lint & verify SKILL.md, Python, and Node scripts
   ├── skills/
+  │     ├── engineering-orchestrator/          # Canonical roles & compute governance
+  │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting & git ops
+  │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
+  │     ├── unity-pipeline/                    # Unified compile, contract audit, test & gate pipeline
   │     ├── headless/                          # Universal non-interactive CLI invocation skills
   │     │     ├── codex-headless/              # Runner & SKILL.md for `codex exec`
   │     │     ├── agy-headless/                # Runner & SKILL.md for `agy -p`
   │     │     └── claude-headless/             # Runner & SKILL.md for `claude -p`
-  │     ├── collected/                         # Consolidated platform custom skills
-  │     │     ├── engineering-orchestrator/    # Canonical roles & compute governance
-  │     │     ├── github-pr-workflow/          # Unified PR comment watcher, safe posting & git ops
-  │     │     ├── pr-handoff-lifecycle/        # Automated PR role handoffs & verification
-  │     │     └── unity-pipeline/              # Unified compile, contract audit, test & gate pipeline
   │     └── projects/                          # Project-specific custom skills
   │           ├── chatgpt-role-bridge/         # Persistent cloud role bridge (agent-control-plane)
   │           ├── handoff/                     # Agent Hub handoff worker (trishul-agent-hub)
@@ -91,22 +90,22 @@ python "skills/headless/claude-headless/scripts/claude_headless.py" \
 
 ---
 
-## 4. Consolidated High-Leverage Skills
+## 4. Consolidated Platform Skills
 
 ### A. Unified Unity Pipeline (`unity-pipeline`)
 Consolidates fast compile checks, determinism audits, batchmode testing, NUnit XML parsing, failure log extraction, and composite Pair Gates into a single tool:
 ```powershell
 # Mandatory <1s pre-check (aborts before launching Unity if invariant violations exist)
-python skills/collected/unity-pipeline/scripts/unity_pipeline.py all --pre-check --suite FastCompile,EditMode
+python skills/unity-pipeline/scripts/unity_pipeline.py all --pre-check --suite FastCompile,EditMode
 ```
-*Docs*: [`skills/collected/unity-pipeline/SKILL.md`](file:///E:/Projects/Skills/skills/collected/unity-pipeline/SKILL.md)
+*Docs*: [`skills/unity-pipeline/SKILL.md`](file:///E:/Projects/Skills/skills/unity-pipeline/SKILL.md)
 
 ### B. Unified GitHub PR Workflow (`github-pr-workflow`)
 Combines zero-dependency pure-Python GitHub REST API interactions, state-tracking watcher daemons, and git verification:
 ```powershell
-python skills/collected/github-pr-workflow/scripts/gh_helper.py comments post --pr 28 --file scratch/handoff.md
+python skills/github-pr-workflow/scripts/gh_helper.py comments post --pr 28 --file scratch/handoff.md
 ```
-*Docs*: [`skills/collected/github-pr-workflow/SKILL.md`](file:///E:/Projects/Skills/skills/collected/github-pr-workflow/SKILL.md)
+*Docs*: [`skills/github-pr-workflow/SKILL.md`](file:///E:/Projects/Skills/skills/github-pr-workflow/SKILL.md)
 
 ### C. ChatGPT Role Bridge (`chatgpt-role-bridge`)
 Portable session bridge with dynamic ACP loader enabling seamless communication with persistent cloud ChatGPT roles:

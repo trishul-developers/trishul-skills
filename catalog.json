@@ -1,49 +1,13 @@
 {
-  "version": "4.0.0",
-  "description": "Consolidated catalog of high-leverage agent skills across headless runners, collected platform workflows, and project bridges.",
+  "version": "4.1.0",
+  "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
   "total_skills": 14,
   "categories": {
+    "platform": 4,
     "headless": 3,
-    "collected": 4,
     "projects": 7
   },
   "skills": [
-    {
-      "name": "engineering-orchestrator",
-      "description": "Use this skill whenever orchestrating software engineering projects, managing multi-agent workflows,\ndefining canonical roles (Architect, Implementor, Reviewer, Executor), inventing novel specialized roles on demand,\nenforcing dual-gate review/execution verification, or governing subagent lifecycle and compute costs.",
-      "category": "collected",
-      "local_path": "skills\\collected\\engineering-orchestrator",
-      "has_scripts": false,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "github-pr-workflow",
-      "description": "Complete GitHub Pull Request workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
-      "category": "collected",
-      "local_path": "skills\\collected\\github-pr-workflow",
-      "has_scripts": true,
-      "has_references": true,
-      "has_tests": false
-    },
-    {
-      "name": "pr-handoff-lifecycle",
-      "description": "Use this skill to draft, validate, and verify PR role handoffs ([IMPLEMENTOR-1], [COORDINATOR], [REVIEWER-1A/B]) directly from git history, diffs, and NUnit test report XMLs.",
-      "category": "collected",
-      "local_path": "skills\\collected\\pr-handoff-lifecycle",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "unity-pipeline",
-      "description": "Unified Unity C# engineering, verification, and testing pipeline. Integrates mandatory fast-fail static contract audits (<1s), fast C# compilation pre-checks, targeted batchmode test execution (EditMode/PlayMode), NUnit 3 XML report parsing, automated Editor.log failure diagnostics extraction, and composite phase gates into a single authoritative tool.",
-      "category": "collected",
-      "local_path": "skills\\collected\\unity-pipeline",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": false
-    },
     {
       "name": "agy-headless",
       "description": "Execute Google Antigravity (agy) non-interactively via print mode (`agy -p`) with granular control over models (gemini-3.8-flash, claude-sonnet-4-6, claude-opus-4-6-thinking, gpt-oss-120b-medium), reasoning effort (low, medium, high, xhigh, max), execution modes (auto, accept-edits, plan), permission auto-approval, output formatting (json, text, stream-json), structured schema validation, Windows command line length safety, and conversation resumption.",
@@ -67,6 +31,42 @@
       "description": "Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.1-sol, gpt-6.1-terra, gpt-6-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.",
       "category": "headless",
       "local_path": "skills\\headless\\codex-headless",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": false
+    },
+    {
+      "name": "engineering-orchestrator",
+      "description": "Use this skill whenever orchestrating software engineering projects, managing multi-agent workflows,\ndefining canonical roles (Architect, Implementor, Reviewer, Executor), inventing novel specialized roles on demand,\nenforcing dual-gate review/execution verification, or governing subagent lifecycle and compute costs.",
+      "category": "platform",
+      "local_path": "skills\\engineering-orchestrator",
+      "has_scripts": false,
+      "has_references": false,
+      "has_tests": false
+    },
+    {
+      "name": "github-pr-workflow",
+      "description": "Complete GitHub Pull Request workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
+      "category": "platform",
+      "local_path": "skills\\github-pr-workflow",
+      "has_scripts": true,
+      "has_references": true,
+      "has_tests": false
+    },
+    {
+      "name": "pr-handoff-lifecycle",
+      "description": "Use this skill to draft, validate, and verify PR role handoffs ([IMPLEMENTOR-1], [COORDINATOR], [REVIEWER-1A/B]) directly from git history, diffs, and NUnit test report XMLs.",
+      "category": "platform",
+      "local_path": "skills\\pr-handoff-lifecycle",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": false
+    },
+    {
+      "name": "unity-pipeline",
+      "description": "Unified Unity C# engineering, verification, and testing pipeline. Integrates mandatory fast-fail static contract audits (<1s), fast C# compilation pre-checks, targeted batchmode test execution (EditMode/PlayMode), NUnit 3 XML report parsing, automated Editor.log failure diagnostics extraction, and composite phase gates into a single authoritative tool.",
+      "category": "platform",
+      "local_path": "skills\\unity-pipeline",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false

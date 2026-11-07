@@ -24,7 +24,7 @@ By default, `unity_pipeline.py test` executes a **1-second pre-check**:
 
 ### 1. Targeted Test Run with Mandatory Pre-Check
 ```bash
-python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" test \
+python "skills/unity-pipeline/scripts/unity_pipeline.py" test \
   -C "E:/Projects/trishul-tactical-engine" \
   --platform EditMode \
   --filter "CombatManagerTests"
@@ -32,32 +32,32 @@ python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" test \
 
 ### 2. Fast-Fail Static Contract Audit Only (<1s)
 ```bash
-python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" audit \
+python "skills/unity-pipeline/scripts/unity_pipeline.py" audit \
   -C "E:/Projects/trishul-tactical-engine" \
   --diff-only
 ```
 
 ### 3. Fast C# Compilation Check
 ```bash
-python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" compile \
+python "skills/unity-pipeline/scripts/unity_pipeline.py" compile \
   -C "E:/Projects/trishul-tactical-engine"
 ```
 
 ### 4. Running a Composite Phase Gate
 ```bash
-python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" gate \
+python "skills/unity-pipeline/scripts/unity_pipeline.py" gate \
   -C "E:/Projects/trishul-tactical-engine" \
   --phase "G02"
 ```
 
 ### 5. Inspecting Unity Logs on Failure
 ```bash
-python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" logs \
+python "skills/unity-pipeline/scripts/unity_pipeline.py" logs \
   -C "E:/Projects/trishul-tactical-engine"
 ```
 
 ### 6. Parsing an Existing NUnit XML Report
 ```bash
-python "skills/collected/unity-pipeline/scripts/unity_pipeline.py" parse-xml \
+python "skills/unity-pipeline/scripts/unity_pipeline.py" parse-xml \
   "E:/Projects/trishul-tactical-engine/test-results-editmode.xml"
 ```
