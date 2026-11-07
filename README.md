@@ -127,6 +127,11 @@ python scripts/sync_skills.py
 python scripts/validate_skills.py
 ```
 
+### Deploy Skills Globally across Providers (Claude, Codex, Antigravity, OpenCode)
+```powershell
+python scripts/deploy_global_skills.py
+```
+
 ---
 
 ## 6. Documentation References
