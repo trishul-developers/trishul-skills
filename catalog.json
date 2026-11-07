@@ -1,222 +1,138 @@
 {
-  "version": "3.0.0",
-  "description": "Catalog of custom skills created on this machine across headless runners, collected platform skills, and project skills.",
-  "total_skills": 21,
+  "version": "4.0.0",
+  "description": "Consolidated catalog of high-leverage agent skills across headless runners, collected platform workflows, and project bridges.",
+  "total_skills": 14,
   "categories": {
     "headless": 3,
-    "collected": 11,
+    "collected": 4,
     "projects": 7
   },
   "skills": [
     {
-      "name": "agy-cli",
-      "description": "Send a task to the Antigravity CLI (agy, Gemini and other models) with a chosen model and reasoning effort, wait for the turn to finish, and get the answer back. Use this whenever the user wants to hand work to Antigravity or agy, run something through the agy command, get a Gemini 3.8 Flash answer or second opinion, use Antigravity for mechanical or Unity-operator style work, pick an agy model or effort level (low, medium, high, xhigh, max), continue an earlier agy conversation, or says things ",
-      "category": "collected",
-      "origin_platform": "claude",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\agy-cli\\SKILL.md",
-      "local_path": "skills\\collected\\agy-cli",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "codex-cli",
-      "description": "Send a task to the OpenAI Codex CLI with a chosen model and reasoning effort, wait for Codex to finish, and get its answer back. Use this whenever the user wants to hand work to Codex or GPT-6 (Sol, Terra, Astra, Luna), run something through the codex command or Codex CLI, get a second opinion, code review or implementation from Codex, pick a Codex model or effort level (low, medium, high, xhigh, max, ultra), continue an earlier Codex thread, or says things like \"ask codex\", \"send it to codex\", ",
-      "category": "collected",
-      "origin_platform": "claude",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\codex-cli\\SKILL.md",
-      "local_path": "skills\\collected\\codex-cli",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
       "name": "engineering-orchestrator",
       "description": "Use this skill whenever orchestrating software engineering projects, managing multi-agent workflows,\ndefining canonical roles (Architect, Implementor, Reviewer, Executor), inventing novel specialized roles on demand,\nenforcing dual-gate review/execution verification, or governing subagent lifecycle and compute costs.",
       "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\engineering-orchestrator\\SKILL.md",
       "local_path": "skills\\collected\\engineering-orchestrator",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
-      "name": "github-pr-comment-watcher",
-      "description": "Inspect, watch, and safely post GitHub PR role handoffs on Windows. Use for PR comments, role assignments, and handoff consumption.",
+      "name": "github-pr-workflow",
+      "description": "Complete GitHub Pull Request workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
       "category": "collected",
-      "origin_platform": "codex",
-      "original_path": "C:\\Users\\tosum\\.codex\\skills\\github-pr-comment-watcher\\SKILL.md",
-      "local_path": "skills\\collected\\github-pr-comment-watcher",
+      "local_path": "skills\\collected\\github-pr-workflow",
       "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "github-pr-git-workflow",
-      "description": "Use this skill for inspecting GitHub PR comments, publishing formatted handoffs or PR comments safely without shell corruption, and executing git repository verification tasks (clean status, exact SHA matching, fast-forward pushing, and remote PR HEAD verification).",
-      "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\github-pr-git-workflow\\SKILL.md",
-      "local_path": "skills\\collected\\github-pr-git-workflow",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "pair-gate-verification",
-      "description": "Use this skill to run and aggregate composite Pair Gates (e.g. Pair Gate A after Phase 05+06, Pair Gate B after Phase 07+08) across FastCompile, EditMode, PlayMode, and focused suites into an authoritative gate report.",
-      "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\pair-gate-verification\\SKILL.md",
-      "local_path": "skills\\collected\\pair-gate-verification",
-      "has_scripts": true,
-      "has_references": false
+      "has_references": true,
+      "has_tests": false
     },
     {
       "name": "pr-handoff-lifecycle",
       "description": "Use this skill to draft, validate, and verify PR role handoffs ([IMPLEMENTOR-1], [COORDINATOR], [REVIEWER-1A/B]) directly from git history, diffs, and NUnit test report XMLs.",
       "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\pr-handoff-lifecycle\\SKILL.md",
       "local_path": "skills\\collected\\pr-handoff-lifecycle",
       "has_scripts": true,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
-      "name": "sim-contract-audit",
-      "description": "Use this skill to statically audit C# simulation changes and diffs for architectural invariant violations (e.g. UnityEngine.Random, Transform in Runtime, non-deterministic collections, GC allocations).",
+      "name": "unity-pipeline",
+      "description": "Unified Unity C# engineering, verification, and testing pipeline. Integrates mandatory fast-fail static contract audits (<1s), fast C# compilation pre-checks, targeted batchmode test execution (EditMode/PlayMode), NUnit 3 XML report parsing, automated Editor.log failure diagnostics extraction, and composite phase gates into a single authoritative tool.",
       "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\sim-contract-audit\\SKILL.md",
-      "local_path": "skills\\collected\\sim-contract-audit",
+      "local_path": "skills\\collected\\unity-pipeline",
       "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "snapshot-replay-verifier",
-      "description": "Use this skill to execute and verify snapshot serialization, checkpoint/restore determinism, and state hasher equivalence across tick boundaries.",
-      "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\snapshot-replay-verifier\\SKILL.md",
-      "local_path": "skills\\collected\\snapshot-replay-verifier",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "unity-log-inspector",
-      "description": "Use this skill to inspect, filter, and extract high-signal diagnostics from Unity Editor logs (Editor.log, Editor-prev.log, upm.log), including C# compilation errors, unhandled exceptions, and test runner exit statuses.",
-      "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\unity-log-inspector\\SKILL.md",
-      "local_path": "skills\\collected\\unity-log-inspector",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "unity-testing-workflow",
-      "description": "Use this skill for running Unity tests, fast C# compilation checks, targeted test execution (EditMode/PlayMode), and parsing NUnit test report XMLs into structured handoff evidence.",
-      "category": "collected",
-      "origin_platform": "antigravity",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\unity-testing-workflow\\SKILL.md",
-      "local_path": "skills\\collected\\unity-testing-workflow",
-      "has_scripts": true,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "agy-headless",
       "description": "Execute Google Antigravity (agy) non-interactively via print mode (`agy -p`) with granular control over models (gemini-3.8-flash, claude-sonnet-4-6, claude-opus-4-6-thinking, gpt-oss-120b-medium), reasoning effort (low, medium, high, xhigh, max), execution modes (auto, accept-edits, plan), permission auto-approval, output formatting (json, text, stream-json), structured schema validation, Windows command line length safety, and conversation resumption.",
       "category": "headless",
-      "origin_platform": "internal",
-      "original_path": "E:\\Projects\\Skills\\skills\\headless\\agy-headless\\SKILL.md",
       "local_path": "skills\\headless\\agy-headless",
       "has_scripts": true,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "claude-headless",
       "description": "Execute Anthropic Claude Code non-interactively via print mode (`claude -p`) with fine-grained control over models (claude-3-7-sonnet, claude-3-5-haiku, claude-3-opus), tool whitelisting (--allowed-tools), permission skipping, system prompt overrides, output formatting (json, text), minimal execution mode (--bare), and session continuity.",
       "category": "headless",
-      "origin_platform": "internal",
-      "original_path": "E:\\Projects\\Skills\\skills\\headless\\claude-headless\\SKILL.md",
       "local_path": "skills\\headless\\claude-headless",
       "has_scripts": true,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "codex-headless",
       "description": "Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.1-sol, gpt-6.1-terra, gpt-6-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.",
       "category": "headless",
-      "origin_platform": "internal",
-      "original_path": "E:\\Projects\\Skills\\skills\\headless\\codex-headless\\SKILL.md",
       "local_path": "skills\\headless\\codex-headless",
       "has_scripts": true,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
-      "name": "cloud-role-bridge",
+      "name": "chatgpt-role-bridge",
       "description": "Temporary project-local bridge enabling ORCHESTRATOR-LOCAL to communicate with persistent\ncloud ChatGPT roles (such as DESIGN_OWNER and REVIEWER) via the proven PoC-001 Session Host.\nUse when coordinating Phase 2 architecture freeze, Gate 1 design approval, or exact-SHA code\nreviews with cloud roles without manual copy-pasting.",
       "category": "projects",
-      "origin_platform": "agent-control-plane",
-      "original_path": "E:\\Projects\\agent-control-plane\\.agents\\skills\\cloud-role-bridge\\SKILL.md",
-      "local_path": "skills\\projects\\cloud-role-bridge",
+      "local_path": "skills\\projects\\chatgpt-role-bridge",
       "has_scripts": true,
-      "has_references": false
+      "has_references": true,
+      "has_tests": true
     },
     {
       "name": "handoff",
       "description": "Check and act on file handoffs in trishul-agent-hub. Use when asked to check handoffs, or on the 15-minute cron check, to pick up any package whose next_owner is antigravity.",
       "category": "projects",
-      "origin_platform": "trishul-agent-hub",
-      "original_path": "E:\\Projects\\trishul-agent-hub\\.agents\\skills\\handoff\\SKILL.md",
       "local_path": "skills\\projects\\handoff",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-content-asset",
       "description": "Create a game content definition asset plus its register and licence entries in the correct content-pack paths, then validate. Use when adding or changing units, weapons, sensors, factions, missions or register values. Implementor or executor.",
       "category": "projects",
-      "origin_platform": "trishul-tactical-engine",
-      "original_path": "E:\\Projects\\trishul-tactical-engine\\.agents\\skills\\tte-content-asset\\SKILL.md",
       "local_path": "skills\\projects\\tte-content-asset",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-golden-recapture",
       "description": "Recapture golden hashes after a deliberate ruleset or layout change, behind the FreeForAll projection-equality check, and generate the differential report. Use at G01.13 and after every ruleset change. Implementor role.",
       "category": "projects",
-      "origin_platform": "trishul-tactical-engine",
-      "original_path": "E:\\Projects\\trishul-tactical-engine\\.agents\\skills\\tte-golden-recapture\\SKILL.md",
       "local_path": "skills\\projects\\tte-golden-recapture",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-phase-evidence",
       "description": "Assemble the phase-end review package for the architect (step table, CI links, empty red list, differential report, capture, state-inventory diff, deviations). Use when all steps of a phase are done and you must request review. Orchestrator role.",
       "category": "projects",
-      "origin_platform": "trishul-tactical-engine",
-      "original_path": "E:\\Projects\\trishul-tactical-engine\\.agents\\skills\\tte-phase-evidence\\SKILL.md",
       "local_path": "skills\\projects\\tte-phase-evidence",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-spec-step",
       "description": "The test-first loop for implementing a phase spec step batch in this project (read the file list, write failing tests, compile, implement, update the red list, hand off). Use when assigned steps such as G01.04-G01.06. Implementor role.",
       "category": "projects",
-      "origin_platform": "trishul-tactical-engine",
-      "original_path": "E:\\Projects\\trishul-tactical-engine\\.agents\\skills\\tte-spec-step\\SKILL.md",
       "local_path": "skills\\projects\\tte-spec-step",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-unity-test",
       "description": "Run Unity tests for this project by class, name or category in batch mode and return only counts plus the first failure. Use whenever you need to run EditMode or PlayMode tests, read a CI test artifact, or check one test. Executor role.",
       "category": "projects",
-      "origin_platform": "trishul-tactical-engine",
-      "original_path": "E:\\Projects\\trishul-tactical-engine\\.agents\\skills\\tte-unity-test\\SKILL.md",
       "local_path": "skills\\projects\\tte-unity-test",
       "has_scripts": false,
-      "has_references": false
+      "has_references": false,
+      "has_tests": false
     }
   ]
 }

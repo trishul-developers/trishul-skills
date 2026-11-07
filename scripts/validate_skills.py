@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-r"""Validation and linting tool for Skills in E:\Projects\Skills."""
+r"""Validation and linting tool for Skills in E:\Projects\Skills.
 
-import json
+Checks:
+  - YAML frontmatter in all SKILL.md files (name, description)
+  - Python script syntax via py_compile
+  - Node.js script syntax via node --check
+  - Unit tests via node --test (if test suites present)
+"""
+
 import os
 import py_compile
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,44 +38,71 @@ def validate() -> int:
     errors = []
     warnings = []
     checked_skills = 0
-    checked_scripts = 0
+    checked_py_scripts = 0
+    checked_js_scripts = 0
+    test_files_run = 0
 
     for root, dirs, files in os.walk(SKILLS_DIR):
+        # Skip node_modules, cache dirs
+        dirs[:] = [d for d in dirs if d not in {".git", "node_modules", "__pycache__", ".venv"}]
+
         for f in files:
+            file_path = Path(root) / f
+
             if f.lower() == "skill.md":
                 checked_skills += 1
-                skill_path = Path(root) / f
                 try:
-                    content = skill_path.read_text(encoding="utf-8", errors="replace")
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
                 except Exception as e:
-                    errors.append(f"Cannot read {skill_path}: {e}")
+                    errors.append(f"Cannot read {file_path}: {e}")
                     continue
 
                 if not content.startswith("---"):
-                    warnings.append(f"{skill_path}: Missing YAML frontmatter marker '---'")
+                    warnings.append(f"{file_path}: Missing YAML frontmatter marker '---'")
                 else:
                     meta = parse_frontmatter(content)
                     if "name" not in meta:
-                        warnings.append(f"{skill_path}: Missing 'name' in frontmatter")
+                        warnings.append(f"{file_path}: Missing 'name' in frontmatter")
                     if "description" not in meta:
-                        warnings.append(f"{skill_path}: Missing 'description' in frontmatter")
+                        warnings.append(f"{file_path}: Missing 'description' in frontmatter")
 
             elif f.endswith(".py"):
-                script_path = Path(root) / f
-                checked_scripts += 1
+                checked_py_scripts += 1
                 try:
-                    py_compile.compile(str(script_path), doraise=True)
+                    py_compile.compile(str(file_path), doraise=True)
                 except py_compile.PyCompileError as e:
-                    errors.append(f"Python syntax error in {script_path}: {e}")
+                    errors.append(f"Python syntax error in {file_path}: {e}")
+
+            elif f.endswith((".js", ".mjs")):
+                checked_js_scripts += 1
+                res = subprocess.run(
+                    ["node", "--check", str(file_path)],
+                    capture_output=True,
+                    text=True,
+                )
+                if res.returncode != 0:
+                    errors.append(f"JavaScript/ESM syntax error in {file_path}:\n{res.stderr.strip()}")
+
+            if f.endswith(".test.mjs"):
+                test_files_run += 1
+                test_res = subprocess.run(
+                    ["node", "--test", str(file_path)],
+                    capture_output=True,
+                    text=True,
+                )
+                if test_res.returncode != 0:
+                    errors.append(f"Test failure in {file_path}:\n{test_res.stderr.strip() or test_res.stdout.strip()}")
 
     print(f"Validation complete:")
     print(f"  - Skills checked: {checked_skills}")
-    print(f"  - Python scripts checked: {checked_scripts}")
+    print(f"  - Python scripts checked: {checked_py_scripts}")
+    print(f"  - JS/ESM scripts checked: {checked_js_scripts}")
+    print(f"  - Test suites executed: {test_files_run}")
     print(f"  - Errors: {len(errors)}")
     print(f"  - Warnings: {len(warnings)}")
 
     if warnings:
-        print("\nWarnings (top 10):")
+        print("\nWarnings:")
         for w in warnings[:10]:
             print(f"  [WARN] {w}")
 
@@ -78,7 +112,7 @@ def validate() -> int:
             print(f"  [ERROR] {e}")
         return 1
 
-    print("\nAll skills and scripts passed verification cleanly!")
+    print("\nAll skills, scripts, and tests passed verification cleanly!")
     return 0
 
 

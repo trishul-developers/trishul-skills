@@ -1,4 +1,4 @@
-import { SessionHostError } from "../../../../dist/packages/protocol/src/errors.js";
+import { SessionHostError } from "./acp-loader.mjs";
 
 /**
  * In-browser evaluation function to locate the assistant response corresponding to a request_id.

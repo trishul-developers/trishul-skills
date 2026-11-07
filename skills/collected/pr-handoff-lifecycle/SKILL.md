@@ -43,7 +43,7 @@ python .agents/skills/pr-handoff-lifecycle/scripts/handoff.py draft-implementor 
 
 Then publish to PR using the GitHub PR skill:
 ```powershell
-python .agents/skills/github-pr-git-workflow/scripts/gh_helper.py comments post --pr 28 --file scratch/implementor_handoff.md
+python .agents/skills/github-pr-workflow/scripts/gh_helper.py comments post --pr 28 --file scratch/implementor_handoff.md
 ```
 
 ### 2. Verify Candidate Routing (Coordinator Pre-flight)

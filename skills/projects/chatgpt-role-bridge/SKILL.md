@@ -1,5 +1,5 @@
 ---
-name: cloud-role-bridge
+name: chatgpt-role-bridge
 description: >-
   Temporary project-local bridge enabling ORCHESTRATOR-LOCAL to communicate with persistent
   cloud ChatGPT roles (such as DESIGN_OWNER and REVIEWER) via the proven PoC-001 Session Host.
@@ -7,9 +7,9 @@ description: >-
   reviews with cloud roles without manual copy-pasting.
 ---
 
-# Cloud Role Bridge (PoC-001 Wrapper)
+# ChatGPT Role Bridge (PoC-001 Wrapper)
 
-The `cloud-role-bridge` skill connects Antigravity `ORCHESTRATOR-LOCAL` to persistent, provider-neutral cloud role sessions hosted on ordinary ChatGPT.
+The `chatgpt-role-bridge` skill connects Antigravity `ORCHESTRATOR-LOCAL` to persistent, provider-neutral cloud role sessions hosted on ordinary ChatGPT.
 
 > [!IMPORTANT]
 > **Sessions are disposable; workflow state is durable.**
@@ -64,23 +64,23 @@ The bridge CLI script is located at:
 
 Run commands using Node:
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs <command> [options]
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs <command> [options]
 ```
 
 ### 1. `status`
 Inspect current role slots, active generation numbers, session IDs, and locators.
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs status [--role-slot phase2-design-owner]
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs status [--role-slot phase2-design-owner]
 ```
 
 ### 2. `ensure-role`
 Verify that a logical role has an ACTIVE ChatGPT session. If missing, report status (or bootstrap if authorized).
 ```powershell
 # Check status without creating
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs ensure-role --role-slot phase2-design-owner --project https://chatgpt.com/g/g-p-<project-id>-<slug>/project
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs ensure-role --role-slot phase2-design-owner --project https://chatgpt.com/g/g-p-<project-id>-<slug>/project
 
 # Bootstrap only when explicitly authorized, using the already-running CDP browser
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs ensure-role `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs ensure-role `
   --role-slot phase2-design-owner `
   --project https://chatgpt.com/g/g-p-<project-id>-<slug>/project `
   --bootstrap-if-missing `
@@ -93,20 +93,20 @@ Bootstrap requires an explicit Project locator, an already-running loopback CDP 
 To create a disposable Project chat outside a role slot, use `create-chat` with a unique `bridge-validation-` session ID and an explicit bootstrap prompt. Rename and delete are guarded by the saved Project locator and exact conversation title. Deletion is restricted to `bridge-validation-` sessions and refuses active role sessions.
 
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs create-chat `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs create-chat `
   --session bridge-validation-<unique-id> `
   --project https://chatgpt.com/g/g-p-<project-id>-<slug>/project `
   --bootstrap "TEMPORARY BRIDGE VALIDATION ONLY. Reply briefly without progress narration." `
   --profile poc001a-win-chrome `
   --cdp-endpoint http://127.0.0.1:9222
 
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs rename-chat `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs rename-chat `
   --session bridge-validation-<unique-id> `
   --locator <saved-conversation-locator> `
   --title "TEMP bridge-validation-<unique-id>" `
   --cdp-endpoint http://127.0.0.1:9222
 
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs delete-chat `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs delete-chat `
   --session bridge-validation-<unique-id> `
   --locator <saved-conversation-locator> `
   --title "TEMP bridge-validation-<unique-id>" `
@@ -116,7 +116,7 @@ node .agents/skills/cloud-role-bridge/scripts/bridge.mjs delete-chat `
 ### 3. `send-role`
 Deliver an outgoing request wrapped in `CLOUD_ROLE_REQUEST v1` to the ACTIVE generation of a role.
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs send-role `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs send-role `
   --role-slot phase2-design-owner `
   --sha <exact-40-character-commit-sha> `
   --purpose DESIGN_SCHEMA_FREEZE `
@@ -127,7 +127,7 @@ node .agents/skills/cloud-role-bridge/scripts/bridge.mjs send-role `
 ### 4. `wait-response`
 Wait for and extract the NEW assistant response corresponding to the sent request. Validates `CLOUD_ROLE_RESULT v1` envelope and ensures the active generation has not changed.
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs wait-response `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs wait-response `
   --role-slot phase2-design-owner `
   --request-id req-1728059000-abcd1234 `
   --sha <exact-40-character-commit-sha> `
@@ -138,7 +138,7 @@ node .agents/skills/cloud-role-bridge/scripts/bridge.mjs wait-response `
 ### 5. `replace-role`
 Safely rotate/replace a role session using atomic compare-and-swap when a chat needs retirement.
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs replace-role `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs replace-role `
   --role-slot phase2-design-owner `
   --expected-generation 1 `
   --profile poc001a-win-chrome `
@@ -148,7 +148,7 @@ node .agents/skills/cloud-role-bridge/scripts/bridge.mjs replace-role `
 ### 6. `parse-result`
 Offline validation of a raw result payload against expected parameters.
 ```powershell
-node .agents/skills/cloud-role-bridge/scripts/bridge.mjs parse-result `
+node .agents/skills/chatgpt-role-bridge/scripts/bridge.mjs parse-result `
   --text "CLOUD_ROLE_RESULT v1..." `
   --request-id req-123 `
   --role DESIGN_OWNER `
@@ -203,7 +203,7 @@ status: <TYPED_STATUS>
 
 Run deterministic local tests:
 ```powershell
-node --test .agents/skills/cloud-role-bridge/tests/bridge.test.mjs
+node --test .agents/skills/chatgpt-role-bridge/tests/bridge.test.mjs
 ```
 
 Verify that production tests remain completely unaffected:

@@ -1,14 +1,17 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
-import { ChatGptBrowserStrategy } from "../../../../dist/packages/session-host/src/chatgpt/browser-strategy.js";
-import { LocalSessionStore } from "../../../../dist/packages/session-host/src/storage/local-session-store.js";
-import { LifecycleStore } from "../../../../dist/packages/session-host/src/lifecycle/lifecycle-store.js";
-import { LifecycleManager } from "../../../../dist/packages/session-host/src/lifecycle/lifecycle-manager.js";
-import { ChatGptSessionAdapter } from "../../../../dist/packages/session-host/src/adapter.js";
-import { SessionHostError } from "../../../../dist/packages/protocol/src/errors.js";
-import { isCanonicalConversationUrl, validateChatGptLocator } from "../../../../dist/packages/session-host/src/chatgpt/locator.js";
-import { validateProjectLocator } from "../../../../dist/packages/session-host/src/chatgpt/locator.js";
-import { requirePositiveProjectAuthority } from "../../../../dist/packages/session-host/src/chatgpt/project-detector.js";
+import {
+  ChatGptBrowserStrategy,
+  LocalSessionStore,
+  LifecycleStore,
+  LifecycleManager,
+  ChatGptSessionAdapter,
+  SessionHostError,
+  isCanonicalConversationUrl,
+  validateChatGptLocator,
+  validateProjectLocator,
+  requirePositiveProjectAuthority,
+} from "./acp-loader.mjs";
 import {
   createRequestEnvelope,
   parseResultEnvelope,

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -349,7 +350,7 @@ describe("CloudRoleBridge - Response waiting", () => {
 });
 
 describe("CloudRoleBridge - CLI Command Routing", () => {
-  const cliPath = resolve(".agents/skills/cloud-role-bridge/scripts/bridge.mjs");
+  const cliPath = resolve(fileURLToPath(new URL("../scripts/bridge.mjs", import.meta.url)));
 
   it("prints usage on --help", async () => {
     const { spawnSync } = await import("node:child_process");

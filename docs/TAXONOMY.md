@@ -1,14 +1,14 @@
 # Custom Agent Skills Registry & Taxonomy
 
-This document catalogs and classifies the **21 custom skills and scripts** created by agents on this machine across Claude, Codex, Antigravity, and active projects (`trishul-tactical-engine`, `trishul-agent-hub`, `agent-control-plane`). All generic vendor-bundled, official marketplace, and speculative skills have been removed.
+This document catalogs and classifies the **14 high-leverage custom skills and script-backed harnesses** created by agents on this machine across Claude, Codex, Antigravity, and active projects (`trishul-tactical-engine`, `trishul-agent-hub`, `agent-control-plane`). All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated.
 
 ---
 
 ## 1. High-Level Summary by Category
 
 ```mermaid
-pie title Custom Skills Distribution by Category (21 Total)
-    "Collected Platform Custom (11)" : 11
+pie title Custom Skills Distribution by Category (14 Total)
+    "Collected Platform Custom (4)" : 4
     "Project-Specific (7)" : 7
     "Universal Headless Runners (3)" : 3
 ```
@@ -18,33 +18,26 @@ pie title Custom Skills Distribution by Category (21 Total)
 ## 2. Categorized Skill Inventory
 
 ### A. Universal Headless CLI Runners (`skills/headless/`)
-*Custom Python runners with process tree supervision, telemetry, and Windows command-line limit handling.*
-1. **[`codex-headless`](file:///E:/Projects/Skills/skills/headless/codex-headless/SKILL.md)**: Universal runner for `codex exec` (model selection, effort, sandboxing, schemas, worktrees, thread resumption).
-2. **[`agy-headless`](file:///E:/Projects/Skills/skills/headless/agy-headless/SKILL.md)**: Universal runner for `agy -p` (model selection, effort, modes, output formatting, transparent file pointers for long briefs).
-3. **[`claude-headless`](file:///E:/Projects/Skills/skills/headless/claude-headless/SKILL.md)**: Universal runner for `claude -p` (model tiers, allowed tools, system prompts, decoupled stdin, bare execution).
+*Custom Python runners (`stdlib`-only) with process tree supervision (`taskkill /T /F`), Windows CLI limit safety (>16k chars transparent file pointer fallback), telemetry, and stream decoupling.*
+1. **[`codex-headless`](file:///E:/Projects/Skills/skills/headless/codex-headless/SKILL.md)**: Universal runner for `codex exec` (model selection, reasoning effort, sandboxing, schemas, worktrees, thread resumption).
+2. **[`agy-headless`](file:///E:/Projects/Skills/skills/headless/agy-headless/SKILL.md)**: Universal runner for `agy -p` (model selection, reasoning effort, auto-approve, structured output formatting, long brief pointer fallback).
+3. **[`claude-headless`](file:///E:/Projects/Skills/skills/headless/claude-headless/SKILL.md)**: Universal runner for `claude -p` (model tiers, allowed tools, system prompts, decoupled stdin bypasses 3s stall, bare execution).
 
 ---
 
-### B. Collected Platform Custom Skills (`skills/collected/`)
-*Custom skills and scripts developed on this machine across Antigravity, Codex, and Claude.*
-1. **[`agy-cli`](file:///E:/Projects/Skills/skills/collected/agy-cli/SKILL.md)**: Antigravity task runner (`scripts/agy_task.py`) for delegating tasks from Claude to `agy`.
-2. **[`codex-cli`](file:///E:/Projects/Skills/skills/collected/codex-cli/SKILL.md)**: Codex task runner (`scripts/codex_task.py`) for delegating tasks from Claude to `codex exec`.
-3. **[`engineering-orchestrator`](file:///E:/Projects/Skills/skills/collected/engineering-orchestrator/SKILL.md)**: Multi-agent orchestration, canonical roles (Architect, Implementor, Reviewer, Executor), subagent lifecycle, compute governance.
-4. **[`github-pr-comment-watcher`](file:///E:/Projects/Skills/skills/collected/github-pr-comment-watcher/SKILL.md)**: PR comment polling, role routing, and watcher daemon (`scripts/gh_watch.py`, `scripts/pr_handoff_router_poll.py`).
-5. **[`github-pr-git-workflow`](file:///E:/Projects/Skills/skills/collected/github-pr-git-workflow/SKILL.md)**: Safe PR comments via `scripts/gh_helper.py`, git clean status, exact SHA matching, fast-forward pushing.
-6. **[`pair-gate-verification`](file:///E:/Projects/Skills/skills/collected/pair-gate-verification/SKILL.md)**: Running and aggregating composite Pair Gates (A/B) via `scripts/pair_gate.py`.
-7. **[`pr-handoff-lifecycle`](file:///E:/Projects/Skills/skills/collected/pr-handoff-lifecycle/SKILL.md)**: Drafting and verifying PR role handoffs from git history, diffs, and NUnit reports via `scripts/handoff.py`.
-8. **[`sim-contract-audit`](file:///E:/Projects/Skills/skills/collected/sim-contract-audit/SKILL.md)**: Static analysis scanner `scripts/sim_audit.py` checking for `UnityEngine.Random`, `Transform` in Runtime, LINQ, and GC allocations.
-9. **[`snapshot-replay-verifier`](file:///E:/Projects/Skills/skills/collected/snapshot-replay-verifier/SKILL.md)**: Verifying snapshot serialization and state hasher equivalence via `scripts/verify_snapshots.py`.
-10. **[`unity-log-inspector`](file:///E:/Projects/Skills/skills/collected/unity-log-inspector/SKILL.md)**: Inspecting and filtering Unity Editor logs (`Editor.log`, `upm.log`) via `scripts/inspect_unity_logs.py`.
-11. **[`unity-testing-workflow`](file:///E:/Projects/Skills/skills/collected/unity-testing-workflow/SKILL.md)**: Running Unity tests and parsing NUnit report XMLs via `scripts/run_unity_tests.py`.
+### B. Consolidated Platform Custom Skills (`skills/collected/`)
+*High-leverage, script-backed tools consolidating multi-turn manual processes into single-turn automated workflows.*
+1. **[`engineering-orchestrator`](file:///E:/Projects/Skills/skills/collected/engineering-orchestrator/SKILL.md)**: Multi-agent orchestration, canonical roles (Architect, Implementor, Reviewer, Executor), subagent lifecycle, compute governance.
+2. **[`github-pr-workflow`](file:///E:/Projects/Skills/skills/collected/github-pr-workflow/SKILL.md)**: Unified GitHub PR operations consolidating `github-pr-comment-watcher` and `github-pr-git-workflow` into pure-Python REST API tooling (`scripts/gh_helper.py`), daemon polling (`scripts/gh_watch.py`), and git fast-forward safety checks.
+3. **[`pr-handoff-lifecycle`](file:///E:/Projects/Skills/skills/collected/pr-handoff-lifecycle/SKILL.md)**: Drafting and verifying structured PR role handoffs (`[IMPLEMENTOR-1]`, `[COORDINATOR]`, `[REVIEWER-1A/B]`) directly from git history, diffs, and NUnit reports via `scripts/handoff.py`.
+4. **[`unity-pipeline`](file:///E:/Projects/Skills/skills/collected/unity-pipeline/SKILL.md)**: Unified pipeline consolidating `sim-contract-audit`, `snapshot-replay-verifier`, `unity-log-inspector`, `pair-gate-verification`, and `unity-testing-workflow` into `scripts/unity_pipeline.py`. Features mandatory `<1s` static pre-check, fast C# compilation, batchmode testing, NUnit 3 XML report parsing, failure log extraction, and composite Pair Gates.
 
 ---
 
 ### C. Project-Specific Skills (`skills/projects/`)
-*Custom skills residing inside repository trees.*
-1. **[`cloud-role-bridge`](file:///E:/Projects/Skills/skills/projects/cloud-role-bridge/SKILL.md)**: Persistent cloud ChatGPT session bridge (`scripts/bridge.mjs`, `bridge-lib.mjs`) for agent-control-plane.
-2. **[`handoff`](file:///E:/Projects/Skills/skills/projects/handoff/SKILL.md)**: File-based handoff worker for trishul-agent-hub.
+*Custom skills residing inside repository trees, backed by executable scripts.*
+1. **[`chatgpt-role-bridge`](file:///E:/Projects/Skills/skills/projects/chatgpt-role-bridge/SKILL.md)**: Persistent cloud ChatGPT session bridge (`scripts/bridge.mjs`, `bridge-lib.mjs`, `acp-loader.mjs`) enabling Antigravity to communicate with cloud roles (`DESIGN_OWNER`, `REVIEWER`) via CDP.
+2. **[`handoff`](file:///E:/Projects/Skills/skills/projects/handoff/SKILL.md)**: File-based handoff worker for `trishul-agent-hub`.
 3. **[`tte-content-asset`](file:///E:/Projects/Skills/skills/projects/tte-content-asset/SKILL.md)**: Content catalog and vehicle/infantry asset ingestion for TTE.
 4. **[`tte-golden-recapture`](file:///E:/Projects/Skills/skills/projects/tte-golden-recapture/SKILL.md)**: Re-baselining and validating golden simulation replay recordings for TTE.
 5. **[`tte-phase-evidence`](file:///E:/Projects/Skills/skills/projects/tte-phase-evidence/SKILL.md)**: Generating structured phase acceptance evidence blocks for TTE.

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { argv, stdout, stderr, exit } from "node:process";
 import { CloudRoleBridge } from "./bridge-lib.mjs";
 import { parseResultEnvelope, validateResultEnvelope } from "./envelope.mjs";
-import { SessionHostError } from "../../../../dist/packages/protocol/src/errors.js";
+import { SessionHostError } from "./acp-loader.mjs";
 
 function parseArgs(tokens) {
   const [command, ...rest] = tokens;
