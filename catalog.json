@@ -1,72 +1,23 @@
 {
-  "version": "1.0.0",
-  "total_skills": 175,
+  "version": "2.0.0",
+  "description": "Catalog of custom skills and scripts created by agents on this system, plus new headless CLI skills.",
+  "total_skills": 26,
   "platforms": {
     "headless": 3,
-    "multi-agent-process": 6,
-    "antigravity": 21,
-    "codex": 84,
-    "claude": 55,
-    "projects": 6
+    "multi-agent-process": 4,
+    "antigravity": 9,
+    "codex": 1,
+    "claude": 2,
+    "projects": 7
   },
   "skills": [
-    {
-      "name": "agy-customizations",
-      "description": "Comprehensive guide and reference for the Antigravity Customization System.\nUse to explain how customizations work, their loading priority, discovery mechanisms,\nand to guide the creation of skills, rules, plugins, hooks, and MCP servers.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\agy-customizations\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\agy-customizations",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "antigravity-guide",
-      "description": "Provides a comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations (skills, rules, MCP, sidecars). Activate this skill when the user asks questions about how to use, configure, or customize Antigravity, AGY, the agy CLI, the Antigravity IDE, or Antigravity 2.0.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\antigravity_guide\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\antigravity-guide",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "automation",
-      "description": "Interactive guide to design and create a scheduled background automation. Use this skill when the user wants to create an automated or recurring scheduled task (e.g. \"summarize my emails every morning\", \"every Monday send me a to-do list\"). Also triggered by the /automation slash command.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\automation\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\automation",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "chrome-extensions",
-      "description": "Build and publish Chrome Extensions using Manifest V3 best practices. Use this skill\nwhenever the user asks to create, modify, debug, or understand Chrome browser extensions,\nadd-ons, or anything involving the Chrome Extensions API. Trigger on mentions of: 'Chrome\nextension', 'browser extension', 'manifest.json', 'content script', 'service worker' (in\nbrowser context), 'popup' (in browser extension context), 'side panel', 'chrome.* API',\n'declarativeNetRequest', 'omnibox', 'context menu' (in ext",
-      "platform": "antigravity",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\plugins\\modern-web-guidance-plugin\\skills\\chrome-extensions\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\chrome-extensions",
-      "has_scripts": false,
-      "has_references": true
-    },
     {
       "name": "engineering-orchestrator",
       "description": "Use this skill whenever orchestrating software engineering projects, managing multi-agent workflows,\ndefining canonical roles (Architect, Implementor, Reviewer, Executor), inventing novel specialized roles on demand,\nenforcing dual-gate review/execution verification, or governing subagent lifecycle and compute costs.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\engineering-orchestrator\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\engineering-orchestrator",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "generative_ui",
-      "description": "How to render rich interactive HTML widgets inline in the chat or as standalone artifacts. Use this skill when you want to show the user diagrams, data visualizations, interactive controls, educational walkthroughs, or any rich visual content beyond plain text and markdown.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\generative_ui\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\generative_ui",
       "has_scripts": false,
       "has_references": false
     },
@@ -74,49 +25,19 @@
       "name": "github-pr-git-workflow",
       "description": "Use this skill for inspecting GitHub PR comments, publishing formatted handoffs or PR comments safely without shell corruption, and executing git repository verification tasks (clean status, exact SHA matching, fast-forward pushing, and remote PR HEAD verification).",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\github-pr-git-workflow\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\github-pr-git-workflow",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "google-antigravity-sdk",
-      "description": "Design, implement, and debug autonomous AI agents and multi-agent systems using the Google Antigravity (AGY) SDK. ACTIVATE this skill when the user wants to create, configure, or orchestrate Google Antigravity agents.",
-      "platform": "antigravity",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\plugins\\google-antigravity-sdk\\skills\\google-antigravity-sdk\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\google-antigravity-sdk",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
       "name": "handoff",
       "description": "Check and act on file handoffs in trishul-agent-hub. Use when asked to check handoffs, or on the 15-minute cron check, to pick up any package whose next_owner is antigravity.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\handoff\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\handoff",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "migrate-workflows",
-      "description": "Automatically migrate legacy workflows to modern skills across global and workspace configurations. Scans for existing workflows, creates target SKILL.md files, and safely archives old workflow files.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\migrate-workflows\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\migrate-workflows",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "modern-web-guidance",
-      "description": "Search tool for modern web development best practices. MANDATORY: Execute FIRST for all HTML/CSS and clientside JS tasks. Do NOT skip \u2014 web APIs evolve rapidly and training weights contain obsolete patterns.\nTrigger immediately for: modals/dialogs/popovers, tables, dark mode, anchor positioning, container queries, view transitions, scroll-driven animations, parallax/reveals, forms, validation, autofill, accessibility, custom selects, scrollbars, CWV (LCP, INP, CLS), content-visibility, fetch pri",
-      "platform": "antigravity",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.gemini\\config\\plugins\\modern-web-guidance-plugin\\skills\\modern-web-guidance\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\modern-web-guidance",
       "has_scripts": false,
       "has_references": false
     },
@@ -124,57 +45,27 @@
       "name": "pair-gate-verification",
       "description": "Use this skill to run and aggregate composite Pair Gates (e.g. Pair Gate A after Phase 05+06, Pair Gate B after Phase 07+08) across FastCompile, EditMode, PlayMode, and focused suites into an authoritative gate report.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\pair-gate-verification\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\pair-gate-verification",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "permissioned-github",
-      "description": "Guidelines for interacting with GitHub and request permissions from the user when commands fail due to restrictions in the agent environment.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\permissioned-github\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\permissioned-github",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "plugin",
-      "description": "How to manage and create plugins \u2014 namespaced bundles of skills, agents, rules, MCP servers and hooks that install, enable and disable as a single unit. Use this skill when the user wants to enable, disable, install or uninstall a plugin, when they want to create a new plugin, or when a new customization should be packaged into a plugin rather than left loose. Also triggered by the /plugin slash command. Don't use for the underlying customization system itself \u2014 discovery roots, loading priority",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\plugin\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\plugin",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
       "name": "pr-handoff-lifecycle",
       "description": "Use this skill to draft, validate, and verify PR role handoffs ([IMPLEMENTOR-1], [COORDINATOR], [REVIEWER-1A/B]) directly from git history, diffs, and NUnit test report XMLs.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\pr-handoff-lifecycle\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\pr-handoff-lifecycle",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "run-workflow",
-      "description": "How to write and run a dynamic workflow script with the `run_workflow` tool:\na Python script that orchestrates many agents with `agent`, `parallel`,\n`pipeline`, and `phase`. Use when a task splits into many\nindependent or staged pieces of agent work (fan out over files, modules,\nbugs, or review angles, then aggregate), or when the user asks for a\nworkflow. Don't use for a single delegated task (use a subagent) or for\nlegacy workflow files (see migrate-workflows).",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\run-workflow\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\run-workflow",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
       "name": "sim-contract-audit",
       "description": "Use this skill to statically audit C# simulation changes and diffs for architectural invariant violations (e.g. UnityEngine.Random, Transform in Runtime, non-deterministic collections, GC allocations).",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\sim-contract-audit\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\sim-contract-audit",
       "has_scripts": true,
@@ -184,27 +75,17 @@
       "name": "snapshot-replay-verifier",
       "description": "Use this skill to execute and verify snapshot serialization, checkpoint/restore determinism, and state hasher equivalence across tick boundaries.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\snapshot-replay-verifier\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\snapshot-replay-verifier",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "ui-plugin-navigation",
-      "description": "Discover UI plugin panels relevant to the current task and surface a one-click pill in chat to open (toggle) them in the side pane. Use when a running UI plugin's panel would help with what the user is doing, or right after the user enables a new UI plugin pane and a shortcut to open it is handy.",
-      "platform": "antigravity",
-      "source_category": "builtin",
-      "original_path": "C:\\Users\\tosum\\.gemini\\antigravity\\builtin\\skills\\ui-plugin-navigation\\SKILL.md",
-      "local_path": "skills\\collected\\antigravity\\ui-plugin-navigation",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
       "name": "unity-log-inspector",
       "description": "Use this skill to inspect, filter, and extract high-signal diagnostics from Unity Editor logs (Editor.log, Editor-prev.log, upm.log), including C# compilation errors, unhandled exceptions, and test runner exit statuses.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\unity-log-inspector\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\unity-log-inspector",
       "has_scripts": true,
@@ -214,1400 +95,40 @@
       "name": "unity-testing-workflow",
       "description": "Use this skill for running Unity tests, fast C# compilation checks, targeted test execution (EditMode/PlayMode), and parsing NUnit test report XMLs into structured handoff evidence.",
       "platform": "antigravity",
-      "source_category": "user-config",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.gemini\\config\\skills\\unity-testing-workflow\\SKILL.md",
       "local_path": "skills\\collected\\antigravity\\unity-testing-workflow",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "access",
-      "description": "Manage Discord channel access \u2014 approve pairings, edit allowlists, set DM/group policy. Use when the user asks to pair, approve someone, check who's allowed, or change policy for the Discord channel.",
-      "platform": "claude",
-      "source_category": "external-plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\external_plugins\\discord\\skills\\access\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\access",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "access",
-      "description": "Manage iMessage channel access \u2014 approve pairings, edit allowlists, set DM/group policy. Use when the user asks to pair, approve someone, check who's allowed, or change policy for the iMessage channel.",
-      "platform": "claude",
-      "source_category": "external-plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\external_plugins\\imessage\\skills\\access\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\access_external-plugins_1",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "access",
-      "description": "Manage Telegram channel access \u2014 approve pairings, edit allowlists, set DM/group policy. Use when the user asks to pair, approve someone, check who's allowed, or change policy for the Telegram channel.",
-      "platform": "claude",
-      "source_category": "external-plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\external_plugins\\telegram\\skills\\access\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\access_external-plugins_2",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "agent-development",
-      "description": "This skill should be used when the user asks to \"create an agent\", \"add an agent\", \"write a subagent\", \"agent frontmatter\", \"when to use description\", \"agent examples\", \"agent tools\", \"agent colors\", \"autonomous agent\", or needs guidance on agent structure, system prompts, triggering conditions, or agent development best practices for Claude Code plugins.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\agent-development\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\agent-development",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
       "name": "agy-cli",
       "description": "Send a task to the Antigravity CLI (agy, Gemini and other models) with a chosen model and reasoning effort, wait for the turn to finish, and get the answer back. Use this whenever the user wants to hand work to Antigravity or agy, run something through the agy command, get a Gemini 3.8 Flash answer or second opinion, use Antigravity for mechanical or Unity-operator style work, pick an agy model or effort level (low, medium, high, xhigh, max), continue an earlier agy conversation, or says things ",
       "platform": "claude",
-      "source_category": "standalone",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.claude\\skills\\agy-cli\\SKILL.md",
       "local_path": "skills\\collected\\claude\\agy-cli",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "build-mcp-app",
-      "description": "This skill should be used when the user wants to build an \"MCP app\", add \"interactive UI\" or \"widgets\" to an MCP server, \"render components in chat\", build \"MCP UI resources\", make a tool that shows a \"form\", \"picker\", \"dashboard\" or \"confirmation dialog\" inline in the conversation, or mentions \"apps SDK\" in the context of MCP. Use AFTER the build-mcp-server skill has settled the deployment model, or when the user already knows they want UI widgets.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\mcp-server-dev\\skills\\build-mcp-app\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\build-mcp-app",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "build-mcp-server",
-      "description": "This skill should be used when the user asks to \"build an MCP server\", \"create an MCP\", \"make an MCP integration\", \"wrap an API for Claude\", \"expose tools to Claude\", \"make an MCP app\", or discusses building something with the Model Context Protocol. It is the entry point for MCP server development \u2014 it interrogates the user about their use case, determines the right deployment model (remote HTTP, MCPB, local stdio), picks a tool-design pattern, and hands off to specialized skills.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\mcp-server-dev\\skills\\build-mcp-server\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\build-mcp-server",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "build-mcpb",
-      "description": "This skill should be used when the user wants to \"package an MCP server\", \"bundle an MCP\", \"make an MCPB\", \"ship a local MCP server\", \"distribute a local MCP\", discusses \".mcpb files\", mentions bundling a Node or Python runtime with their MCP server, or needs an MCP server that interacts with the local filesystem, desktop apps, or OS and must be installable without the user having Node/Python set up.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\mcp-server-dev\\skills\\build-mcpb\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\build-mcpb",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "built-in-browser",
-      "description": "Read this skill before the first step that uses the built-in browser, the browser pane inside the Claude desktop app (also called the in-app browser, the browser pane, Claude's browser, or \\\"your own browser\\\"), whose tools are named mcp__Claude_Browser__* when the session runs in the desktop app and mcp__remote-devices__Claude_Browser__* when a cloud session is linked to the person's computer; before those tools are turned on there may be a single enable__mcp__remote-devices__Claude_Browser too",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\built-in-browser\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\built-in-browser",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "cardputer-buddy",
-      "description": "Iterate on the Cardputer-Adv MicroPython app bundle (Claude Buddy, Snake, Hello) after the device is already provisioned via m5-onboard. Use when the user wants to add a new app, push a single changed .py without re-flashing, watch device serial logs, or run a one-shot REPL command. Trigger on \"add an app\", \"push to the cardputer\", \"tail the device\", \"run on the device\", or follow-up work after /maker-setup.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\cwc-makers\\skills\\cardputer-buddy\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\cardputer-buddy",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "chrome-browser",
-      "description": "Read this skill before the first step that uses Claude in Chrome, the browser extension whose tools are named mcp__claude-in-chrome__* (also called Chrome, the browser extension, or the external browser) and which acts in the person's real Chrome with their own sign-ins; before those tools are turned on there may be a single enable__mcp__claude-in-chrome tool instead. It covers loading the tools in one ToolSearch call, checking the person's open tabs and working in a new tab, site permissions, G",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\chrome-browser\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\chrome-browser",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "claude-automation-recommender",
-      "description": "Analyze a codebase and recommend Claude Code automations (hooks, subagents, skills, plugins, MCP servers). Use when user asks for automation recommendations, wants to optimize their Claude Code setup, mentions improving Claude Code workflows, asks how to first set up Claude Code for a project, or wants to know what Claude Code features they should use.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\claude-code-setup\\skills\\claude-automation-recommender\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\claude-automation-recommender",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "claude-md-improver",
-      "description": "Audit and improve CLAUDE.md files in repositories. Use when user asks to check, audit, update, improve, or fix CLAUDE.md files. Scans for all CLAUDE.md files, evaluates quality against templates, outputs quality report, then makes targeted updates. Also use when the user mentions \"CLAUDE.md maintenance\" or \"project memory optimization\".",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\claude-md-management\\skills\\claude-md-improver\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\claude-md-improver",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "claude-security",
-      "description": "Claude Security: scan the codebase (the whole repository or a scoped part of it), scan changes (this branch's or a pull request's diff, or one commit), or suggest patches (findings turned into targeted patch files, each verified by a panel of agents, that you apply when you choose). Use when the user asks to scan, audit or check code with Claude Security, to scan their changes with Claude Security, or to fix or patch Claude Security findings.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\claude-security\\skills\\claude-security\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\claude-security",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "climb",
-      "description": "Work out where a teammate, the champion, or a team is on the steps of AI adoption, and what to try next. Use when a champion wants to help someone move up a step.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\climb\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\climb",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
       "name": "codex-cli",
       "description": "Send a task to the OpenAI Codex CLI with a chosen model and reasoning effort, wait for Codex to finish, and get its answer back. Use this whenever the user wants to hand work to Codex or GPT-6 (Sol, Terra, Astra, Luna), run something through the codex command or Codex CLI, get a second opinion, code review or implementation from Codex, pick a Codex model or effort level (low, medium, high, xhigh, max, ultra), continue an earlier Codex thread, or says things like \"ask codex\", \"send it to codex\", ",
       "platform": "claude",
-      "source_category": "standalone",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.claude\\skills\\codex-cli\\SKILL.md",
       "local_path": "skills\\collected\\claude\\codex-cli",
       "has_scripts": true,
       "has_references": false
     },
     {
-      "name": "command-development",
-      "description": "This skill should be used when the user asks to \"create a slash command\", \"add a command\", \"write a custom command\", \"define command arguments\", \"use command frontmatter\", \"organize commands\", \"create command with file references\", \"interactive command\", \"use AskUserQuestion in command\", or needs guidance on slash command structure, YAML frontmatter fields, dynamic arguments, bash execution in commands, user interaction patterns, or command development best practices for Claude Code.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\command-development\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\command-development",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "computer-use",
-      "description": "Read this skill before the first step of any request to do something in an app on the person's own computer (Notes, Finder, System Settings, any desktop app), to look at their screen, or for \\\"computer use\\\". Computer use (desktop control) lets Claude take screenshots of the person's desktop and control it with clicks, typing and scrolling through the Claude desktop app; its tools are named mcp__computer-use__* when the session runs in the desktop app and mcp__remote-devices__computer_* when a c",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\computer-use\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\computer-use",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "configure",
-      "description": "Set up the Discord channel \u2014 save the bot token and review access policy. Use when the user pastes a Discord bot token, asks to configure Discord, asks \"how do I set this up\" or \"who can reach me,\" or wants to check channel status.",
-      "platform": "claude",
-      "source_category": "external-plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\external_plugins\\discord\\skills\\configure\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\configure",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "configure",
-      "description": "Check iMessage channel setup and review access policy. Use when the user asks to configure iMessage, asks \"how do I set this up\" or \"who can reach me,\" or wants to know why texts aren't reaching the assistant.",
-      "platform": "claude",
-      "source_category": "external-plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\external_plugins\\imessage\\skills\\configure\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\configure_external-plugins_1",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "configure",
-      "description": "Set up the Telegram channel \u2014 save the bot token and review access policy. Use when the user pastes a Telegram bot token, asks to configure Telegram, asks \"how do I set this up\" or \"who can reach me,\" or wants to check channel status.",
-      "platform": "claude",
-      "source_category": "external-plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\external_plugins\\telegram\\skills\\configure\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\configure_external-plugins_2",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "deep-research",
-      "description": "Use this skill when the user's prompt requires (1) researching a topic across multiple sources, comparing options or alternatives, analyzing trends or history, understanding markets or industries, or reviewing literature or studies and (2) synthesizing that research into a comprehensive, narrative report. If you're planning to search the web or internal knowledge bases, consider using this skill. This skill coordinates research subagents, so use it only when you have a tool for spawning subagent",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\deep-research\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\deep-research",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "docs",
-      "description": "docs (editable docs people share and comment on; the default for any document, named as a doc or not: a document, report, proposal, resume, cover letter, letter, contract, policy, form, template, worksheet, essay, handbook, guide, how-to, cheat sheet, SOP or other writing to keep, share, collaborate on, send, submit, print or sign; a doc exports to Word, PDF, Markdown or Google Docs, so needing a file to send, attach, upload, submit or print is no reason to pick Word, and a file nobody asked for",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\docs\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\docs",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "docx",
-      "description": "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx) or Word templates (.dotx). Triggers include: any mention of Microsoft Word Documents, such as 'Word doc', 'word document', '.docx', '.dotx', 'microsoft doc'. Also use when extracting or reorganizing content from .docx or .dotx files, inserting or replacing images in documents, find-and-replace in Word files, working with tracked changes or comments, or converting content into a polished Word docume",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\docx\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\docx",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "example-command",
-      "description": "An example user-invoked skill that demonstrates frontmatter options and the skills/<name>/SKILL.md layout",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\example-plugin\\skills\\example-command\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\example-command",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "example-skill",
-      "description": "This skill should be used when the user asks to \"demonstrate skills\", \"show skill format\", \"create a skill template\", or discusses skill development patterns. Provides a reference template for creating Claude Code plugin skills.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\example-plugin\\skills\\example-skill\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\example-skill",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "faq",
-      "description": "Turn repeat questions into a pinned FAQ. Use when a champion keeps answering the same questions.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\faq\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\faq",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "frontend-design",
-      "description": "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\frontend-design\\skills\\frontend-design\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\frontend-design",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "google-workspace",
-      "description": "Read this before the first Google Drive, Docs, Sheets or Slides connector call whenever the task creates or changes a Google file. Use this skill whenever the user wants to create or change a Google Doc, Sheet or Slides file in their Google Drive. Triggers include: a request that names Google Docs, Sheets, Slides or Drive and asks to make, edit, format, copy or rename a file; a docs.google.com link with a request to change that file, even a one-line fix or suggested edits; and any follow-up chan",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\google-workspace\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\google-workspace",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "hackathon",
-      "description": "Plan a hackathon, either from a team's real backlog or as open-ended creative play with Claude Code. Use when a champion wants to run a hack day or a shorter hack session.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\hackathon\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\hackathon",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "hook-development",
-      "description": "This skill should be used when the user asks to \"create a hook\", \"add a PreToolUse/PostToolUse/Stop hook\", \"validate tool use\", \"implement prompt-based hooks\", \"use ${CLAUDE_PLUGIN_ROOT}\", \"set up event-driven automation\", \"block dangerous commands\", or mentions hook events (PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SessionEnd, UserPromptSubmit, PreCompact, Notification). Provides comprehensive guidance for creating and implementing Claude Code plugin hooks with focus on advance",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\hook-development\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\hook-development",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "import-memory",
-      "description": "Import a memory export from another AI assistant into Claude's memory \u2014 conversationally, additively, and with the content treated as data.",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\import-memory\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\import-memory",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "m5-onboard",
-      "description": "End-to-end onboarding for a freshly-plugged-in M5Stack ESP32 device (Cardputer, Cardputer-Adv, Core, CoreS3, Stick) \u2014 detect on USB, flash UIFlow 2.0 firmware, and install the Claude Buddy MicroPython app bundle. Use whenever the user plugs in or wants to flash/provision/reset an M5Stack or ESP32 board, or says \"m5-onboard go\".",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\cwc-makers\\skills\\m5-onboard\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\m5-onboard",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "math-olympiad",
-      "description": "Solve competition math problems (IMO, Putnam, USAMO, AIME) with adversarial\nverification that catches the errors self-verification misses. Activates when\nasked to 'solve this IMO problem', 'prove this olympiad inequality', 'verify\nthis competition proof', 'find a counterexample', 'is this proof correct', or\nfor any problem with 'IMO', 'Putnam', 'USAMO', 'olympiad', or 'competition\nmath' in it. Uses pure reasoning (no tools) \u2014 then a fresh-context adversarial\nverifier attacks the proof using spec",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\math-olympiad\\skills\\math-olympiad\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\math-olympiad",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "maturity",
-      "description": "Evaluate an organization's AI maturity on the steps of AI adoption and write a polished, shareable HTML report with evidence for each score. Use when a champion wants to know where their org or team stands, or to compare with an earlier report.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\maturity\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\maturity",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "mcp-integration",
-      "description": "This skill should be used when the user asks to \"add MCP server\", \"integrate MCP\", \"configure MCP in plugin\", \"use .mcp.json\", \"set up Model Context Protocol\", \"connect external service\", mentions \"${CLAUDE_PLUGIN_ROOT} with MCP\", or discusses MCP server types (SSE, stdio, HTTP, WebSocket). Provides comprehensive guidance for integrating Model Context Protocol servers into Claude Code plugins for external tool and service integration.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\mcp-integration\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\mcp-integration",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "morning",
-      "description": "Render the user's morning brief as a styled HTML artifact, or set it up as a recurring weekday task. Use only when the user explicitly asks to run, see, or set up their morning brief, or if they invoke /morning by name. A question about their day, schedule, or calendar is not by itself a request for the brief; answer it directly instead.",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\morning\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\morning",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "office-hours",
-      "description": "Set up and run Claude Code office hours, including the calendar event when the champion's own calendar connector allows it. Use when a champion wants a regular time for teammates to bring problems.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\office-hours\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\office-hours",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "patterns",
-      "description": "Find patterns worth sharing from recent PRs and repo history, both repeats to fix and good practices worth spreading. Use when a champion wants to know what the team should reuse or learn from.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\patterns\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\patterns",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "pdf",
-      "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/decrypting PDFs, extracting images, and OCR on scanned PDFs to make them searchable. If the user mentions a .pdf file or asks to produce one, use this skill.",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\pdf\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\pdf",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "playground",
-      "description": "Creates interactive HTML playgrounds \u2014 self-contained single-file explorers that let users configure something visually through controls, see a live preview, and copy out a prompt. Use when the user asks to make a playground, explorer, or interactive tool for a topic.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\playground\\skills\\playground\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\playground",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "plugin-settings",
-      "description": "This skill should be used when the user asks about \"plugin settings\", \"store plugin configuration\", \"user-configurable plugin\", \".local.md files\", \"plugin state files\", \"read YAML frontmatter\", \"per-project plugin settings\", or wants to make plugin behavior configurable. Documents the .claude/plugin-name.local.md pattern for storing plugin-specific configuration with YAML frontmatter and markdown content.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\plugin-settings\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\plugin-settings",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "plugin-structure",
-      "description": "This skill should be used when the user asks to \"create a plugin\", \"scaffold a plugin\", \"understand plugin structure\", \"organize plugin components\", \"set up plugin.json\", \"use ${CLAUDE_PLUGIN_ROOT}\", \"add commands/agents/skills/hooks\", \"configure auto-discovery\", or needs guidance on plugin directory layout, manifest configuration, component organization, file naming conventions, or Claude Code plugin architecture best practices.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\plugin-structure\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\plugin-structure",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "pptx",
-      "description": "Use this skill any time a .pptx or .potx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations as PowerPoint (.pptx) files; reading, parsing, or extracting text from any .pptx or .potx file (even if the extracted content will be used elsewhere, like in an email, summary, or creating a different type of slide deck); editing, modifying, or updating existing presentations; combining or splitting slide files; working with template",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\pptx\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\pptx",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "project-artifact",
-      "description": "Generate and publish a project status artifact \u2014 an opinionated, tabbed status page for a project too big for one update (overview & success criteria, the workstream sequence, next steps, plus background, plan, risks & open questions, and decisions/FAQ when they earn a tab) \u2014 published with the built-in Artifact tool to a default-private claude.ai page the user can share with teammates. Use when a piece of work spans several workstreams and you want a shareable overview kept current. Each artifa",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\project-artifact\\skills\\project-artifact\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\project-artifact",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "receipts",
-      "description": "Generate a personal Claude Code usage & impact report (\"receipts\") from this machine's local session transcripts \u2014 for justifying Claude Code usage/spend to a manager, self-review, or \"what have I been using this for\" check-ins. Mines ~/.claude/projects locally (no extra API calls beyond one final write-up), cross-references local git history, and writes a markdown report plus a self-contained HTML receipt to your home directory. Use when the user asks for \"receipts\", an \"impact report\", \"usage ",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\receipts\\skills\\receipts\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\receipts",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "routines",
-      "description": "Set up recurring champion routines as Claude Code scheduled tasks. Use when a champion wants work like a weekly patterns digest, a stale guidance check, or a monthly lead update to happen without kicking it off by hand.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\champion-kit\\skills\\routines\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\routines",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "session-report",
-      "description": "Generate an explorable HTML report of Claude Code session usage (tokens, cache, subagents, skills, expensive prompts) from ~/.claude/projects transcripts.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\session-report\\skills\\session-report\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\session-report",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "siege",
-      "description": "Work on one hard mathematics problem in rounds: each round a judge writes a few self-contained questions, independent workers answer them, and the judge keeps a ledger of what is proved, refuted and open, until the judge concludes or the rounds run out, and then a proof.md says plainly what is and is not proved. A run takes hours and dozens of worker runs. Usage: /math-proof:siege [NAME=value settings] <the problem, stated in full, or the path of a file holding it>.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\math-proof\\skills\\siege\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\siege",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "skill-creator",
-      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\skill-creator\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\skill-creator",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "skill-creator",
-      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\skill-creator\\skills\\skill-creator\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\skill-creator_plugins_1",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "skill-development",
-      "description": "This skill should be used when the user wants to \"create a skill\", \"add a skill to plugin\", \"write a new skill\", \"improve skill description\", \"organize skill content\", or needs guidance on skill structure, progressive disclosure, or skill development best practices for Claude Code plugins.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\plugin-dev\\skills\\skill-development\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\skill-development",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "solo",
-      "description": "Work on one hard mathematics problem in this session yourself, with no sub-agents: reason in stages, record each settled step in a notes file so that nothing written is lost if a response is cut off, and end with a self-contained proof.md. Usage: /math-proof:solo <the problem, stated in full, or the path of a file holding it>.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\math-proof\\skills\\solo\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\solo",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "writing-hookify-rules",
-      "description": "This skill should be used when the user asks to \"create a hookify rule\", \"write a hook rule\", \"configure hookify\", \"add a hookify rule\", or needs guidance on hookify rule syntax and patterns.",
-      "platform": "claude",
-      "source_category": "plugins",
-      "original_path": "C:\\Users\\tosum\\.claude\\plugins\\marketplaces\\claude-plugins-official\\plugins\\hookify\\skills\\writing-rules\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\writing-hookify-rules",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "xlsx",
-      "description": "Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file (e.g., adding columns, computing formulas, formatting, charting, cleaning messy data); create a new spreadsheet from scratch or from other data sources; or convert between tabular file formats. Trigger especially when the user references a spreadsheet file by name or path \u2014 even casually (like \\\"the xl",
-      "platform": "claude",
-      "source_category": "standalone",
-      "original_path": "C:\\Users\\tosum\\.claude\\skills\\synced\\26317dc1-31fb-41cd-b08e-9708ffb8d0ab_d6b5d475-b891-4c19-9083-51ac9039ab1d\\xlsx\\SKILL.md",
-      "local_path": "skills\\collected\\claude\\xlsx",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "2d-pixel-perfect",
-      "description": "Sets up, diagnoses, and fixes pixel perfect 2D rendering with PixelPerfectCamera in URP or Built-in. Use when a retro-style or pixel art 2D game looks blurry, jittery, or misaligned. Not for HD 2D or high-resolution art.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\2d-pixel-perfect\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\2d-pixel-perfect",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "Presentations",
-      "description": "Read, create or edit PowerPoint or Google Slides decks. Use for presentation, slide deck, PowerPoint, PPT, PPTX, or Google Slides requests.",
-      "platform": "codex",
-      "source_category": "primary-runtime",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-primary-runtime\\presentations\\26.1105.12137\\skills\\presentations\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\Presentations",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "Spreadsheets",
-      "description": "Use skill when user requests to create, modify, analyze, visualize, or work with spreadsheet files (`.xlsx`, `.xls`, `.csv`, `.tsv`) or Google Sheets with formulas, formatting, charts, tables, and recalculation. Do not use for live controlling Microsoft Excel app or a live Excel session.",
-      "platform": "codex",
-      "source_category": "primary-runtime",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets\\26.1105.12137\\skills\\spreadsheets\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\Spreadsheets",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "agents-sdk",
-      "description": "Build, debug, or review Cloudflare Agents SDK applications using the agents package.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\agents-sdk\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\agents-sdk",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-analytics-dashboard",
-      "description": "Create a spreadsheet using the Analytics Dashboard template and its retained reference file. Use when the user selects or names Analytics Dashboard. Monitor acquisition, engagement, retention, revenue, and conversion funnel KPIs with charts.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-analytics-dashboard\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-analytics-dashboard",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-business-review",
-      "description": "Create a presentation using the Business Review template and its retained reference file. Use when the user selects or names Business Review. Review business performance, KPIs, segment results, strategic priorities, decisions, and outlook.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-business-review\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-business-review",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-design-report",
-      "description": "Create a document using the Design Report template and its retained reference file. Use when the user selects or names Design Report. Produce design reports with an executive summary, key findings, implications, recommendations, and appendix.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-design-report\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-design-report",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-experiment-analysis",
-      "description": "Create a document using the Experiment Analysis template and its retained reference file. Use when the user selects or names Experiment Analysis. Analyze experiments with hypotheses, methodology, results, interpretation, limitations, and next steps.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-experiment-analysis\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-experiment-analysis",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-financial-budget",
-      "description": "Create a spreadsheet using the Financial Budget template and its retained reference file. Use when the user selects or names Financial Budget. Model actuals, budget and scenario forecasts, variances, cash runway, and departmental plans.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-financial-budget\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-financial-budget",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-investment-committee-memo",
-      "description": "Create a document using the Investment Committee Memo template and its retained reference file. Use when the user selects or names Investment Committee Memo. Prepare investment committee memos with the thesis, transaction details, financial analysis, risks, and recommendation.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-investment-committee-memo\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-investment-committee-memo",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-legal-memorandum",
-      "description": "Create a document using the Legal Memorandum template and its retained reference file. Use when the user selects or names Legal Memorandum. Draft legal memoranda with the issue, brief answer, relevant facts, analysis, and conclusion.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-legal-memorandum\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-legal-memorandum",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-market-trends-report",
-      "description": "Create a presentation using the Market Trends Report template and its retained reference file. Use when the user selects or names Market Trends Report. Communicate market or industry trends, supporting evidence, implications, and recommended responses.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-market-trends-report\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-market-trends-report",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-minimal-letterhead",
-      "description": "Create a document using the Minimal Letterhead template and its retained reference file. Use when the user selects or names Minimal Letterhead. Write professional business letters with sender, recipient, message, and signature fields in a minimal letterhead layout.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-minimal-letterhead\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-minimal-letterhead",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-operating-calendar",
-      "description": "Create a spreadsheet using the Operating Calendar template and its retained reference file. Use when the user selects or names Operating Calendar. Plan annual and monthly operating milestones, campaigns, launches, deadlines, and recurring events.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-operating-calendar\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-operating-calendar",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-operating-review",
-      "description": "Create a presentation using the Operating Review template and its retained reference file. Use when the user selects or names Operating Review. Run weekly operating reviews with scorecards, functional updates, risks, decisions, and action items.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-operating-review\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-operating-review",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-project-kickoff",
-      "description": "Create a presentation using the Project Kickoff template and its retained reference file. Use when the user selects or names Project Kickoff. Align teams on project goals, scope, roles, milestones, risks, and the working model.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-project-kickoff\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-project-kickoff",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-project-tracker",
-      "description": "Create a spreadsheet using the Project Tracker template and its retained reference file. Use when the user selects or names Project Tracker. Manage workstreams, tasks, owners, status, priority, dates, launch pulse, and a Gantt schedule.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-project-tracker\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-project-tracker",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-sales-pipeline",
-      "description": "Create a spreadsheet using the Sales Pipeline template and its retained reference file. Use when the user selects or names Sales Pipeline. Track opportunities, stages, owners, deal sizes, probabilities, forecasts, next steps, and risks.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-sales-pipeline\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-sales-pipeline",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-simple-dark-mode",
-      "description": "Create a presentation using the Simple Dark Mode template and its retained reference file. Use when the user selects or names Simple Dark Mode. Create clean dark-mode presentations with bold typography, simple sections, charts, and imagery.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-simple-dark-mode\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-simple-dark-mode",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-simple-light-mode",
-      "description": "Create a presentation using the Simple Light Mode template and its retained reference file. Use when the user selects or names Simple Light Mode. Create clean light-mode presentations with spacious typography, simple sections, charts, and imagery.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-simple-light-mode\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-simple-light-mode",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-strategy-memorandum",
-      "description": "Create a document using the Strategy Memorandum template and its retained reference file. Use when the user selects or names Strategy Memorandum. Present strategic context, choices, rationale, risks, milestones, and a clear recommendation.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-strategy-memorandum\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-strategy-memorandum",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-system-design",
-      "description": "Create a document using the System Design template and its retained reference file. Use when the user selects or names System Design. Document system architecture, requirements, components, data flows, APIs, tradeoffs, and operational considerations.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-system-design\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-system-design",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-team-alignment",
-      "description": "Create a presentation using the Team Alignment template and its retained reference file. Use when the user selects or names Team Alignment. Facilitate team offsites and planning with context, goals, priorities, decisions, and action items.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-team-alignment\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-team-alignment",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "artifact-template-three-statement-forecast",
-      "description": "Create a spreadsheet using the Three-Statement Forecast template and its retained reference file. Use when the user selects or names Three-Statement Forecast. Build an integrated income statement, balance sheet, and cash flow forecast with assumptions, checks, and an executive summary.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates\\0.1.1\\skills\\artifact-template-three-statement-forecast\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\artifact-template-three-statement-forecast",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "asset-transformer-toolkit",
-      "description": "Imports 3D models and point clouds with Asset Transformer Toolkit (formerly Pixyz), and creates,\nedits, and runs RuleSets, Actions, and LODs. Use for Pixyz or Asset Transformer imports, RuleSets,\nor ImporterScriptableObjects. Requires toolkit 4.0+.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\asset-transformer-toolkit\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\asset-transformer-toolkit",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "audio-setup-mixers",
-      "description": "Routes Audio Sources into existing Audio Mixer Groups, classifying each source by what it plays. Use when the user asks about cleaning up mixer assignments, routing audio through a mixer, or which group a sound belongs in.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\audio-setup-mixers\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\audio-setup-mixers",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "build-gtk",
-      "description": "Builds node-based Editor tools with Unity Graph Toolkit (GTK) on Unity 6.6+: graphs, nodes, ports\nand validation, State Machine API tools on 6.7+, and runtime assets via a scripted importer. Use for\ncustom graph, node or state machine editors, or migrating a GraphView tool. Not for Shader Graph, VFX\nGraph or Animator Controllers.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\build-gtk\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\build-gtk",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "build-live-game",
-      "description": "Builds and operates live games with Unity Services. Use when the user asks about backend or live-ops features such as player accounts, cloud save, leaderboards, achievements, progression and battle passes, economies, cloud code, or remote config.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\build-live-game\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\build-live-game",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "cloudflare",
-      "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. Use for architecture and product selection, including when the user describes a need without naming a Cloudflare product; then find the relevant skill or documentation.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\cloudflare\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\cloudflare",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "cloudflare-email-service",
-      "description": "Implement or troubleshoot Cloudflare Email Sending and Email Routing integrations and their delivery configuration.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\cloudflare-email-service\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\cloudflare-email-service",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "cloudflare-one",
-      "description": "Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments. Use cloudflare-one-migrations for migration planning from other vendors.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\cloudflare-one\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\cloudflare-one",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "cloudflare-one-migrations",
-      "description": "Assess and plan migrations from existing VPN, SWG, or SASE platforms to Cloudflare One, including policy mapping, parity gaps, and rollout.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\cloudflare-one-migrations\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\cloudflare-one-migrations",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "computer-use",
-      "description": "Control Windows apps from ChatGPT",
-      "platform": "codex",
-      "source_category": "bundled-plugins",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-bundled\\computer-use\\26.1103.32239\\skills\\computer-use\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\computer-use",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "control-in-app-browser",
-      "description": "Control the in-app Browser for opening, navigating, inspecting visible or interactive page state, clicking, typing, screenshots, and local web testing. It can have existing signed-in sessions. For semantic operations on linked resources, prefer a purpose-built connector, API, or CLI when available. To read the currently active in-app browser page, call mcp__node_repl__js directly without reading this skill or initializing BrowserLib: nodeRepl.write(JSON.stringify(await nodeRepl.rpc('browser',{me",
-      "platform": "codex",
-      "source_category": "bundled-plugins",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-bundled\\browser\\26.1103.32239\\skills\\control-in-app-browser\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\control-in-app-browser",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "create-pet",
-      "description": "Create, repair, validate, preview, upload, or activate an animated v2 pet in ChatGPT Work mode from a character idea, brand cue, or reference image. Use for new ChatGPT Pets, custom mascots, non-pixel styles, and unattached sprite sheets requiring nine animation states plus sixteen look directions. Preserve Library artifacts and Pets MCP lifecycle behavior. Exclude real pets, standalone images, and other-app pets; clarify before invoking.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\work-pets\\0.1.6\\skills\\create-pet\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\create-pet",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "documents",
-      "description": "Create, edit, redline, and comment on `.docx`, Word, and Google Docs-targeted document artifacts inside the container, with a strict render-and-verify workflow. Use `render_docx.py` to generate page PNGs (and optional PDF) for visual QA, then iterate until layout is flawless before delivering the final document.",
-      "platform": "codex",
-      "source_category": "primary-runtime",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.1105.12137\\skills\\documents\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\documents",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "durable-objects",
-      "description": "Build, debug, or review Cloudflare Durable Objects code for persistent state and coordination.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\durable-objects\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\durable-objects",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "entry-stitch-design",
-      "description": "Use whenever the StitchDesign plugin is selected. Route the request to the intended bundled workflow while keeping all dependencies internal to this plugin.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\engineering-suite-stitch-design\\2.0.0\\skills\\entry-stitch-design\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\entry-stitch-design",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "excel-live-control",
-      "description": "Control an open or active Microsoft Excel workbook through the ChatGPT add-in or connected session. Use when the user tags the Microsoft Excel app in Codex or follows up on an established live Excel task. Do not use for standalone spreadsheet files or Google Sheets.",
-      "platform": "codex",
-      "source_category": "primary-runtime",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets\\26.1105.12137\\skills\\excel-live-control\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\excel-live-control",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "generate-editor-search-query",
-      "description": "Generates Unity Search queries and opens the Search window to find assets or scene objects. Use when the user asks to find, filter, or list assets, GameObjects, components, or references in the Editor, not on disk.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\generate-editor-search-query\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\generate-editor-search-query",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
       "name": "github-pr-comment-watcher",
       "description": "Inspect, watch, and safely post GitHub PR role handoffs on Windows. Use for PR comments, role assignments, and handoff consumption.",
       "platform": "codex",
-      "source_category": "standalone",
+      "source_category": "user-custom",
       "original_path": "C:\\Users\\tosum\\.codex\\skills\\github-pr-comment-watcher\\SKILL.md",
       "local_path": "skills\\collected\\codex\\github-pr-comment-watcher",
       "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "implement-in-app-purchases",
-      "description": "Implements, configures, and debugs Unity In-App Purchases, including subscriptions, receipt validation, and direct-to-customer payments via Stripe or Coda. Use when asked about real-money purchases or microtransactions, or migrating from native store billing, RevenueCat, Adapty, Essential Kit, or UniPay.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\implement-in-app-purchases\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\implement-in-app-purchases",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "initialize-ai-navigation",
-      "description": "Sets up and configures Unity AI Navigation, including NavMesh surfaces, agents, obstacles, and links. Use when the user asks about navigation meshes, pathfinding, patrol routes, or obstacle avoidance.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\initialize-ai-navigation\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\initialize-ai-navigation",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "levelplay-unity-integration",
-      "description": "Integrates the LevelPlay ad mediation SDK via the Ads Mediation package. Use when the user asks about adding rewarded, interstitial, or banner ads, mediation or ad privacy setup, Android or iOS ad dependency build failures, or migrating from Unity Ads or IronSource APIs.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\levelplay-unity-integration\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\levelplay-unity-integration",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "localization",
-      "description": "Sets up and configures Unity Localization, including locales, String and Asset Tables, and CJK fonts. Use when the user asks to add languages, translate UI text, or mentions i18n or multilingual support.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\localization\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\localization",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "manage-sprite-atlas",
-      "description": "Manages SpriteAtlas assets through a prebuild pipeline, covering master and variant atlases, packing settings, and platform overrides. Use when asked to create or optimize sprite atlases.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\manage-sprite-atlas\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\manage-sprite-atlas",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "migrate-birp-to-urp",
-      "description": "Plans, executes, and troubleshoots migration from the Built-in Render Pipeline to URP. Use when asked to convert a project, scene, material, or shader to URP, or to fix visuals broken by the change.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\migrate-birp-to-urp\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\migrate-birp-to-urp",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "new-unity-project",
-      "description": "Guides creating a new Unity project, gathering concept, platforms, and monetization before setting up the project, source control, and packages. Use when the user asks to start a new game or prototype.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\new-unity-project\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\new-unity-project",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "optimize-audio",
-      "description": "Optimizes audio memory, CPU cost, and playback quality through import settings and mixer configuration. Use when asked to reduce audio memory or Audio Mixer CPU cost, change clip Load Types, sample rates or codecs, or force 3D audio to mono.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\optimize-audio\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\optimize-audio",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "optimize-text-mesh-pro",
-      "description": "Optimizes TextMeshPro rendering, memory, and font setup, including font asset stacks, fallback atlases, SDF quality, and worldspace text. Use when the user asks about TMP fonts, CJK or multilingual text, or text performance.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\optimize-text-mesh-pro\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\optimize-text-mesh-pro",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "optimize-web",
-      "description": "Optimizes Unity WebGL and WebGPU builds for smaller downloads and faster load. Use when a web build is too large or stutters, or the user asks about compression, stripping, shader variants, or web profiling.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\optimize-web\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\optimize-web",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "pdf",
-      "description": "Read, create, inspect, render, and verify PDF files where visual layout matters, including fillable AcroForms. Use Poppler rendering plus Python tools such as reportlab, pdfplumber, and pypdf for generation and extraction.",
-      "platform": "codex",
-      "source_category": "primary-runtime",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-primary-runtime\\pdf\\26.1105.12137\\skills\\pdf\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\pdf",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "pets",
-      "description": "List, inspect, select, download, or delete animated pets in ChatGPT Work mode. Use for an explicit pet in ChatGPT or established ChatGPT Pets context. Exclude real-world and other-app pets; clarify before invoking.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\work-pets\\0.1.6\\skills\\pets\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\pets",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "physics-3d-collision",
-      "description": "Diagnoses 3D PhysX collision and trigger problems. Use when OnCollisionEnter or OnTriggerEnter doesn't fire, objects pass through each other, raycasts miss, or a MeshCollider misbehaves. Also answers 2D and DOTS physics best-effort if no dedicated skill is available.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\physics-3d-collision\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\physics-3d-collision",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "plugin-management",
-      "description": "Discover and suggest relevant plugins, inspect app permissions and dependencies, and manage plugin connections or removal. Use when the user asks about plugins or when a task would materially benefit from an external app, account, service, or data source that available tools cannot access.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\plugin-management\\0.1.0\\skills\\plugin-management\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\plugin-management",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "sandbox-migrate-to-next",
-      "description": "Migrate Cloudflare Sandbox apps from stable @cloudflare/sandbox to @cloudflare/sandbox@next (SDK 1.0 preview). Use sandbox-next for apps already on the preview.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\sandbox-migrate-to-next\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sandbox-migrate-to-next",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "sandbox-next",
-      "description": "Build or maintain Cloudflare Sandbox apps on @cloudflare/sandbox@next (SDK 1.0 preview). Use sandbox-migrate-to-next when porting a stable app.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\sandbox-next\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sandbox-next",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "sandbox-stable",
-      "description": "Build or maintain Cloudflare Sandbox apps on the stable @cloudflare/sandbox package. Use sandbox-next for preview apps and sandbox-migrate-to-next for stable-to-preview migrations.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\sandbox-stable\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sandbox-stable",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "setup-multiplayer-services",
-      "description": "Guides real-time online multiplayer with Unity Multiplayer Services. Use when the user asks about network topology, hosting, matchmaking, or session-based play such as rooms, parties, and lobbies, not backend features.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\setup-multiplayer-services\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\setup-multiplayer-services",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "setup-vivox-voice-chat",
-      "description": "Adds and configures in-game voice and text chat with Unity Vivox. Use when the user asks about voice chat, microphone permissions, mute controls, proximity voice, team and lobby channels, or direct messages.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\setup-vivox-voice-chat\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\setup-vivox-voice-chat",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "shader-graph-create-custom-node",
-      "description": "Generates custom Shader Graph nodes from HLSL code. Use when the user wants a new Shader Graph node or to make existing HLSL work as a reflected function node.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\shader-graph-create-custom-node\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\shader-graph-create-custom-node",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "sites",
-      "description": "Use Sites when the user wants a website built for them (including a landing page, portfolio, dashboard, portal, tracker, hub, game, event registration, or tool), requests changes to a website already built with Sites, wants to publish a website with Sites, or wants to manage Sites hosting.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\sites\\1.1.4\\skills\\sites\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sites",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "sites-remix",
-      "description": "Remix a Site built with the Sites plugin into a new Site. Use when the user has identified the source Site and asks to remix it.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\sites\\1.1.4\\skills\\sites-remix\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sites-remix",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "sprite-editor",
-      "description": "Edits Unity sprite rectangles, borders, pivots, outlines, and slicing by generating C# scripts. Use when the user works with sprite sheets or sprite slicing.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\sprite-editor\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sprite-editor",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "sprite-segment-3x3grid",
-      "description": "Segments a Sprite texture into a 3x3 grid and outputs a pattern of cells matching the center cell's color. Use when the user asks to analyze or document a sprite's structure or color distribution.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\sprite-segment-3x3grid\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\sprite-segment-3x3grid",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "stitch-design-taste",
-      "description": "Semantic Design System Skill for Google Stitch. Generates agent-friendly DESIGN.md files that enforce premium, anti-generic UI standards \u2014 strict typography, calibrated color, asymmetric layouts, perpetual micro-motion, and hardware-accelerated performance.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\engineering-suite-stitch-design\\2.0.0\\skills\\stitch-design-taste\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\stitch-design-taste",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "template-creator",
-      "description": "Create or update a reusable personal Codex artifact-template skill. Use when the user invokes $template-creator or asks in natural language to create a reusable template from a reference document, presentation, spreadsheet, Google Docs, Slides, or Sheets link, ImageGen or Product Design image, email, Slack message, or Site project, or explicitly asks to edit or update a passed artifact-template skill. Do not use for one-off creation from an existing template.",
-      "platform": "codex",
-      "source_category": "primary-runtime",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-primary-runtime\\template-creator\\26.1105.12137\\skills\\template-creator\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\template-creator",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "tilemap-palette-create",
-      "description": "Creates a Tile Palette asset with a rectangular, hexagonal, or isometric Grid layout. Use when the user wants to organize tiles for 2D level design.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\tilemap-palette-create\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\tilemap-palette-create",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "tilemap-ruletile-createempty",
-      "description": "Creates an empty RuleTile, HexagonalRuleTile, or IsometricRuleTile asset. Use only when the user wants a blank RuleTile and provides no sprites; with sprites or terrain art, use tilemap-ruletile-createfromsegment.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\tilemap-ruletile-createempty\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\tilemap-ruletile-createempty",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "tilemap-ruletile-createfromsegment",
-      "description": "Creates RuleTiles from existing terrain or edge sprites so tiles auto-tile while painting, and converts sprite-segment-3x3grid output patterns into TilingRules. Use when the user wants sprites to connect correctly or to define tile neighbor rules, and provides sprites as input.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\tilemap-ruletile-createfromsegment\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\tilemap-ruletile-createfromsegment",
-      "has_scripts": true,
-      "has_references": false
-    },
-    {
-      "name": "turnstile-spin",
-      "description": "Set up, repair, or migrate to Cloudflare Turnstile bot verification in an existing frontend and backend, including server-side Siteverify.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\turnstile-spin\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\turnstile-spin",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "ui",
-      "description": "Routes Unity UI requests to the right framework skill (UI Toolkit, uGUI, or IMGUI) and answers UI comparison questions. Use for menus, HUDs, panels, or editor UI when the request doesn't name a framework. Consult before writing any UI code.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\ui\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\ui",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "ui-imgui",
-      "description": "Generates and modifies Unity IMGUI editor code such as EditorWindows, custom Inspectors, PropertyDrawers, and OnGUI scripts. Use for IMGUI or OnGUI or maintaining existing IMGUI code.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\ui-imgui\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\ui-imgui",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "ui-ugui",
-      "description": "Understands, edits, and generates Unity uGUI Canvas hierarchies, RectTransforms, Layout Groups, and prefab UI. Use for requests involving Canvas, uGUI, RectTransform, or prefab UI files.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\ui-ugui\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\ui-ugui",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "ui-uitk",
-      "description": "Understands, edits, and generates Unity UI Toolkit UXML and USS with flex layouts. Use for requests involving UI Toolkit, UIElements, UIDocument, PanelSettings, custom elements, or UI runtime binding.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\ui-uitk\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\ui-uitk",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "unity-cli",
-      "description": "Controls the Unity Editor and projects from the command line, driving a running Editor to edit scenes and assets or run C#. Use when asked to install or manage Editors, licenses, or projects, set up version control, build, test, configure the Unity MCP server, or run any unity command.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\unity-cli\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\unity-cli",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "unity-package-management",
-      "description": "Adds, removes, upgrades, and discovers Unity (UPM) packages from outside the Editor. Use for headless or CI package installs, verifying package IDs and versions, or choosing which packages a game needs. The Unity CLI doesn't manage packages.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\unity-package-management\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\unity-package-management",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "update-pet",
-      "description": "Inspect, validate, preview, repair, or update a custom pet in ChatGPT Work mode, including its name, description, or sprite sheet. Use for a pet in ChatGPT or established ChatGPT Pets context. Exclude real-world and other-app pets; clarify before invoking.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\work-pets\\0.1.6\\skills\\update-pet\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\update-pet",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "urp-postprocessing",
-      "description": "Sets up, configures, and debugs URP post-processing with the Volume framework. Use for bloom, tonemapping, color adjustments, depth of field, vignette, or other Volume overrides.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\urp-postprocessing\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\urp-postprocessing",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "validate-urp-render-graph-renderer-feature",
-      "description": "Reviews a Unity 6 URP ScriptableRendererFeature that uses the Render Graph API, checking resource wiring, material binding, execution structure, and best practices. Use to validate a renderer feature.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\unity\\0.1.8-beta\\skills\\validate-urp-render-graph-renderer-feature\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\validate-urp-render-graph-renderer-feature",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "visualize",
-      "description": "Create visualizations and interactive tools directly in conversation. Proactively use to show how something works; explore 'what happens when', 'what changes', or 'help me understand'; compare or inspect; create simulations, maps, charts, graphs, and mockups. Use standard tools for static scientific figures.",
-      "platform": "codex",
-      "source_category": "bundled-plugins",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-bundled\\visualize\\1.0.84\\skills\\visualize\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\visualize",
-      "has_scripts": true,
-      "has_references": true
-    },
-    {
-      "name": "web-perf",
-      "description": "Audit, diagnose, or optimize website loading and interaction performance, Core Web Vitals, and Lighthouse performance scores.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\web-perf\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\web-perf",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "workers-best-practices",
-      "description": "Cloudflare Workers best practices for production applications. Use when writing, reviewing, or configuring Workers.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\workers-best-practices\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\workers-best-practices",
-      "has_scripts": false,
-      "has_references": true
-    },
-    {
-      "name": "wrangler",
-      "description": "Run or troubleshoot Wrangler CLI commands in projects that have a wrangler.jsonc, wrangler.json, or wrangler.toml file, including local development, Previews, deployment, and resource management. For new projects and projects without a Wrangler configuration file, use the cf CLI instead.",
-      "platform": "codex",
-      "source_category": "curated-remote",
-      "original_path": "C:\\Users\\tosum\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a99ceead2c481919fb44845267235c4\\1.0.4\\skills\\wrangler\\SKILL.md",
-      "local_path": "skills\\collected\\codex\\wrangler",
-      "has_scripts": false,
       "has_references": true
     },
     {
@@ -1641,52 +162,32 @@
       "has_references": false
     },
     {
-      "name": "clean-git-committer",
-      "description": "Manage Git commits, branches, and merges adhering strictly to project hygiene standards: absolute ban on AI attribution (no 'Co-authored-by', no assistant signatures), atomic staging by explicit path, commit message decision logging ('Decisions:'), and standing merge execution on green verification gates.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\clean-git-committer\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\clean-git-committer",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "multi-agent-orchestrator",
-      "description": "Coordinate cross-provider multi-agent engineering workflows across Claude (Opus/Sonnet), Codex (Sol/Terra/Astra), and Antigravity (Gemini Flash). Use when decomposing features, routing tasks according to model specialization and quota efficiency, enforcing peer review isolation (author never reviews own work), and managing agent handoff life cycles.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\multi-agent-orchestrator\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\multi-agent-orchestrator",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "review-coverage-auditor",
+      "name": "coverage-auditor",
       "description": "Audit pull requests, diffs, and codebase state with rigorous coverage accounting. Enforces the strict rule that reviewers must explicitly categorize reviewed files into 'Read in Full', 'Grep / Signature Checked', and 'Unread / Out of Scope', and strictly bans claiming unread areas are sound.",
       "platform": "multi-agent-process",
       "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\review-coverage-auditor\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\review-coverage-auditor",
+      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\coverage-auditor\\SKILL.md",
+      "local_path": "skills\\multi-agent-process\\coverage-auditor",
       "has_scripts": false,
       "has_references": false
     },
     {
-      "name": "sim-contract-auditor",
-      "description": "Statically audit simulation and game engine code for deterministic architectural invariants: ban UnityEngine.Random in runtime (must use deterministic seeded RNG), prohibit heap allocations (new, LINQ, boxing) in hot tick loops, reject non-deterministic collection ordering, and ensure state hasher determinism.",
-      "platform": "multi-agent-process",
-      "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\sim-contract-auditor\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\sim-contract-auditor",
-      "has_scripts": false,
-      "has_references": false
-    },
-    {
-      "name": "standing-gate-verifier",
+      "name": "gate-verifier",
       "description": "Execute composite verification gates (FastCompile, EditMode tests, PlayMode tests, NUnit XML report parsing, and determinism checks) before any task handoff, PR creation, or branch merge. Use whenever validating code changes, parsing CI test output, or proving zero regressions.",
       "platform": "multi-agent-process",
       "source_category": "process-skills",
-      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\standing-gate-verifier\\SKILL.md",
-      "local_path": "skills\\multi-agent-process\\standing-gate-verifier",
+      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\gate-verifier\\SKILL.md",
+      "local_path": "skills\\multi-agent-process\\gate-verifier",
+      "has_scripts": false,
+      "has_references": false
+    },
+    {
+      "name": "git-committer",
+      "description": "Manage Git commits, branches, and merges adhering strictly to project hygiene standards: absolute ban on AI attribution (no 'Co-authored-by', no assistant signatures), atomic staging by explicit path, commit message decision logging ('Decisions:'), and standing merge execution on green verification gates.",
+      "platform": "multi-agent-process",
+      "source_category": "process-skills",
+      "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\git-committer\\SKILL.md",
+      "local_path": "skills\\multi-agent-process\\git-committer",
       "has_scripts": false,
       "has_references": false
     },
@@ -1698,6 +199,16 @@
       "original_path": "E:\\Projects\\Skills\\skills\\multi-agent-process\\thub-messenger\\SKILL.md",
       "local_path": "skills\\multi-agent-process\\thub-messenger",
       "has_scripts": false,
+      "has_references": false
+    },
+    {
+      "name": "cloud-role-bridge",
+      "description": "Temporary project-local bridge enabling ORCHESTRATOR-LOCAL to communicate with persistent\ncloud ChatGPT roles (such as DESIGN_OWNER and REVIEWER) via the proven PoC-001 Session Host.\nUse when coordinating Phase 2 architecture freeze, Gate 1 design approval, or exact-SHA code\nreviews with cloud roles without manual copy-pasting.",
+      "platform": "projects",
+      "source_category": "agent-control-plane",
+      "original_path": "E:\\Projects\\agent-control-plane\\.agents\\skills\\cloud-role-bridge\\SKILL.md",
+      "local_path": "skills\\collected\\projects\\cloud-role-bridge",
+      "has_scripts": true,
       "has_references": false
     },
     {

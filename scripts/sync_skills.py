@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-r"""Sync and catalog skills from Claude, Codex, Antigravity, and Project Repositories into E:\Projects\Skills."""
+r"""Sync and catalog ONLY custom skills and scripts created by agents on this system into E:\Projects\Skills.
+
+Excludes all public, marketplace, and provider-bundled skills.
+"""
 
 import json
 import os
@@ -7,7 +10,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 WORKSPACE_ROOT = Path(r"E:\Projects\Skills")
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
@@ -19,56 +22,27 @@ EXCLUDE_PATTERNS = {
     ".mypy_cache", ".ruff_cache", "worktrees", "sessions", "archived_sessions"
 }
 
-SOURCES = [
+# Strictly defined sources for custom skills created by agents on this machine
+CUSTOM_SOURCES = [
     {
         "platform": "antigravity",
-        "category": "user-config",
+        "category": "user-custom",
         "path": Path(r"C:\Users\tosum\.gemini\config\skills"),
     },
     {
-        "platform": "antigravity",
-        "category": "builtin",
-        "path": Path(r"C:\Users\tosum\.gemini\antigravity\builtin\skills"),
-    },
-    {
-        "platform": "antigravity",
-        "category": "plugins",
-        "path": Path(r"C:\Users\tosum\.gemini\config\plugins"),
-    },
-    {
         "platform": "codex",
-        "category": "standalone",
-        "path": Path(r"C:\Users\tosum\.codex\skills"),
-    },
-    {
-        "platform": "codex",
-        "category": "bundled-plugins",
-        "path": Path(r"C:\Users\tosum\.codex\plugins\cache\openai-bundled"),
-    },
-    {
-        "platform": "codex",
-        "category": "curated-remote",
-        "path": Path(r"C:\Users\tosum\.codex\plugins\cache\openai-curated-remote"),
-    },
-    {
-        "platform": "codex",
-        "category": "primary-runtime",
-        "path": Path(r"C:\Users\tosum\.codex\plugins\cache\openai-primary-runtime"),
+        "category": "user-custom",
+        "path": Path(r"C:\Users\tosum\.codex\skills\github-pr-comment-watcher"),
     },
     {
         "platform": "claude",
-        "category": "standalone",
-        "path": Path(r"C:\Users\tosum\.claude\skills"),
+        "category": "user-custom",
+        "path": Path(r"C:\Users\tosum\.claude\skills\agy-cli"),
     },
     {
         "platform": "claude",
-        "category": "plugins",
-        "path": Path(r"C:\Users\tosum\.claude\plugins\marketplaces\claude-plugins-official\plugins"),
-    },
-    {
-        "platform": "claude",
-        "category": "external-plugins",
-        "path": Path(r"C:\Users\tosum\.claude\plugins\marketplaces\claude-plugins-official\external_plugins"),
+        "category": "user-custom",
+        "path": Path(r"C:\Users\tosum\.claude\skills\codex-cli"),
     },
     {
         "platform": "projects",
@@ -77,8 +51,13 @@ SOURCES = [
     },
     {
         "platform": "projects",
+        "category": "agent-control-plane",
+        "path": Path(r"E:\Projects\agent-control-plane\.agents\skills\cloud-role-bridge"),
+    },
+    {
+        "platform": "projects",
         "category": "trishul-agent-hub",
-        "path": Path(r"E:\Projects\trishul-agent-hub\.agents\skills"),
+        "path": Path(r"E:\Projects\trishul-agent-hub\.agents\skills\handoff"),
     },
     {
         "platform": "headless",
@@ -94,7 +73,7 @@ SOURCES = [
 
 
 def parse_frontmatter(content: str) -> Dict[str, str]:
-    """Parse YAML frontmatter from a SKILL.md file without requiring external pyyaml."""
+    """Parse YAML frontmatter from a SKILL.md file."""
     meta: Dict[str, str] = {}
     if not content.startswith("---"):
         return meta
@@ -129,16 +108,14 @@ def parse_frontmatter(content: str) -> Dict[str, str]:
 
 
 def copy_skill_directory(src_dir: Path, dest_dir: Path) -> None:
-    """Recursively copy skill files while ignoring binary junk, worktrees, and lock files."""
+    """Recursively copy skill files, preserving helper scripts, references, and configs."""
     dest_dir.mkdir(parents=True, exist_ok=True)
     for root, dirs, files in os.walk(src_dir):
-        # Prune unwanted directories
         dirs[:] = [d for d in dirs if d not in EXCLUDE_PATTERNS and not d.startswith(".")]
         rel_root = Path(root).relative_to(src_dir)
         target_root = dest_dir / rel_root
         target_root.mkdir(parents=True, exist_ok=True)
         for f in files:
-            # Skip massive binaries or temporary lock files
             if f.endswith((".exe", ".dll", ".node", ".tmp", ".log")):
                 continue
             src_file = Path(root) / f
@@ -149,11 +126,11 @@ def copy_skill_directory(src_dir: Path, dest_dir: Path) -> None:
                 print(f"Warning: could not copy {src_file}: {e}", file=sys.stderr)
 
 
-def collect_skills() -> List[Dict[str, Any]]:
+def collect_custom_skills() -> List[Dict[str, Any]]:
     catalog_entries: List[Dict[str, Any]] = []
     seen_destinations: set[str] = set()
 
-    for source in SOURCES:
+    for source in CUSTOM_SOURCES:
         src_path = source["path"]
         platform = source["platform"]
         category = source["category"]
@@ -162,75 +139,80 @@ def collect_skills() -> List[Dict[str, Any]]:
 
         is_internal_authored = platform in ("headless", "multi-agent-process")
 
-        for root, dirs, files in os.walk(src_path):
-            dirs[:] = [d for d in dirs if d not in EXCLUDE_PATTERNS and not d.startswith(".")]
-            for f in files:
-                if f.lower() == "skill.md":
-                    skill_md_path = Path(root) / f
-                    skill_dir = Path(root)
-                    try:
-                        content = skill_md_path.read_text(encoding="utf-8", errors="replace")
-                    except Exception as e:
-                        print(f"Error reading {skill_md_path}: {e}", file=sys.stderr)
-                        continue
+        # Discover skill directories: either src_path itself has SKILL.md, or its children do
+        candidate_dirs: List[Path] = []
+        if (src_path / "SKILL.md").exists():
+            candidate_dirs.append(src_path)
+        else:
+            for child in src_path.iterdir():
+                if child.is_dir() and (child / "SKILL.md").exists():
+                    candidate_dirs.append(child)
 
-                    meta = parse_frontmatter(content)
-                    skill_name = meta.get("name") or skill_dir.name
-                    description = meta.get("description") or ""
+        for skill_dir in candidate_dirs:
+            skill_md_path = skill_dir / "SKILL.md"
+            try:
+                content = skill_md_path.read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                print(f"Error reading {skill_md_path}: {e}", file=sys.stderr)
+                continue
 
-                    if is_internal_authored:
-                        entry = {
-                            "name": skill_name,
-                            "description": description[:500],
-                            "platform": platform,
-                            "source_category": category,
-                            "original_path": str(skill_md_path),
-                            "local_path": str(skill_dir.relative_to(WORKSPACE_ROOT)),
-                            "has_scripts": (skill_dir / "scripts").is_dir(),
-                            "has_references": (skill_dir / "references").is_dir() or (skill_dir / "assets").is_dir(),
-                        }
-                        catalog_entries.append(entry)
-                        continue
+            meta = parse_frontmatter(content)
+            skill_name = meta.get("name") or skill_dir.name
+            description = meta.get("description") or ""
 
-                    # Create a safe destination name
-                    dest_subpath = Path(platform) / skill_name
-                    dest_full = COLLECTED_DIR / dest_subpath
+            if is_internal_authored:
+                entry = {
+                    "name": skill_name,
+                    "description": description[:500],
+                    "platform": platform,
+                    "source_category": category,
+                    "original_path": str(skill_md_path),
+                    "local_path": str(skill_dir.relative_to(WORKSPACE_ROOT)),
+                    "has_scripts": (skill_dir / "scripts").is_dir(),
+                    "has_references": (skill_dir / "references").is_dir() or (skill_dir / "assets").is_dir(),
+                }
+                catalog_entries.append(entry)
+                continue
 
-                    # Handle duplicates across versions or mirrors
-                    counter = 1
-                    while str(dest_full) in seen_destinations:
-                        dest_subpath = Path(platform) / f"{skill_name}_{category}_{counter}"
-                        dest_full = COLLECTED_DIR / dest_subpath
-                        counter += 1
+            dest_subpath = Path(platform) / skill_name
+            dest_full = COLLECTED_DIR / dest_subpath
 
-                    seen_destinations.add(str(dest_full))
+            counter = 1
+            while str(dest_full) in seen_destinations:
+                dest_subpath = Path(platform) / f"{skill_name}_{category}_{counter}"
+                dest_full = COLLECTED_DIR / dest_subpath
+                counter += 1
 
-                    # Copy to collected directory
-                    copy_skill_directory(skill_dir, dest_full)
+            seen_destinations.add(str(dest_full))
+            copy_skill_directory(skill_dir, dest_full)
 
-                    entry = {
-                        "name": skill_name,
-                        "description": description[:500],
-                        "platform": platform,
-                        "source_category": category,
-                        "original_path": str(skill_md_path),
-                        "local_path": str(dest_full.relative_to(WORKSPACE_ROOT)),
-                        "has_scripts": (dest_full / "scripts").is_dir(),
-                        "has_references": (dest_full / "references").is_dir() or (dest_full / "assets").is_dir(),
-                    }
-                    catalog_entries.append(entry)
+            entry = {
+                "name": skill_name,
+                "description": description[:500],
+                "platform": platform,
+                "source_category": category,
+                "original_path": str(skill_md_path),
+                "local_path": str(dest_full.relative_to(WORKSPACE_ROOT)),
+                "has_scripts": (dest_full / "scripts").is_dir(),
+                "has_references": (dest_full / "references").is_dir() or (dest_full / "assets").is_dir(),
+            }
+            catalog_entries.append(entry)
 
     return catalog_entries
 
 
 def main():
-    print("Starting skill sync & catalog collection...")
+    print("Starting sync of CUSTOM skills created on this system...")
+    if COLLECTED_DIR.exists():
+        shutil.rmtree(COLLECTED_DIR)
     COLLECTED_DIR.mkdir(parents=True, exist_ok=True)
-    catalog = collect_skills()
+
+    catalog = collect_custom_skills()
     catalog_sorted = sorted(catalog, key=lambda x: (x["platform"], x["name"]))
 
     metadata = {
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "description": "Catalog of custom skills and scripts created by agents on this system, plus new headless CLI skills.",
         "total_skills": len(catalog_sorted),
         "platforms": {
             "headless": sum(1 for s in catalog_sorted if s["platform"] == "headless"),
@@ -244,7 +226,7 @@ def main():
     }
 
     CATALOG_FILE.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    print(f"Collected {len(catalog_sorted)} skills successfully into {COLLECTED_DIR}")
+    print(f"\nSuccessfully collected {len(catalog_sorted)} custom skills into {COLLECTED_DIR}")
     print(f"Catalog written to {CATALOG_FILE}")
     for p, count in metadata["platforms"].items():
         print(f"  - {p}: {count} skills")
