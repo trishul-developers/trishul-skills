@@ -68,7 +68,7 @@ Claude Code employs tool-level authorization:
 
 ## 4. Cross-Provider Skill Interoperability
 
-Because each CLI exposes slightly different flags and stdin requirements, this repository introduces three universal headless runners in `skills/headless/`:
+Because each CLI exposes slightly different flags and stdin requirements, this repository introduces three universal headless runners in `skills/`:
 1. `codex-headless`: Wraps `codex exec`.
 2. `agy-headless`: Wraps `agy -p`.
 3. `claude-headless`: Wraps `claude -p`.

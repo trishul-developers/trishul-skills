@@ -32,7 +32,7 @@ This skill provides an industrial-grade, non-interactive execution wrapper aroun
 
 ### 1. Basic Fast Query (Gemini Flash Low-Effort)
 ```bash
-python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py" \
+python "E:/Projects/Skills/skills/agy-headless/scripts/agy_headless.py" \
   -m gemini-3.8-flash \
   -e low \
   -C "E:/Projects/trishul-tactical-engine" \
@@ -41,7 +41,7 @@ python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py"
 
 ### 2. Implementation with Auto-Approval
 ```bash
-python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py" \
+python "E:/Projects/Skills/skills/agy-headless/scripts/agy_headless.py" \
   -m gemini-3.8-flash \
   -e high \
   --mode auto \
@@ -53,7 +53,7 @@ python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py"
 
 ### 3. Enforcing JSON Schema
 ```bash
-python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py" \
+python "E:/Projects/Skills/skills/agy-headless/scripts/agy_headless.py" \
   -m gemini-3.8-flash \
   -e medium \
   --output-format json \
@@ -63,14 +63,14 @@ python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py"
 
 ### 4. Continuing an Existing Conversation
 ```bash
-python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py" \
+python "E:/Projects/Skills/skills/agy-headless/scripts/agy_headless.py" \
   --resume "3ec975ab-8238-4a51-aeec-9e6831bb5ec5" \
   "Now apply the suggested fix to the damaged component script."
 ```
 
 ### 5. Dry-Run Verification (0 Quota Spent)
 ```bash
-python "E:/Projects/Skills/skills/headless/agy-headless/scripts/agy_headless.py" \
+python "E:/Projects/Skills/skills/agy-headless/scripts/agy_headless.py" \
   -m gemini-3.8-flash -e high --auto-approve --dry-run "Test dry run"
 ```
 

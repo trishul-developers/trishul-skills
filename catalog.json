@@ -1,10 +1,10 @@
 {
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
   "total_skills": 14,
   "categories": {
-    "platform": 4,
     "headless": 3,
+    "platform": 4,
     "projects": 7
   },
   "skills": [
@@ -12,7 +12,7 @@
       "name": "agy-headless",
       "description": "Execute Google Antigravity (agy) non-interactively via print mode (`agy -p`) with granular control over models (gemini-3.8-flash, claude-sonnet-4-6, claude-opus-4-6-thinking, gpt-oss-120b-medium), reasoning effort (low, medium, high, xhigh, max), execution modes (auto, accept-edits, plan), permission auto-approval, output formatting (json, text, stream-json), structured schema validation, Windows command line length safety, and conversation resumption.",
       "category": "headless",
-      "local_path": "skills\\headless\\agy-headless",
+      "local_path": "skills\\agy-headless",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
@@ -21,7 +21,7 @@
       "name": "claude-headless",
       "description": "Execute Anthropic Claude Code non-interactively via print mode (`claude -p`) with fine-grained control over models (claude-3-7-sonnet, claude-3-5-haiku, claude-3-opus), tool whitelisting (--allowed-tools), permission skipping, system prompt overrides, output formatting (json, text), minimal execution mode (--bare), and session continuity.",
       "category": "headless",
-      "local_path": "skills\\headless\\claude-headless",
+      "local_path": "skills\\claude-headless",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
@@ -30,7 +30,7 @@
       "name": "codex-headless",
       "description": "Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.1-sol, gpt-6.1-terra, gpt-6-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.",
       "category": "headless",
-      "local_path": "skills\\headless\\codex-headless",
+      "local_path": "skills\\codex-headless",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false

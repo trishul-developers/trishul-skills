@@ -9,7 +9,7 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 ## 1. Quick Overview
 
 - **Total Custom Skills Registered**: **14 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
-- **Universal Headless CLI Runners**: 3 execution harnesses in [`skills/headless/`](file:///E:/Projects/Skills/skills/headless)
+- **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](file:///E:/Projects/Skills/skills)
 - **Consolidated Platform Skills**: 4 skills directly in [`skills/`](file:///E:/Projects/Skills/skills)
 - **Project-Specific Skills**: 7 custom skills residing in project repositories in [`skills/projects/`](file:///E:/Projects/Skills/skills/projects)
 
@@ -25,14 +25,13 @@ E:\Projects\Skills/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
   │     └── validate_skills.py                 # Lint & verify SKILL.md, Python, and Node scripts
   ├── skills/
+  │     ├── agy-headless/                      # Universal runner & SKILL.md for `agy -p`
+  │     ├── claude-headless/                   # Universal runner & SKILL.md for `claude -p`
+  │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
   │     ├── engineering-orchestrator/          # Canonical roles & compute governance
   │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting & git ops
   │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
   │     ├── unity-pipeline/                    # Unified compile, contract audit, test & gate pipeline
-  │     ├── headless/                          # Universal non-interactive CLI invocation skills
-  │     │     ├── codex-headless/              # Runner & SKILL.md for `codex exec`
-  │     │     ├── agy-headless/                # Runner & SKILL.md for `agy -p`
-  │     │     └── claude-headless/             # Runner & SKILL.md for `claude -p`
   │     └── projects/                          # Project-specific custom skills
   │           ├── chatgpt-role-bridge/         # Persistent cloud role bridge (agent-control-plane)
   │           ├── handoff/                     # Agent Hub handoff worker (trishul-agent-hub)
@@ -52,22 +51,22 @@ E:\Projects\Skills/
 
 ## 3. Universal Headless CLI Runners
 
-The repository includes three production-ready Python runners (`stdlib`-only) that handle Windows command-line limits (>16k chars file-pointer fallback), stdin streaming, process tree cleanup (`taskkill /T /F`), and execution telemetry:
+The repository includes three production-ready Python runners (`stdlib`-only) directly in `skills/` that handle Windows command-line limits (>16k chars file-pointer fallback), stdin streaming, process tree cleanup (`taskkill /T /F`), and execution telemetry:
 
 ### A. OpenAI Codex (`codex-headless`)
 ```bash
-python "skills/headless/codex-headless/scripts/codex_headless.py" \
+python "skills/codex-headless/scripts/codex_headless.py" \
   -m gpt-6.1-sol \
   -e high \
   -s workspace-write \
   -C "E:/Projects/trishul-tactical-engine" \
   --prompt-file "briefs/task.md"
 ```
-*Docs*: [`skills/headless/codex-headless/SKILL.md`](file:///E:/Projects/Skills/skills/headless/codex-headless/SKILL.md)
+*Docs*: [`skills/codex-headless/SKILL.md`](file:///E:/Projects/Skills/skills/codex-headless/SKILL.md)
 
 ### B. Google Antigravity (`agy-headless`)
 ```bash
-python "skills/headless/agy-headless/scripts/agy_headless.py" \
+python "skills/agy-headless/scripts/agy_headless.py" \
   -m gemini-3.8-flash \
   -e medium \
   --mode auto \
@@ -75,18 +74,18 @@ python "skills/headless/agy-headless/scripts/agy_headless.py" \
   -C "E:/Projects/trishul-tactical-engine" \
   "Inspect Unity Editor.log for compile errors."
 ```
-*Docs*: [`skills/headless/agy-headless/SKILL.md`](file:///E:/Projects/Skills/skills/headless/agy-headless/SKILL.md)
+*Docs*: [`skills/agy-headless/SKILL.md`](file:///E:/Projects/Skills/skills/agy-headless/SKILL.md)
 
 ### C. Anthropic Claude Code (`claude-headless`)
 ```bash
-python "skills/headless/claude-headless/scripts/claude_headless.py" \
+python "skills/claude-headless/scripts/claude_headless.py" \
   -m claude-3-7-sonnet \
   --allowed-tools "Read,Bash(git diff)" \
   --dangerously-skip-permissions \
   -C "E:/Projects/trishul-tactical-engine" \
   "Review recent changes against architecture invariants."
 ```
-*Docs*: [`skills/headless/claude-headless/SKILL.md`](file:///E:/Projects/Skills/skills/headless/claude-headless/SKILL.md)
+*Docs*: [`skills/claude-headless/SKILL.md`](file:///E:/Projects/Skills/skills/claude-headless/SKILL.md)
 
 ---
 

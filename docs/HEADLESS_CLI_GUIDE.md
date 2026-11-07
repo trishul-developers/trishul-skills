@@ -1,6 +1,6 @@
 # Universal Headless CLI Execution Playbook
 
-This guide details how to programmatically invoke OpenAI Codex, Google Antigravity (AGY), and Anthropic Claude Code non-interactively using the production-grade runners located in `skills/headless/`.
+This guide details how to programmatically invoke OpenAI Codex, Google Antigravity (AGY), and Anthropic Claude Code non-interactively using the production-grade runners located in `skills/`.
 
 ---
 
@@ -8,9 +8,9 @@ This guide details how to programmatically invoke OpenAI Codex, Google Antigravi
 
 | Provider | Headless CLI Subcommand | Runner Script Path | Default Model | Primary Strengths |
 |---|---|---|---|---|
-| **OpenAI Codex** | `codex exec` | `skills/headless/codex-headless/scripts/codex_headless.py` | `gpt-6.1-sol` | Complex algorithms, deterministic simulation, deep math |
-| **Google Antigravity** | `agy -p` | `skills/headless/agy-headless/scripts/agy_headless.py` | `gemini-3.8-flash` | High-speed execution, low quota cost, Unity automation |
-| **Anthropic Claude** | `claude -p` | `skills/headless/claude-headless/scripts/claude_headless.py` | `claude-3-7-sonnet` | Architecture design, PR reviews, project management |
+| **OpenAI Codex** | `codex exec` | `skills/codex-headless/scripts/codex_headless.py` | `gpt-6.1-sol` | Complex algorithms, deterministic simulation, deep math |
+| **Google Antigravity** | `agy -p` | `skills/agy-headless/scripts/agy_headless.py` | `gemini-3.8-flash` | High-speed execution, low quota cost, Unity automation |
+| **Anthropic Claude** | `claude -p` | `skills/claude-headless/scripts/claude_headless.py` | `claude-3-7-sonnet` | Architecture design, PR reviews, project management |
 
 ---
 
@@ -37,7 +37,7 @@ On Windows, standard `proc.kill()` terminates only the parent shell, leaving com
 
 ### Parameter Matrix
 ```bash
-python skills/headless/codex-headless/scripts/codex_headless.py [OPTIONS] [PROMPT]
+python skills/codex-headless/scripts/codex_headless.py [OPTIONS] [PROMPT]
 ```
 
 - `-m, --model`: `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-6-luna`.
@@ -56,7 +56,7 @@ python skills/headless/codex-headless/scripts/codex_headless.py [OPTIONS] [PROMP
 
 ### Example: Running a Hard C# Architecture Refactor
 ```bash
-python "skills/headless/codex-headless/scripts/codex_headless.py" \
+python "skills/codex-headless/scripts/codex_headless.py" \
   -m gpt-6.1-sol \
   -e high \
   -s workspace-write \
@@ -70,7 +70,7 @@ python "skills/headless/codex-headless/scripts/codex_headless.py" \
 
 ### Parameter Matrix
 ```bash
-python skills/headless/agy-headless/scripts/agy_headless.py [OPTIONS] [PROMPT]
+python skills/agy-headless/scripts/agy_headless.py [OPTIONS] [PROMPT]
 ```
 
 - `-m, --model`: `gemini-3.8-flash`, `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium`.
@@ -86,7 +86,7 @@ python skills/headless/agy-headless/scripts/agy_headless.py [OPTIONS] [PROMPT]
 
 ### Example: Batch Unity Log Analysis (Fast & Cheap)
 ```bash
-python "skills/headless/agy-headless/scripts/agy_headless.py" \
+python "skills/agy-headless/scripts/agy_headless.py" \
   -m gemini-3.8-flash \
   -e low \
   --output-format json \
@@ -100,7 +100,7 @@ python "skills/headless/agy-headless/scripts/agy_headless.py" \
 
 ### Parameter Matrix
 ```bash
-python skills/headless/claude-headless/scripts/claude_headless.py [OPTIONS] [PROMPT]
+python skills/claude-headless/scripts/claude_headless.py [OPTIONS] [PROMPT]
 ```
 
 - `-m, --model`: `claude-3-7-sonnet`, `claude-3-5-haiku`, `claude-3-opus`.
@@ -115,7 +115,7 @@ python skills/headless/claude-headless/scripts/claude_headless.py [OPTIONS] [PRO
 
 ### Example: Independent Checkpoint Review
 ```bash
-python "skills/headless/claude-headless/scripts/claude_headless.py" \
+python "skills/claude-headless/scripts/claude_headless.py" \
   -m claude-3-7-sonnet \
   --allowed-tools "Read,Bash(git diff),Bash(git log)" \
   --dangerously-skip-permissions \

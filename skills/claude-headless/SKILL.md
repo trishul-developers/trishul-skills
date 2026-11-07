@@ -29,7 +29,7 @@ This skill provides an automated execution harness for Anthropic's Claude Code C
 
 ### 1. Basic Fast Architectural Query (Haiku)
 ```bash
-python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headless.py" \
+python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
   -m claude-3-5-haiku \
   --bare \
   -C "E:/Projects/trishul-tactical-engine" \
@@ -38,7 +38,7 @@ python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headle
 
 ### 2. Implementation Brief with Whitelisted Tools
 ```bash
-python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headless.py" \
+python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
   -m claude-3-7-sonnet \
   --allowed-tools "Read,Edit,Bash(git status),Bash(git diff)" \
   --dangerously-skip-permissions \
@@ -49,7 +49,7 @@ python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headle
 
 ### 3. Review / Audit with System Prompt Invariants
 ```bash
-python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headless.py" \
+python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
   -m claude-3-7-sonnet \
   --system-prompt "You are a strict security and determinism auditor. Flag all memory allocations in tick loops." \
   --output-format json \
@@ -58,14 +58,14 @@ python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headle
 
 ### 4. Resuming an Ongoing Session
 ```bash
-python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headless.py" \
+python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
   --resume "01efca8c-0342-4efb-8af4-61632e4afa01" \
   "Proceed with batch 2 implementation and report diff."
 ```
 
 ### 5. Dry-Run Verification (0 Quota Spent)
 ```bash
-python "E:/Projects/Skills/skills/headless/claude-headless/scripts/claude_headless.py" \
+python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
   -m claude-3-7-sonnet --dangerously-skip-permissions --dry-run "Test dry run"
 ```
 

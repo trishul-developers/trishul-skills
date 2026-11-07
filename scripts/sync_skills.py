@@ -2,8 +2,7 @@
 r"""Sync and catalog custom skills and scripts created by agents on this system into E:\Projects\Skills.
 
 Layout:
-  skills/             - Consolidated platform skills (github-pr-workflow, unity-pipeline, etc.)
-  skills/headless/    - Universal CLI headless runners (codex-headless, agy-headless, claude-headless)
+  skills/             - Consolidated platform skills & headless CLI runners
   skills/projects/    - Project-specific skills (chatgpt-role-bridge, tte-*, handoff)
 """
 
@@ -17,9 +16,10 @@ from typing import Any, Dict, List
 
 WORKSPACE_ROOT = Path(r"E:\Projects\Skills")
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
-HEADLESS_DIR = SKILLS_DIR / "headless"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 CATALOG_FILE = WORKSPACE_ROOT / "catalog.json"
+
+HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless", "claude-headless"}
 
 
 def parse_frontmatter(content: str) -> Dict[str, str]:
@@ -84,27 +84,19 @@ def index_skill_dir(skill_dir: Path, category: str) -> Dict[str, Any] | None:
 
 
 def build_catalog() -> List[Dict[str, Any]]:
-    """Index all skills in skills/, skills/headless/, skills/projects/."""
+    """Index all skills in skills/ and skills/projects/."""
     catalog_entries: List[Dict[str, Any]] = []
 
-    # 1. Platform skills directly under skills/
+    # 1. Skills directly under skills/
     for item in sorted(SKILLS_DIR.iterdir()):
-        if not item.is_dir() or item.name in {"headless", "projects", "collected", ".git"}:
+        if not item.is_dir() or item.name in {"projects", "headless", "collected", ".git", "__pycache__"}:
             continue
-        entry = index_skill_dir(item, "platform")
+        category = "headless" if item.name in HEADLESS_SKILL_NAMES or item.name.endswith("-headless") else "platform"
+        entry = index_skill_dir(item, category)
         if entry:
             catalog_entries.append(entry)
 
-    # 2. Universal headless runners
-    if HEADLESS_DIR.exists():
-        for item in sorted(HEADLESS_DIR.iterdir()):
-            if not item.is_dir():
-                continue
-            entry = index_skill_dir(item, "headless")
-            if entry:
-                catalog_entries.append(entry)
-
-    # 3. Project-specific skills
+    # 2. Project-specific skills
     if PROJECTS_DIR.exists():
         for item in sorted(PROJECTS_DIR.iterdir()):
             if not item.is_dir():
@@ -120,17 +112,17 @@ def main():
     parser = argparse.ArgumentParser(description="Catalog skills in E:\\Projects\\Skills")
     parser.parse_args()
 
-    print("Indexing skills from skills/, skills/headless/, and skills/projects/...")
+    print("Indexing skills from skills/ and skills/projects/...")
     catalog = build_catalog()
     catalog_sorted = sorted(catalog, key=lambda x: (x["category"], x["name"]))
 
     metadata = {
-        "version": "4.1.0",
+        "version": "4.2.0",
         "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
         "total_skills": len(catalog_sorted),
         "categories": {
-            "platform": sum(1 for s in catalog_sorted if s["category"] == "platform"),
             "headless": sum(1 for s in catalog_sorted if s["category"] == "headless"),
+            "platform": sum(1 for s in catalog_sorted if s["category"] == "platform"),
             "projects": sum(1 for s in catalog_sorted if s["category"] == "projects"),
         },
         "skills": catalog_sorted,

@@ -17,11 +17,11 @@ pie title Custom Skills Distribution by Category (14 Total)
 
 ## 2. Categorized Skill Inventory
 
-### A. Universal Headless CLI Runners (`skills/headless/`)
-*Custom Python runners (`stdlib`-only) with process tree supervision (`taskkill /T /F`), Windows CLI limit safety (>16k chars transparent file pointer fallback), telemetry, and stream decoupling.*
-1. **[`codex-headless`](file:///E:/Projects/Skills/skills/headless/codex-headless/SKILL.md)**: Universal runner for `codex exec` (model selection, reasoning effort, sandboxing, schemas, worktrees, thread resumption).
-2. **[`agy-headless`](file:///E:/Projects/Skills/skills/headless/agy-headless/SKILL.md)**: Universal runner for `agy -p` (model selection, reasoning effort, auto-approve, structured output formatting, long brief pointer fallback).
-3. **[`claude-headless`](file:///E:/Projects/Skills/skills/headless/claude-headless/SKILL.md)**: Universal runner for `claude -p` (model tiers, allowed tools, system prompts, decoupled stdin bypasses 3s stall, bare execution).
+### A. Universal Headless CLI Runners (`skills/`)
+*Custom Python runners (`stdlib`-only) directly under `skills/` with process tree supervision (`taskkill /T /F`), Windows CLI limit safety (>16k chars transparent file pointer fallback), telemetry, and stream decoupling.*
+1. **[`codex-headless`](file:///E:/Projects/Skills/skills/codex-headless/SKILL.md)**: Universal runner for `codex exec` (model selection, reasoning effort, sandboxing, schemas, worktrees, thread resumption).
+2. **[`agy-headless`](file:///E:/Projects/Skills/skills/agy-headless/SKILL.md)**: Universal runner for `agy -p` (model selection, reasoning effort, auto-approve, structured output formatting, long brief pointer fallback).
+3. **[`claude-headless`](file:///E:/Projects/Skills/skills/claude-headless/SKILL.md)**: Universal runner for `claude -p` (model tiers, allowed tools, system prompts, decoupled stdin bypasses 3s stall, bare execution).
 
 ---
 
