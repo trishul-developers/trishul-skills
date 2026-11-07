@@ -12,6 +12,7 @@ Performs offline linting and validation without needing to launch Unity:
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -63,6 +64,19 @@ def fnv1a_32(key: str) -> int:
     return 1 if h == 0 else h
 
 
+def is_valid_numeric_value(val: Any) -> bool:
+    """Returns True if val is a finite int or float (and not a boolean or inf/nan/overflowing)."""
+    if isinstance(val, bool):
+        return False
+    if not isinstance(val, (int, float)):
+        return False
+    if not math.isfinite(val):
+        return False
+    if abs(val) > 3.4e38:
+        return False
+    return True
+
+
 def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> List[str]:
     """Validate a single register JSON entry."""
     errors = []
@@ -93,9 +107,12 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
         value = entry.get("value")
         if quantity == "penetration_rha":
             # penetration_rha can be either a scalar (constant mm) or a range-penetration table [[m, mm], ...]
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
-                pass  # Valid scalar penetration
-            elif isinstance(value, list) and len(value) > 0 and all(isinstance(row, list) and len(row) == 2 for row in value):
+            if is_valid_numeric_value(value):
+                pass  # Valid finite scalar penetration
+            elif isinstance(value, list) and len(value) > 0 and all(
+                isinstance(row, list) and len(row) == 2 and is_valid_numeric_value(row[0]) and is_valid_numeric_value(row[1])
+                for row in value
+            ):
                 x_vals = [row[0] for row in value]
                 if any(x_vals[i] >= x_vals[i+1] for i in range(len(x_vals)-1)):
                     errors.append(f"Key '{key}' table x values must be strictly ascending: {x_vals}")
@@ -106,10 +123,12 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
                 if x_unit != q_def["x_unit"]:
                     errors.append(f"Key '{key}' table requires xUnit='{q_def['x_unit']}', found '{x_unit}'.")
             else:
-                errors.append(f"Key '{key}' is quantity 'penetration_rha'; value must be a scalar number or list of [range, rha] pairs.")
+                errors.append(f"Key '{key}' is quantity 'penetration_rha'; value must be a finite scalar number or list of numeric [range, rha] pairs.")
         elif q_def["is_table"]:
-            if not isinstance(value, list) or len(value) == 0 or not all(isinstance(row, list) and len(row) == 2 for row in value):
+            if not isinstance(value, list) or len(value) == 0:
                 errors.append(f"Key '{key}' is table quantity '{quantity}'; value must be a non-empty list of [x, y] pairs.")
+            elif not all(isinstance(row, list) and len(row) == 2 and is_valid_numeric_value(row[0]) and is_valid_numeric_value(row[1]) for row in value):
+                errors.append(f"Key '{key}' is table quantity '{quantity}'; every row must be a numeric [x, y] pair.")
             else:
                 x_vals = [row[0] for row in value]
                 if any(x_vals[i] >= x_vals[i+1] for i in range(len(x_vals)-1)):
@@ -124,8 +143,8 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
         else:
             if isinstance(value, list):
                 errors.append(f"Key '{key}' is scalar quantity '{quantity}' but has table list value.")
-            elif not isinstance(value, (int, float)) or isinstance(value, bool):
-                errors.append(f"Key '{key}' is scalar quantity '{quantity}'; value must be a number.")
+            elif not is_valid_numeric_value(value):
+                errors.append(f"Key '{key}' is scalar quantity '{quantity}'; value must be a finite number.")
 
     # Placeholder rules
     if key.startswith("plc."):

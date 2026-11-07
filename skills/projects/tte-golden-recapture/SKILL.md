@@ -37,17 +37,22 @@ Golden simulation pins are re-baselined **once per batch, at batch end**, in a s
 Execute re-baselining at the close of an implementation batch:
 
 ### Step 1: Execute Golden Tests with Capture Directory
-Run the golden EditMode suites with `TTE_GOLDEN_ACTUAL_DIR` pointing to a scratch folder. Tests output their actual results to `golden-actual.txt`:
+Run the golden EditMode suites with `TTE_GOLDEN_ACTUAL_DIR` pointing to a scratch folder. Tests output their actual results to `golden-actual.txt`.
+
+From the TTE repository root, execute the native test runner:
 
 ```powershell
 $env:TTE_GOLDEN_ACTUAL_DIR = "scratch/golden"
 New-Item -ItemType Directory -Force -Path "scratch/golden"
 
-# Run targeted golden EditMode test suites via Unity
-python "skills/unity-pipeline/scripts/unity_pipeline.py" test `
-  --platform EditMode `
-  --filter "Trishul.Tests.EditMode.Perception,Trishul.Tests.EditMode.Comms,Trishul.Tests.EditMode.GroundMotionStatic"
+# Run targeted golden EditMode test suites via TTE native runner
+powershell -File ci/unity-run-tests.ps1 `
+  -Platform EditMode `
+  -OutDir "scratch/golden" `
+  -TestFilter "Trishul.Tests.EditMode.Perception;Trishul.Tests.EditMode.Comms;Trishul.Tests.EditMode.GroundMotionStatic"
 ```
+
+*(Alternatively, if invoking via the global `unity-pipeline` skill runner: `python "$HOME/.codex/skills/unity-pipeline/scripts/unity_pipeline.py" test --platform EditMode --filter "Trishul.Tests.EditMode.Perception,Trishul.Tests.EditMode.Comms,Trishul.Tests.EditMode.GroundMotionStatic"`)*
 
 ### Step 2: Audit Moved Pins (Dry-Run Table)
 Review the diff without modifying files:
@@ -78,6 +83,20 @@ For every moved pin, classify the movement in the batch differential note table:
 - `layout`: Serialization offset or layout change due to new schema fields.
 - `new state`: New authoritative state section or component added.
 - `outcome`: Simulation domain outcome changed. **MUST** cite the exact spec step or architect ruling. An outcome change with no named cause is a **blocker**; the pin must NOT be recaptured.
+
+### Handling Outcome-Field Changes (`ci/golden-recapture.py` Limitation & Procedure)
+
+> [!WARNING]
+> By default, `ci/golden-recapture.py` only permits snapshot-byte layout digests (e.g. `digest`, `state`, `canon`, `ckpt`) and aborts with exit code 2 if a payload or outcome field moves:
+> `Nothing written: a payload or outcome field moved. STOP and report.`
+
+**Reviewed Procedure:**
+1. **Unexplained Outcome Move**: If an outcome field moves without an explicit requirement from the specification or an approved architect ruling, it is an **accidental regression / blocker defect**. Do NOT modify tests or script allow-lists; stop and report the unexpected divergence immediately.
+2. **Approved Deliberate Move**: If the outcome change is deliberate and mandated by an accepted spec amendment or architect ruling:
+   - Record the pin, class (`outcome`), and exact spec step / ruling in the batch differential table.
+   - The implementor submits the differential note to the Reviewer / Architect for review.
+   - Test source literals for outcome changes must be updated with explicit reviewer sign-off, or by temporarily expanding the kit's allowed fields in `ci/golden-recapture.py` under an approved review commit.
+   - Never bypass this check silently without an audit trail.
 
 ### Step 5: Commit and Verify
 1. Stage and commit test sources:

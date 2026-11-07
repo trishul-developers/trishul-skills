@@ -240,65 +240,67 @@ def cmd_git_verify(args):
 # ----------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="GitHub PR and Git repository helper")
-    parser.add_argument("--repo", help="Repository in 'owner/repo' format (defaults to origin URL)")
+    repo_parent = argparse.ArgumentParser(add_help=False)
+    repo_parent.add_argument("--repo", help="Repository in 'owner/repo' format (defaults to origin URL)")
+
+    parser = argparse.ArgumentParser(description="GitHub PR and Git repository helper", parents=[repo_parent])
 
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
     # comments
-    p_comments = subparsers.add_parser("comments", help="PR comment operations")
+    p_comments = subparsers.add_parser("comments", help="PR comment operations", parents=[repo_parent])
     c_sub = p_comments.add_subparsers(dest="action", required=True)
 
     # comments list
-    c_list = c_sub.add_parser("list", help="List comments on a PR")
+    c_list = c_sub.add_parser("list", help="List comments on a PR", parents=[repo_parent])
     c_list.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
     c_list.add_argument("--limit", type=int, default=10, help="Max comments to display")
     c_list.add_argument("--role", help="Filter by substring/role (e.g. '[COORDINATOR]')")
     c_list.set_defaults(func=cmd_comments_list)
 
     # comments get
-    c_get = c_sub.add_parser("get", help="Get full body of a comment")
+    c_get = c_sub.add_parser("get", help="Get full body of a comment", parents=[repo_parent])
     c_get.add_argument("--comment-id", required=True, help="Comment ID")
     c_get.set_defaults(func=cmd_comments_get)
 
     # comments post
-    c_post = c_sub.add_parser("post", help="Post a comment to a PR")
+    c_post = c_sub.add_parser("post", help="Post a comment to a PR", parents=[repo_parent])
     c_post.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
     c_post.add_argument("--file", "--body-file", dest="file", help="Path to markdown/text file containing comment body")
     c_post.add_argument("--body", help="Inline body string")
     c_post.set_defaults(func=cmd_comments_post)
 
     # comment (convenience alias for comments post)
-    p_comment = subparsers.add_parser("comment", help="Alias for 'comments post'")
+    p_comment = subparsers.add_parser("comment", help="Alias for 'comments post'", parents=[repo_parent])
     p_comment.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
     p_comment.add_argument("--file", "--body-file", dest="file", help="Path to markdown/text file containing comment body")
     p_comment.add_argument("--body", help="Inline body string")
     p_comment.set_defaults(func=cmd_comments_post)
 
     # pr
-    p_pr = subparsers.add_parser("pr", help="Pull request operations")
+    p_pr = subparsers.add_parser("pr", help="Pull request operations", parents=[repo_parent])
     pr_sub = p_pr.add_subparsers(dest="action", required=True)
 
     # pr verify
-    pr_verify = pr_sub.add_parser("verify", help="Verify PR remote HEAD and branch")
+    pr_verify = pr_sub.add_parser("verify", help="Verify PR remote HEAD and branch", parents=[repo_parent])
     pr_verify.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
     pr_verify.add_argument("--sha", help="Expected HEAD commit SHA")
     pr_verify.add_argument("--branch", help="Expected branch name")
     pr_verify.set_defaults(func=cmd_pr_verify)
 
     # git
-    p_git = subparsers.add_parser("git", help="Local git verification")
+    p_git = subparsers.add_parser("git", help="Local git verification", parents=[repo_parent])
     git_sub = p_git.add_subparsers(dest="action", required=True)
 
     # git verify
-    g_verify = git_sub.add_parser("verify", help="Verify clean tree, branch, and SHA")
+    g_verify = git_sub.add_parser("verify", help="Verify clean tree, branch, and SHA", parents=[repo_parent])
     g_verify.add_argument("-C", "--dir", dest="repo_dir", help="Path to repository root")
     g_verify.add_argument("--branch", help="Expected branch name")
     g_verify.add_argument("--sha", help="Expected commit SHA")
     g_verify.set_defaults(func=cmd_git_verify)
 
     # verify-clean (convenience alias for git verify)
-    p_vc = subparsers.add_parser("verify-clean", help="Alias for 'git verify'")
+    p_vc = subparsers.add_parser("verify-clean", help="Alias for 'git verify'", parents=[repo_parent])
     p_vc.add_argument("-C", "--dir", dest="repo_dir", help="Path to repository root")
     p_vc.add_argument("--branch", help="Expected branch name")
     p_vc.add_argument("--sha", help="Expected commit SHA")
