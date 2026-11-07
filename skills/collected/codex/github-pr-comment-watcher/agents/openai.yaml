@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub PR Comment Watcher"
+  short_description: "Watch and respond to PR role handoffs safely"
+  default_prompt: "Use $github-pr-comment-watcher to inspect the latest handoff on this pull request."
