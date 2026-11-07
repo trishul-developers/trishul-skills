@@ -124,8 +124,8 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
         else:
             if isinstance(value, list):
                 errors.append(f"Key '{key}' is scalar quantity '{quantity}' but has table list value.")
-            elif not isinstance(value, (int, float, str)) or isinstance(value, bool):
-                errors.append(f"Key '{key}' is scalar quantity '{quantity}'; value must be a number or string.")
+            elif not isinstance(value, (int, float)) or isinstance(value, bool):
+                errors.append(f"Key '{key}' is scalar quantity '{quantity}'; value must be a number.")
 
     # Placeholder rules
     if key.startswith("plc."):
@@ -184,7 +184,7 @@ def scan_definition_assets(content_dir: Path) -> Tuple[List[str], List[Tuple[str
     """Scan all .asset files under content_dir for m_Key definitions."""
     errors = []
     asset_keys = []
-    key_pattern = re.compile(r"^[ \t]*m_Key:[ \t]*([a-zA-Z0-9._-]+)[ \t]*$", re.M)
+    key_pattern = re.compile(r"^[ \t]*m_Key:[ \t]*(.*?)[ \t]*$", re.M)
 
     for asset_file in sorted(content_dir.glob("**/*.asset")):
         try:
@@ -195,7 +195,11 @@ def scan_definition_assets(content_dir: Path) -> Tuple[List[str], List[Tuple[str
 
         for m in key_pattern.finditer(content):
             k = m.group(1).strip()
-            if not is_valid_key(k):
+            if (k.startswith('"') and k.endswith('"')) or (k.startswith("'") and k.endswith("'")):
+                k = k[1:-1].strip()
+            if not k:
+                errors.append(f"{asset_file.name}: Definition key is empty.")
+            elif not is_valid_key(k):
                 errors.append(f"{asset_file.name}: Definition key '{k}' violates format rules.")
             else:
                 h = fnv1a_32(k)

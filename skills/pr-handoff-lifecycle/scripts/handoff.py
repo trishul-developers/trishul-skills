@@ -63,8 +63,7 @@ def parse_test_results_xml(xml_path: str) -> Tuple[bool, str, str]:
         names_block += f"\n... and {len(test_names) - 30} more tests"
 
     evidence_summary = (
-        f"- FastCompile: PASSED\n"
-        f"- EditMode/PlayMode: {total} total, {passed} passed, {failed} failed, {skipped} skipped"
+        f"- Tests: {total} total, {passed} passed, {failed} failed, {skipped} skipped"
     )
     is_green = (failed == 0 and passed > 0)
     return is_green, evidence_summary, names_block
@@ -95,15 +94,17 @@ def cmd_draft_implementor(args):
         changed_files = ["1. (No files modified)"]
 
     # 5. Parse test report if provided
+    green = False
     if args.tests_xml:
         green, evidence_str, exact_tests_str = parse_test_results_xml(args.tests_xml)
         if not green:
             print(f"WARNING: Test report indicates failures or zero tests: {evidence_str}", file=sys.stderr)
-        state = args.state
+            state = "WIP_TESTS_FAILED" if args.state == "READY_FOR_REVIEW" else args.state
+        else:
+            state = args.state
     else:
         exact_tests_str = "1. (Unspecified - attach XML with --tests-xml)"
         evidence_str = (
-            "- FastCompile: PENDING_VERIFICATION\n"
             "- Tests: NOT_RUN (no --tests-xml provided; run tests before handoff)"
         )
         state = "WIP_TESTS_PENDING" if args.state == "READY_FOR_REVIEW" else args.state
@@ -133,11 +134,12 @@ def cmd_draft_implementor(args):
         evidence_str,
     ]
 
-    if args.tests_xml and green:
+    # Invariants Checklist: A test XML alone does NOT prove determinism or heap invariants
+    if getattr(args, "verified_invariants", False) and green:
         lines.extend([
-            "- Bounded visited/heap capacities verified stable",
-            "- Checkpoint/restore determinism verified",
-            "- No subsequent phase work was started",
+            "- [x] Bounded visited/heap capacities verified stable",
+            "- [x] Checkpoint/restore determinism verified",
+            "- [x] No subsequent phase work was started",
         ])
     else:
         lines.extend([
@@ -308,6 +310,7 @@ def main():
     p_imp.add_argument("--assignment-id", required=True, help="Assignment ID (e.g. ISSUE26-009)")
     p_imp.add_argument("--start-sha", required=True, help="Baseline START_SHA")
     p_imp.add_argument("--tests-xml", help="Path to NUnit XML test results")
+    p_imp.add_argument("--verified-invariants", action="store_true", help="Confirm determinism and capacity invariants were verified")
     p_imp.add_argument("--state", default="READY_FOR_REVIEW", help="State (default: READY_FOR_REVIEW)")
     p_imp.add_argument("--next-owner", default="COORDINATOR", help="Next owner (default: COORDINATOR)")
     p_imp.add_argument("--notes", help="Optional implementation notes")

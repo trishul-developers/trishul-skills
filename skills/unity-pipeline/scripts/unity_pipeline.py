@@ -298,8 +298,8 @@ def main() -> int:
     # 3. test
     p_test = subparsers.add_parser("test", help="Run Unity tests (EditMode/PlayMode) with mandatory static pre-check")
     p_test.add_argument("-C", "--project-path", default=".", help="Project path")
-    p_test.add_argument("--platform", default="EditMode", choices=["EditMode", "PlayMode"], help="Test platform")
-    p_test.add_argument("--filter", help="Test filter regex or test category")
+    p_test.add_argument("--platform", "--test-mode", "--test-platform", dest="platform", default="EditMode", choices=["EditMode", "PlayMode"], help="Test platform")
+    p_test.add_argument("--filter", "--test-filter", "--suite", dest="filter", help="Test filter regex or test category")
     p_test.add_argument("--xml-out", help="Path to write NUnit XML report")
     p_test.add_argument("--no-precheck", action="store_true", help="Bypass mandatory fast-fail static contract audit")
     p_test.add_argument("--no-graphics", action="store_true", help="Force -nographics (defaults to False for PlayMode, True for EditMode)")
@@ -423,7 +423,15 @@ def main() -> int:
                 if err_logs:
                     print("\n--- CRITICAL LOG FINDINGS ---")
                     print("\n".join(err_logs))
-            return 1
+            return code if code != 0 else 1
+
+        if code != 0:
+            print(f"\n[FAIL] Unity process exited with non-zero exit code {code} despite passing XML report.", file=sys.stderr)
+            err_logs = inspect_logs(log_file)
+            if err_logs:
+                print("\n--- CRITICAL LOG FINDINGS ---", file=sys.stderr)
+                print("\n".join(err_logs), file=sys.stderr)
+            return code
 
         print(f"Results: {report['passed_count']}/{report['total']} passed, {report['failed_count']} failed, {report['skipped_count']} skipped (in {duration}s)")
         return 0
@@ -503,15 +511,18 @@ def main() -> int:
 
         code, _, _ = run_cmd(cmd, cwd=project_path, timeout=900)
         report = parse_nunit_xml(xml_out)
-        if report.get("passed"):
-            print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']} passed in {report['duration']}s)")
-            print(f"\nCOMPOSITE GATE {phase_label}: AUTHORITATIVE GREEN")
-            return 0
-        else:
+        if not report.get("passed"):
             print(f"Gate Step 3 (EditMode Tests): FAILED ({report.get('failed_count', '?')} failed)")
             if report.get("failures"):
                 print(f"Failure: {report['failures'][0]['name']}: {report['failures'][0]['message']}")
-            return 1
+            return code if code != 0 else 1
+        if code != 0:
+            print(f"Gate Step 3 (EditMode Tests): FAILED (Unity exited with non-zero code {code})", file=sys.stderr)
+            return code
+
+        print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']} passed in {report['duration']}s)")
+        print(f"\nCOMPOSITE GATE {phase_label}: AUTHORITATIVE GREEN")
+        return 0
 
     # --- SUBCOMMAND: logs ---
     if args.command == "logs":

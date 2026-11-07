@@ -45,8 +45,8 @@ New-Item -ItemType Directory -Force -Path "scratch/golden"
 
 # Run targeted golden EditMode test suites via Unity
 python "skills/unity-pipeline/scripts/unity_pipeline.py" test `
-  --test-mode EditMode `
-  --test-filter "Trishul.Tests.EditMode.Perception,Trishul.Tests.EditMode.Comms,Trishul.Tests.EditMode.GroundMotionStatic"
+  --platform EditMode `
+  --filter "Trishul.Tests.EditMode.Perception,Trishul.Tests.EditMode.Comms,Trishul.Tests.EditMode.GroundMotionStatic"
 ```
 
 ### Step 2: Audit Moved Pins (Dry-Run Table)

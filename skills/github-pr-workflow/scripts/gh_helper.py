@@ -25,12 +25,13 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-def run_cmd(cmd, input_text=None):
+def run_cmd(cmd, input_text=None, cwd=None):
     res = subprocess.run(
         cmd,
         input=input_text,
         capture_output=True,
         text=True,
+        cwd=cwd,
         encoding="utf-8",
         errors="replace",
     )
@@ -202,8 +203,12 @@ def cmd_pr_verify(args):
 
 
 def cmd_git_verify(args):
+    cwd = getattr(args, "repo_dir", None)
+    if cwd:
+        cwd = str(Path(cwd).resolve())
+
     # 1. Clean status
-    code, stdout, _ = run_cmd(["git", "status", "--porcelain"])
+    code, stdout, _ = run_cmd(["git", "status", "--porcelain"], cwd=cwd)
     if code != 0:
         print("ERROR: Failed to run git status", file=sys.stderr)
         sys.exit(1)
@@ -214,14 +219,14 @@ def cmd_git_verify(args):
     print("Working tree: CLEAN")
 
     # 2. Current branch
-    code, current_branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    code, current_branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
     print(f"Current branch: {current_branch}")
     if args.branch and current_branch != args.branch:
         print(f"ERROR: Expected branch '{args.branch}', found '{current_branch}'", file=sys.stderr)
         sys.exit(1)
 
     # 3. Current SHA
-    code, current_sha, _ = run_cmd(["git", "rev-parse", "HEAD"])
+    code, current_sha, _ = run_cmd(["git", "rev-parse", "HEAD"], cwd=cwd)
     print(f"Current HEAD SHA: {current_sha}")
     if args.sha and current_sha != args.sha:
         print(f"ERROR: Expected HEAD SHA '{args.sha}', found '{current_sha}'", file=sys.stderr)
@@ -246,7 +251,7 @@ def main():
 
     # comments list
     c_list = c_sub.add_parser("list", help="List comments on a PR")
-    c_list.add_argument("--pr", required=True, type=int, help="PR number")
+    c_list.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
     c_list.add_argument("--limit", type=int, default=10, help="Max comments to display")
     c_list.add_argument("--role", help="Filter by substring/role (e.g. '[COORDINATOR]')")
     c_list.set_defaults(func=cmd_comments_list)
@@ -258,10 +263,17 @@ def main():
 
     # comments post
     c_post = c_sub.add_parser("post", help="Post a comment to a PR")
-    c_post.add_argument("--pr", required=True, type=int, help="PR number")
-    c_post.add_argument("--file", help="Path to markdown/text file containing comment body")
+    c_post.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
+    c_post.add_argument("--file", "--body-file", dest="file", help="Path to markdown/text file containing comment body")
     c_post.add_argument("--body", help="Inline body string")
     c_post.set_defaults(func=cmd_comments_post)
+
+    # comment (convenience alias for comments post)
+    p_comment = subparsers.add_parser("comment", help="Alias for 'comments post'")
+    p_comment.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
+    p_comment.add_argument("--file", "--body-file", dest="file", help="Path to markdown/text file containing comment body")
+    p_comment.add_argument("--body", help="Inline body string")
+    p_comment.set_defaults(func=cmd_comments_post)
 
     # pr
     p_pr = subparsers.add_parser("pr", help="Pull request operations")
@@ -269,7 +281,7 @@ def main():
 
     # pr verify
     pr_verify = pr_sub.add_parser("verify", help="Verify PR remote HEAD and branch")
-    pr_verify.add_argument("--pr", required=True, type=int, help="PR number")
+    pr_verify.add_argument("--pr", "--issue", dest="pr", required=True, type=int, help="PR or Issue number")
     pr_verify.add_argument("--sha", help="Expected HEAD commit SHA")
     pr_verify.add_argument("--branch", help="Expected branch name")
     pr_verify.set_defaults(func=cmd_pr_verify)
@@ -280,9 +292,17 @@ def main():
 
     # git verify
     g_verify = git_sub.add_parser("verify", help="Verify clean tree, branch, and SHA")
+    g_verify.add_argument("-C", "--dir", dest="repo_dir", help="Path to repository root")
     g_verify.add_argument("--branch", help="Expected branch name")
     g_verify.add_argument("--sha", help="Expected commit SHA")
     g_verify.set_defaults(func=cmd_git_verify)
+
+    # verify-clean (convenience alias for git verify)
+    p_vc = subparsers.add_parser("verify-clean", help="Alias for 'git verify'")
+    p_vc.add_argument("-C", "--dir", dest="repo_dir", help="Path to repository root")
+    p_vc.add_argument("--branch", help="Expected branch name")
+    p_vc.add_argument("--sha", help="Expected commit SHA")
+    p_vc.set_defaults(func=cmd_git_verify)
 
     args = parser.parse_args()
     args.func(args)

@@ -14,6 +14,7 @@ Generates evidence block:
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -83,8 +84,16 @@ def get_state_inventory_diff(repo_dir: Path, base_ref: str) -> str:
 
 
 def check_ci_status(repo_dir: Path, branch: Optional[str]) -> Tuple[bool, str]:
-    """Fetch latest CI run for unity-ci.yml using gh CLI and verify pass status."""
-    cmd = ["gh", "run", "list", "--workflow", "unity-ci.yml", "--limit", "3"]
+    """Fetch CI run for unity-ci.yml using gh CLI and verify pass status against candidate HEAD."""
+    code, head_sha_out, _ = run_cmd(["git", "rev-parse", "HEAD"], repo_dir)
+    candidate_sha = head_sha_out.strip() if code == 0 else ""
+
+    cmd = [
+        "gh", "run", "list",
+        "--workflow", "unity-ci.yml",
+        "--json", "headSha,status,conclusion,databaseId,createdAt,url",
+        "--limit", "10",
+    ]
     if branch:
         cmd.extend(["--branch", branch])
     code, stdout, stderr = run_cmd(cmd, repo_dir)
@@ -92,17 +101,52 @@ def check_ci_status(repo_dir: Path, branch: Optional[str]) -> Tuple[bool, str]:
         msg = f"CI runs could not be queried via gh CLI (verify gh auth).\n{stderr.strip()}".strip()
         return False, msg
 
-    raw_output = stdout.strip()
-    lines = [l for l in raw_output.splitlines() if l.strip()]
-    if not lines:
-        return False, "No CI runs found."
+    try:
+        runs = json.loads(stdout)
+    except Exception:
+        runs = []
 
-    # Inspect the most recent run (first line)
-    first_run = lines[0].lower()
-    is_success = ("success" in first_run or "completed" in first_run) and not any(
-        bad in first_run for bad in ["fail", "failure", "cancelled", "startup_failure", "error"]
+    if not runs:
+        return False, f"No CI runs found for workflow unity-ci.yml.\n{stdout.strip()}"
+
+    # Verify run against candidate HEAD SHA
+    matching_run = None
+    for r in runs:
+        r_sha = r.get("headSha", "")
+        if candidate_sha and (r_sha.startswith(candidate_sha) or candidate_sha.startswith(r_sha)):
+            matching_run = r
+            break
+
+    if not matching_run:
+        latest = runs[0]
+        latest_sha = latest.get("headSha", "")[:10]
+        msg = (
+            f"No CI run found matching candidate HEAD ({candidate_sha[:10]}).\n"
+            f"Latest run #{latest.get('databaseId')} is on commit {latest_sha}: "
+            f"status={latest.get('status')}, conclusion={latest.get('conclusion')} ({latest.get('url')})"
+        )
+        return False, msg
+
+    status = matching_run.get("status")
+    conclusion = matching_run.get("conclusion")
+    run_id = matching_run.get("databaseId")
+    url = matching_run.get("url")
+
+    summary_text = (
+        f"Run ID:     #{run_id}\n"
+        f"Commit:     {candidate_sha[:10]}\n"
+        f"Status:     {status}\n"
+        f"Conclusion: {conclusion}\n"
+        f"URL:        {url}"
     )
-    return is_success, raw_output
+
+    # Strictly require status == "completed" AND conclusion == "success".
+    # Treats neutral, timed_out, failure, cancelled, etc. as NOT passing.
+    is_success = (status == "completed" and conclusion == "success")
+    if not is_success:
+        summary_text += f"\n[!] Non-passing CI conclusion: '{conclusion}' (status: '{status}')"
+
+    return is_success, summary_text
 
 
 def format_evidence_package(
