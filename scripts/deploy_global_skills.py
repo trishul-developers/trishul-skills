@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import List, Set
 
-WORKSPACE_ROOT = Path(r"E:\Projects\Skills")
+WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 
 # The 7 universal / platform skills (strictly skills/*, not skills/projects/*)

@@ -27,14 +27,14 @@ for stream in (sys.stdout, sys.stderr):
     if hasattr(stream, "reconfigure"):
         stream.reconfigure(encoding="utf-8", errors="replace")
 
-# Default Unity Editor paths on Windows
+# Default Unity Editor paths on Windows (searched in order of preference)
 DEFAULT_UNITY_PATHS = [
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.23f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.24f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.25f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.26f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe",
+    r"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe",
+    r"C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe",
     r"C:\Program Files\Unity\Hub\Editor\6000.0.32f1\Editor\Unity.exe",
+    r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe",
+    r"C:\Program Files\Unity\Hub\Editor\6000.0.26f1\Editor\Unity.exe",
+    r"C:\Program Files\Unity\Hub\Editor\6000.0.25f1\Editor\Unity.exe",
 ]
 
 # Static contract audit rules (regex pattern, severity, description)
@@ -161,7 +161,22 @@ def parse_nunit_xml(xml_path: Path) -> Dict:
         total = int(root.attrib.get("total", 0))
         passed = int(root.attrib.get("passed", 0))
         failed = int(root.attrib.get("failed", 0))
+        skipped = int(root.attrib.get("skipped", 0))
         duration = float(root.attrib.get("duration", 0.0))
+
+        # Enforce zero-test / skipped-only failure (a zero-test run is a failure in TTE / NUnit)
+        if total == 0:
+            return {
+                "passed": False,
+                "error": "ZERO_TESTS_SELECTED: No tests were selected or executed (zero-test run is a failure).",
+                "total": 0, "passed_count": 0, "failed_count": 0, "skipped_count": 0, "duration": 0, "failures": []
+            }
+        if passed == 0 and failed == 0:
+            return {
+                "passed": False,
+                "error": f"NO_TESTS_PASSED: All {total} test(s) were skipped or inconclusive.",
+                "total": total, "passed_count": 0, "failed_count": 0, "skipped_count": skipped, "duration": round(duration, 2), "failures": []
+            }
 
         failures = []
         for tc in root.iter("test-case"):
@@ -178,10 +193,11 @@ def parse_nunit_xml(xml_path: Path) -> Dict:
                 })
 
         return {
-            "passed": failed == 0 and total > 0,
+            "passed": failed == 0 and passed > 0,
             "total": total,
             "passed_count": passed,
             "failed_count": failed,
+            "skipped_count": skipped,
             "duration": round(duration, 2),
             "failures": failures,
         }
@@ -236,10 +252,28 @@ def inspect_logs(log_path: Path, max_lines: int = 40) -> List[str]:
 # ---------------------------------------------------------------------------
 # Main CLI Orchestration
 # ---------------------------------------------------------------------------
-def resolve_unity_exe() -> str:
+def resolve_unity_exe(project_path: Optional[Path] = None) -> str:
     env_unity = os.environ.get("UNITY_PATH")
     if env_unity and os.path.exists(env_unity):
         return env_unity
+
+    # 1. Check pinned project version from ProjectSettings/ProjectVersion.txt
+    if project_path:
+        ver_file = project_path / "ProjectSettings" / "ProjectVersion.txt"
+        if ver_file.exists():
+            for line in ver_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("m_EditorVersion:"):
+                    ver = line.split(":", 1)[1].strip()
+                    candidate = Path(r"C:\Program Files\Unity\Hub\Editor") / ver / "Editor" / "Unity.exe"
+                    if candidate.exists():
+                        return str(candidate)
+
+    # 2. Check installed Unity versions in Hub directory
+    hub_editors = glob.glob(r"C:\Program Files\Unity\Hub\Editor\*\Editor\Unity.exe")
+    if hub_editors:
+        hub_editors.sort(reverse=True)
+        return hub_editors[0]
+
     for p in DEFAULT_UNITY_PATHS:
         if os.path.exists(p):
             return p
@@ -268,6 +302,7 @@ def main() -> int:
     p_test.add_argument("--filter", help="Test filter regex or test category")
     p_test.add_argument("--xml-out", help="Path to write NUnit XML report")
     p_test.add_argument("--no-precheck", action="store_true", help="Bypass mandatory fast-fail static contract audit")
+    p_test.add_argument("--no-graphics", action="store_true", help="Force -nographics (defaults to False for PlayMode, True for EditMode)")
     p_test.add_argument("--timeout", type=int, default=600, help="Test timeout in seconds")
 
     # 4. gate
@@ -333,46 +368,64 @@ def main() -> int:
             print("Pre-Check: Static Contract Audit & FastCompile PASSED (0.8s)")
 
         # 2. RUN UNITY IN BATCHMODE
-        unity_exe = resolve_unity_exe()
+        unity_exe = resolve_unity_exe(project_path)
         xml_out = Path(args.xml_out) if args.xml_out else project_path / f"test-results-{args.platform.lower()}.xml"
         log_file = project_path / "unity-test.log"
+
+        # Stale XML defense: delete target XML before running
+        if xml_out.exists():
+            xml_out.unlink()
+
+        t_launch = time.time()
 
         cmd = [
             unity_exe,
             "-batchmode",
-            "-nographics",
             "-projectPath", str(project_path),
             "-runTests",
             "-testPlatform", args.platform,
             "-testResults", str(xml_out),
             "-logFile", str(log_file),
         ]
+        # Only use -nographics for EditMode unless explicitly requested
+        if args.platform == "EditMode" or getattr(args, "no_graphics", False):
+            cmd.append("-nographics")
+
         if args.filter:
             cmd.extend(["-testFilter", args.filter])
 
-        print(f"Executing Unity {args.platform} tests (filter: '{args.filter or 'all'}')...")
+        print(f"Executing Unity {args.platform} tests with {unity_exe} (filter: '{args.filter or 'all'}')...")
         t_start = time.monotonic()
         code, stdout, stderr = run_cmd(cmd, cwd=project_path, timeout=args.timeout)
         duration = round(time.monotonic() - t_start, 1)
 
-        # 3. PARSE XML REPORT
-        report = parse_nunit_xml(xml_out)
-        if not report.get("total"):
-            print(f"Unity test run completed with exit code {code} in {duration}s, but no tests were reported in XML.")
+        # Stale XML defense: verify xml_out exists and was generated during this run
+        if not xml_out.exists() or xml_out.stat().st_mtime < t_launch:
+            print(f"ERROR: Unity failed to produce a fresh test results XML at {xml_out} (process exit code: {code})", file=sys.stderr)
             err_logs = inspect_logs(log_file)
             if err_logs:
                 print("\n--- CRITICAL LOG FINDINGS ---")
                 print("\n".join(err_logs))
             return code if code != 0 else 1
 
-        print(f"Results: {report['passed_count']}/{report['total']} passed, {report['failed_count']} failed (in {duration}s)")
-        if report["failed_count"] > 0:
-            print(f"\nFIRST FAILURE: {report['failures'][0]['name']}")
-            print(f"Message: {report['failures'][0]['message']}")
-            if report['failures'][0]['stack_trace']:
-                print(f"Stack:\n{report['failures'][0]['stack_trace']}")
+        # 3. PARSE XML REPORT
+        report = parse_nunit_xml(xml_out)
+        if not report.get("passed"):
+            err_msg = report.get("error") or f"{report.get('failed_count', 0)} test(s) failed."
+            print(f"\n[FAIL] Test execution failed: {err_msg}")
+            if report.get("failures"):
+                print(f"FIRST FAILURE: {report['failures'][0]['name']}")
+                print(f"Message: {report['failures'][0]['message']}")
+                if report['failures'][0]['stack_trace']:
+                    print(f"Stack:\n{report['failures'][0]['stack_trace']}")
+            else:
+                err_logs = inspect_logs(log_file)
+                if err_logs:
+                    print("\n--- CRITICAL LOG FINDINGS ---")
+                    print("\n".join(err_logs))
             return 1
 
+        print(f"Results: {report['passed_count']}/{report['total']} passed, {report['failed_count']} failed, {report['skipped_count']} skipped (in {duration}s)")
         return 0
 
     # --- SUBCOMMAND: gate ---
@@ -394,6 +447,45 @@ def main() -> int:
         if not comp_ok:
             print(f"Gate Step 2 (FastCompile): FAILED\n{comp_msg}")
             return 1
+        print("Gate Step 2 (FastCompile): PASSED")
+
+        # Step 3: Run Tests
+        unity_exe = resolve_unity_exe(project_path)
+        xml_out = project_path / "gate-results.xml"
+        log_file = project_path / "gate-unity.log"
+
+        if xml_out.exists():
+            xml_out.unlink()
+
+        t_launch = time.time()
+        cmd = [
+            unity_exe, "-batchmode", "-nographics",
+            "-projectPath", str(project_path),
+            "-runTests", "-testPlatform", "EditMode",
+            "-testResults", str(xml_out), "-logFile", str(log_file),
+        ]
+        if args.filter:
+            cmd.extend(["-testFilter", args.filter])
+
+        print(f"Gate Step 3 (EditMode Tests with {unity_exe})...")
+        code, stdout, stderr = run_cmd(cmd, cwd=project_path)
+        if not xml_out.exists() or xml_out.stat().st_mtime < t_launch:
+            print(f"Gate Step 3 (EditMode Tests): FAILED - No fresh XML report produced (exit code {code})")
+            err_logs = inspect_logs(log_file)
+            if err_logs:
+                print("\n".join(err_logs))
+            return 1
+
+        report = parse_nunit_xml(xml_out)
+        if not report.get("passed"):
+            print(f"Gate Step 3 (EditMode Tests): FAILED ({report.get('error') or str(report.get('failed_count')) + ' failures'})")
+            if report.get("failures"):
+                print(f"  First failure: {report['failures'][0]['name']} - {report['failures'][0]['message']}")
+            return 1
+
+        print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']}/{report['total']})")
+        print("\nALL GATE CHECKS PASSED: Ready for review advancement.")
+        return 0
         print("Gate Step 2 (FastCompile): PASSED")
 
         # Step 3: Run Tests

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Sync and catalog custom skills and scripts created by agents on this system into E:\Projects\Skills.
+r"""Sync and catalog custom skills and scripts created by agents on this system.
 
 Layout:
   skills/             - Consolidated platform skills & headless CLI runners
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-WORKSPACE_ROOT = Path(r"E:\Projects\Skills")
+WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 CATALOG_FILE = WORKSPACE_ROOT / "catalog.json"

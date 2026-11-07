@@ -1,6 +1,6 @@
 # AI Agent Skill Hub & Custom Registry
 
-Welcome to the central **AIAgent Skill Hub** (`E:\Projects\Skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
+Welcome to the central **AIAgent Skill Hub** (`trishul-skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
 
 All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **12 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
 
@@ -8,17 +8,17 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **12 skills** in [`catalog.json`](file:///E:/Projects/Skills/catalog.json)
-- **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](file:///E:/Projects/Skills/skills)
-- **Consolidated Platform Skills**: 4 skills directly in [`skills/`](file:///E:/Projects/Skills/skills)
-- **Project-Specific Skills**: 5 custom skills residing in project repositories in [`skills/projects/`](file:///E:/Projects/Skills/skills/projects)
+- **Total Custom Skills Registered**: **12 skills** in [`catalog.json`](./catalog.json)
+- **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](./skills)
+- **Consolidated Platform Skills**: 4 skills directly in [`skills/`](./skills)
+- **Project-Specific Skills**: 5 custom skills residing in project repositories in [`skills/projects/`](./skills/projects)
 
 ---
 
 ## 2. Repository Layout
 
 ```
-E:\Projects\Skills/
+trishul-skills/
   ├── catalog.json                             # Machine-readable registry of all 12 custom skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
@@ -61,7 +61,7 @@ python "skills/codex-headless/scripts/codex_headless.py" \
   -C "E:/Projects/trishul-tactical-engine" \
   --prompt-file "briefs/task.md"
 ```
-*Docs*: [`skills/codex-headless/SKILL.md`](file:///E:/Projects/Skills/skills/codex-headless/SKILL.md)
+*Docs*: [`skills/codex-headless/SKILL.md`](./skills/codex-headless/SKILL.md)
 
 ### B. Google Antigravity (`agy-headless`)
 ```bash
@@ -73,7 +73,7 @@ python "skills/agy-headless/scripts/agy_headless.py" \
   -C "E:/Projects/trishul-tactical-engine" \
   "Inspect Unity Editor.log for compile errors."
 ```
-*Docs*: [`skills/agy-headless/SKILL.md`](file:///E:/Projects/Skills/skills/agy-headless/SKILL.md)
+*Docs*: [`skills/agy-headless/SKILL.md`](./skills/agy-headless/SKILL.md)
 
 ### C. Anthropic Claude Code (`claude-headless`)
 ```bash
@@ -84,7 +84,7 @@ python "skills/claude-headless/scripts/claude_headless.py" \
   -C "E:/Projects/trishul-tactical-engine" \
   "Review recent changes against architecture invariants."
 ```
-*Docs*: [`skills/claude-headless/SKILL.md`](file:///E:/Projects/Skills/skills/claude-headless/SKILL.md)
+*Docs*: [`skills/claude-headless/SKILL.md`](./skills/claude-headless/SKILL.md)
 
 ---
 
@@ -96,28 +96,28 @@ Consolidates fast compile checks, determinism audits, batchmode testing, NUnit X
 # Mandatory <1s pre-check (aborts before launching Unity if invariant violations exist)
 python skills/unity-pipeline/scripts/unity_pipeline.py all --pre-check --suite FastCompile,EditMode
 ```
-*Docs*: [`skills/unity-pipeline/SKILL.md`](file:///E:/Projects/Skills/skills/unity-pipeline/SKILL.md)
+*Docs*: [`skills/unity-pipeline/SKILL.md`](./skills/unity-pipeline/SKILL.md)
 
 ### B. Unified GitHub PR Workflow (`github-pr-workflow`)
 Combines zero-dependency pure-Python GitHub REST API interactions, state-tracking watcher daemons, and git verification:
 ```powershell
 python skills/github-pr-workflow/scripts/gh_helper.py comments post --pr 28 --file scratch/handoff.md
 ```
-*Docs*: [`skills/github-pr-workflow/SKILL.md`](file:///E:/Projects/Skills/skills/github-pr-workflow/SKILL.md)
+*Docs*: [`skills/github-pr-workflow/SKILL.md`](./skills/github-pr-workflow/SKILL.md)
 
 ### C. Automated TTE Phase Evidence (`tte-phase-evidence`)
 Audits repository preconditions (`HOLD(Qn)`, red list, CI head status) and automatically generates the complete 9-part acceptance evidence package:
 ```powershell
 python skills/projects/tte-phase-evidence/scripts/assemble_phase_evidence.py --phase G01 --output scratch/evidence.md
 ```
-*Docs*: [`skills/projects/tte-phase-evidence/SKILL.md`](file:///E:/Projects/Skills/skills/projects/tte-phase-evidence/SKILL.md)
+*Docs*: [`skills/projects/tte-phase-evidence/SKILL.md`](./skills/projects/tte-phase-evidence/SKILL.md)
 
 ### D. TTE Content Pipeline & Register Validator (`tte-content-pipeline`)
 Fast offline validation of register JSON, unit vocabulary, and 32-bit FNV-1a `DefinitionId` collision checks:
 ```powershell
 python skills/projects/tte-content-pipeline/scripts/validate_content_asset.py --key plc.mbt.a
 ```
-*Docs*: [`skills/projects/tte-content-pipeline/SKILL.md`](file:///E:/Projects/Skills/skills/projects/tte-content-pipeline/SKILL.md)
+*Docs*: [`skills/projects/tte-content-pipeline/SKILL.md`](./skills/projects/tte-content-pipeline/SKILL.md)
 
 ---
 
@@ -141,7 +141,7 @@ python scripts/deploy_global_skills.py
 ---
 
 ## 6. Documentation References
-- [Skill Architecture Guide](file:///E:/Projects/Skills/docs/SKILL_ARCHITECTURE.md)
-- [Headless CLI Execution Playbook](file:///E:/Projects/Skills/docs/HEADLESS_CLI_GUIDE.md)
-- [Project Memories & Process Analysis](file:///E:/Projects/Skills/docs/MEMORY_AND_PROCESS_ANALYSIS.md)
-- [Custom Skill Taxonomy](file:///E:/Projects/Skills/docs/TAXONOMY.md)
+- [Skill Architecture Guide](./docs/SKILL_ARCHITECTURE.md)
+- [Headless CLI Execution Playbook](./docs/HEADLESS_CLI_GUIDE.md)
+- [Project Memories & Process Analysis](./docs/MEMORY_AND_PROCESS_ANALYSIS.md)
+- [Custom Skill Taxonomy](./docs/TAXONOMY.md)

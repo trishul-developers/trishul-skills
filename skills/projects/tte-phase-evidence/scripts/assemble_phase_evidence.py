@@ -82,15 +82,27 @@ def get_state_inventory_diff(repo_dir: Path, base_ref: str) -> str:
     return "No state inventory modifications detected."
 
 
-def get_ci_status(repo_dir: Path, branch: Optional[str]) -> str:
-    """Fetch latest CI run for unity-ci.yml using gh CLI."""
+def check_ci_status(repo_dir: Path, branch: Optional[str]) -> Tuple[bool, str]:
+    """Fetch latest CI run for unity-ci.yml using gh CLI and verify pass status."""
     cmd = ["gh", "run", "list", "--workflow", "unity-ci.yml", "--limit", "3"]
     if branch:
         cmd.extend(["--branch", branch])
-    code, stdout, _ = run_cmd(cmd, repo_dir)
-    if code == 0 and stdout.strip():
-        return stdout.strip()
-    return "CI runs could not be queried via gh CLI (verify gh auth)."
+    code, stdout, stderr = run_cmd(cmd, repo_dir)
+    if code != 0 or not stdout.strip():
+        msg = f"CI runs could not be queried via gh CLI (verify gh auth).\n{stderr.strip()}".strip()
+        return False, msg
+
+    raw_output = stdout.strip()
+    lines = [l for l in raw_output.splitlines() if l.strip()]
+    if not lines:
+        return False, "No CI runs found."
+
+    # Inspect the most recent run (first line)
+    first_run = lines[0].lower()
+    is_success = ("success" in first_run or "completed" in first_run) and not any(
+        bad in first_run for bad in ["fail", "failure", "cancelled", "startup_failure", "error"]
+    )
+    return is_success, raw_output
 
 
 def format_evidence_package(
@@ -100,6 +112,7 @@ def format_evidence_package(
     steps: List[Dict[str, str]],
     state_diff: str,
     ci_status: str,
+    ci_passed: bool,
     precondition_warnings: List[str],
 ) -> str:
     out = []
@@ -119,18 +132,22 @@ def format_evidence_package(
     out.append("")
 
     # Step Commit Table
+    coverage_status = "CI passed (verified)" if ci_passed else "[ ] Pending CI verification"
     out.append("## 2. Step Commit Table")
     out.append("| Step | Commit SHA | Summary | Test Coverage |")
     out.append("| :--- | :--- | :--- | :--- |")
     if steps:
         for idx, s in enumerate(steps, start=1):
-            out.append(f"| {phase}.{idx:02d} | `{s['sha']}` | {s['message']} | Verified green |")
+            out.append(f"| {phase}.{idx:02d} | `{s['sha']}` | {s['message']} | {coverage_status} |")
     else:
         out.append("| - | - | No commits found in range | - |")
     out.append("")
 
     # CI Runs
-    out.append("## 3. CI Verification Evidence")
+    ci_header = "## 3. CI Verification Evidence"
+    if not ci_passed:
+        ci_header += " (UNVERIFIED)"
+    out.append(ci_header)
     out.append("```text")
     out.append(ci_status)
     out.append("```\n")
@@ -147,11 +164,12 @@ def format_evidence_package(
         out.append(state_diff)
         out.append("```\n")
 
-    # Deviations and Decisions
-    out.append("## 5. Deviations & Architecture Amendments")
-    out.append("- **Spec Amendments**: All accepted amendments applied.")
-    out.append("- **Architectural Invariants**: Determinism preserved, zero GC allocations on hot paths.")
-    out.append("- **Review Boundary**: Stopping at review boundary pending Architect review.\n")
+    # Deviations and Decisions (Reviewer Verification Checklist)
+    out.append("## 5. Architectural Invariants & Reviewer Verification Checklist")
+    out.append("- [ ] Determinism verified (no UnityEngine.Random, identical two-run digests).")
+    out.append("- [ ] Zero GC allocations on steady-state hot paths verified.")
+    out.append("- [ ] Spec amendments applied with documented rationale.")
+    out.append("- [ ] Review boundary respected (stopping pending Reviewer / Architect verification).\n")
 
     return "\n".join(out)
 
@@ -185,7 +203,7 @@ def main():
     state_diff = get_state_inventory_diff(repo_dir, args.base_ref)
 
     print("Querying CI workflow status...")
-    ci_status = get_ci_status(repo_dir, args.branch)
+    ci_passed, ci_status = check_ci_status(repo_dir, args.branch)
 
     evidence_text = format_evidence_package(
         phase=args.phase,
@@ -194,6 +212,7 @@ def main():
         steps=steps,
         state_diff=state_diff,
         ci_status=ci_status,
+        ci_passed=ci_passed,
         precondition_warnings=precondition_warnings,
     )
 
@@ -205,8 +224,16 @@ def main():
     else:
         print("\n" + evidence_text)
 
-    if args.strict and precondition_warnings:
-        print(f"\n[FAIL] Precondition audit failed with {len(precondition_warnings)} warning(s).", file=sys.stderr)
+    strict_failures = []
+    if precondition_warnings:
+        strict_failures.append(f"Precondition audit failed with {len(precondition_warnings)} warning(s).")
+    if not ci_passed:
+        strict_failures.append("CI workflow status is unverified or has not passed.")
+
+    if args.strict and strict_failures:
+        print(f"\n[FAIL] Strict verification failed with {len(strict_failures)} issue(s):", file=sys.stderr)
+        for issue in strict_failures:
+            print(f"  - {issue}", file=sys.stderr)
         sys.exit(2)
 
     sys.exit(0)

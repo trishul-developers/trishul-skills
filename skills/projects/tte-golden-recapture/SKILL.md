@@ -1,24 +1,89 @@
 ---
 name: tte-golden-recapture
-description: Recapture golden hashes after a deliberate ruleset or layout change, behind the FreeForAll projection-equality check, and generate the differential report. Use at G01.13 and after every ruleset change. Implementor role.
+description: Recapture and re-baseline golden simulation pins once per batch under the accepted G02 lean process using TTE_GOLDEN_ACTUAL_DIR and ci/golden-recapture.py with a differential note table. Implementor role.
 ---
 
-# Golden recapture (implementor)
+# Golden Recapture & Re-baseline (`tte-golden-recapture`)
 
-A golden is recaptured only when the change is **deliberate** (new authoritative state, section, ruleset bump). A golden that changes for any other reason is a regression: stop and report. **Never edit a golden by hand**; the tools below rewrite the pinned lines from a Unity run and refuse to move anything that is not a snapshot-byte digest.
+Under the accepted lean implementation process (`docs/implementation/plan_v2/decision_lean_process_2026-11-05.md`), the legacy FFA projection gate (`FfaProjection.cs`, `ci/ffa-baseline/`) is **retired**.
 
-Pieces (all under `ci/` and `Assets/Tests/EditMode/Projection/`):
-- `FfaProjection.cs`, `FfaScenarios.cs`, `FfaProjectionEqualityTests.cs`: the projection harness. A *projection* drops everything the change added (new fields, new sections, renumbered handles) and compares DOMAIN outcomes: every section the change did not touch by payload hash, Combat / TacticalAI / Perception / Comms through their read API with `ContactRef` replaced by the contact identity.
-- `ci/ffa-baseline/`: the reference captured at the merge-base commit (`BASE_COMMIT`): `pre-g01-traces.txt` (per-tick digests of the whole-session scenarios), `pre-g01-pins.txt` (projection pins hooked into the golden kits), `g01-expected.txt` (the recorded comparison at the new head), `capture-pre-g01.ps1`, `kit-hooks.patch`, `FfaProjectionLayout.pre-g01.cs`.
-- `ci/golden-recapture.py`: rewrites pinned `GOLDEN|` lines from `golden-actual.txt` with a review gate per kit.
-- `ci/g01-differential-report.py`: writes `docs/implementation/reviews/G01-ruleset-differential.md` (deterministic; `--check` fails when stale).
+Golden simulation pins are re-baselined **once per batch, at batch end**, in a single clean commit accompanied by a structured differential note.
 
-## Procedure
-1. **List the reds:** the phase red list (`docs/implementation/plan_v2/G01_temporary_red_list.md`) names every golden expected to change and why. Anything else changing is a defect.
-2. **Reference first (pre-change behaviour):** create a second checkout of the merge-base (`git worktree add --detach ../ref-pre-g01 <BASE_COMMIT>`, copy a `Library` folder into it) and run `powershell -File ci/ffa-baseline/capture-pre-g01.ps1 -Ref ../ref-pre-g01`. It applies `kit-hooks.patch`, copies the harness with the pre-change layout file, runs the projection and golden classes (they must be fully green there) and rewrites `pre-g01-traces.txt` and `pre-g01-pins.txt`. Never run two Unity instances at once on one package cache; run them one after the other.
-3. **Projection equality (FreeForAll):** at the new head run the harness (`-TestFilter Trishul.Tests.EditMode.Projection.FfaProjectionEqualityTests` plus the golden classes). `FfaProjectionEqualityTests` asserts, per scenario, identical per-tick digests up to the classified difference (A4 Q48: the first tick at which any entity is defeated, `CapabilityFlags == None` or a wreck; divergence may begin only after it, and a scenario that never defeats an entity must be fully equal). The kit `FfaStore.Pin` calls assert the golden-kit projections. Any other difference: STOP and report (what diverged, at which tick, which component).
-   To (re)write `g01-expected.txt` set `UW_FFA_CAPTURE_DIR=<dir>` for the run and copy `<dir>/g01-expected.txt` after reviewing it. `UW_FFA_SECTIONS=1` adds per-tick section hashes and `UW_FFA_DUMP="scenario:tick,tick"` dumps checkpoints for byte-level diagnosis (diagnostic only).
-4. **Recapture** only after step 3 passes: run the golden classes with `UW_GOLDEN_ACTUAL_DIR=<dir>` (every golden check writes its actual line, pass or fail), then `python ci/golden-recapture.py --actual <dir>/golden-actual.txt` for the review table (nothing written), and `--apply` to rewrite. Only the snapshot-byte digests of each kit may move (the allow-list is in the script: a hash that moved because a section or field was added is expected; a payload or outcome digest, a count or a failure code moving aborts with exit 2). A test that aborts at its first golden hides later ones, so repeat run + apply until the review table is empty. Commit the new values with the reason in the message.
-5. **Differential report:** `python ci/g01-differential-report.py` and commit `docs/implementation/reviews/G01-ruleset-differential.md`; link it from the phase issue. CI should run it with `--check`.
-6. **Update:** `RulesetVersion` (only if the spec says so), `state_inventory.md`, and remove the recaptured entries from the red list. The list must be empty before the review request.
-7. **Verify:** run the full suite in CI (not locally) twice; both runs must show identical canonical hashes.
+> [!IMPORTANT]
+> - **Never edit a golden literal by hand.**
+> - Golden lines are generated only through Unity test execution captured via `TTE_GOLDEN_ACTUAL_DIR`.
+> - Re-baselining is permitted only when changes are deliberate (new authoritative state, layout adjustments, or approved ruleset amendments).
+> - Accidental outcome shifts remain strict blockers.
+
+---
+
+## 1. What Stays vs What is Retired
+
+- **Retired (Removed)**:
+  - `FfaProjectionEqualityTests` and `FfaProjection*` harness.
+  - `ci/ffa-baseline/` reference captures and `capture-pre-g01.ps1`.
+  - `UW_` prefixed environment variables (`UW_FFA_*`, `UW_GOLDEN_ACTUAL_DIR`).
+  - Per-step pin recapture gates.
+- **Retained (Authoritative)**:
+  - `ci/golden-recapture.py` inspection and rewrite gate.
+  - Pinned `GOLDEN|` literals in `Assets/Tests/EditMode/`.
+  - The `FreeForAll` preset and workload.
+  - Deterministic replay, checkpoint, and save/restore identity tests.
+
+---
+
+## 2. Re-baseline Procedure (Batch End)
+
+Execute re-baselining at the close of an implementation batch:
+
+### Step 1: Execute Golden Tests with Capture Directory
+Run the golden EditMode suites with `TTE_GOLDEN_ACTUAL_DIR` pointing to a scratch folder. Tests output their actual results to `golden-actual.txt`:
+
+```powershell
+$env:TTE_GOLDEN_ACTUAL_DIR = "scratch/golden"
+New-Item -ItemType Directory -Force -Path "scratch/golden"
+
+# Run targeted golden EditMode test suites via Unity
+python "skills/unity-pipeline/scripts/unity_pipeline.py" test `
+  --test-mode EditMode `
+  --test-filter "Trishul.Tests.EditMode.Perception,Trishul.Tests.EditMode.Comms,Trishul.Tests.EditMode.GroundMotionStatic"
+```
+
+### Step 2: Audit Moved Pins (Dry-Run Table)
+Review the diff without modifying files:
+
+```powershell
+python ci/golden-recapture.py --actual scratch/golden/golden-actual.txt
+```
+
+The script prints the review table displaying kit, pin key, moved labels, and verdict (`OK` vs `REJECTED`).
+
+### Step 3: Apply Permitted Updates
+Rewrite the pinned literals in the test source files:
+
+```powershell
+python ci/golden-recapture.py --actual scratch/golden/golden-actual.txt --apply
+```
+
+### Step 4: Construct the Differential Note Table
+For every moved pin, classify the movement in the batch differential note table:
+
+```markdown
+| Pin | Class | Cause |
+|---|---|---|
+| `<pin_key>` | `layout` \| `new state` \| `outcome` | `<spec step or ruling>` |
+```
+
+**Classification Rules:**
+- `layout`: Serialization offset or layout change due to new schema fields.
+- `new state`: New authoritative state section or component added.
+- `outcome`: Simulation domain outcome changed. **MUST** cite the exact spec step or architect ruling. An outcome change with no named cause is a **blocker**; the pin must NOT be recaptured.
+
+### Step 5: Commit and Verify
+1. Stage and commit test sources:
+   ```powershell
+   git add Assets/Tests/EditMode/
+   git commit -m "test: re-baseline golden pins for batch <id>"
+   ```
+2. Post the differential note table to the tracking PR / phase issue.
+3. Run two consecutive test passes in CI to confirm identical canonical hashes across runs (determinism gate).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Validation and linting tool for Skills in E:\Projects\Skills.
+r"""Validation and linting tool for Skills in the repository.
 
 Checks:
   - YAML frontmatter in all SKILL.md files (name, description)
@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-WORKSPACE_ROOT = Path(r"E:\Projects\Skills")
+WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 
 

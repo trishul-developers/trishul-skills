@@ -100,7 +100,7 @@
     },
     {
       "name": "tte-golden-recapture",
-      "description": "Recapture golden hashes after a deliberate ruleset or layout change, behind the FreeForAll projection-equality check, and generate the differential report. Use at G01.13 and after every ruleset change. Implementor role.",
+      "description": "Recapture and re-baseline golden simulation pins once per batch under the accepted G02 lean process using TTE_GOLDEN_ACTUAL_DIR and ci/golden-recapture.py with a differential note table. Implementor role.",
       "category": "projects",
       "local_path": "skills\\projects\\tte-golden-recapture",
       "has_scripts": false,

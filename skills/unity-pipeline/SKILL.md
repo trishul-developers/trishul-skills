@@ -25,7 +25,7 @@ By default, `unity_pipeline.py test` executes a **1-second pre-check**:
 ### 1. Targeted Test Run with Mandatory Pre-Check
 ```bash
 python "skills/unity-pipeline/scripts/unity_pipeline.py" test \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   --platform EditMode \
   --filter "CombatManagerTests"
 ```
@@ -33,31 +33,31 @@ python "skills/unity-pipeline/scripts/unity_pipeline.py" test \
 ### 2. Fast-Fail Static Contract Audit Only (<1s)
 ```bash
 python "skills/unity-pipeline/scripts/unity_pipeline.py" audit \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   --diff-only
 ```
 
 ### 3. Fast C# Compilation Check
 ```bash
 python "skills/unity-pipeline/scripts/unity_pipeline.py" compile \
-  -C "E:/Projects/trishul-tactical-engine"
+  -C "<repo_dir>"
 ```
 
 ### 4. Running a Composite Phase Gate
 ```bash
 python "skills/unity-pipeline/scripts/unity_pipeline.py" gate \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   --phase "G02"
 ```
 
 ### 5. Inspecting Unity Logs on Failure
 ```bash
 python "skills/unity-pipeline/scripts/unity_pipeline.py" logs \
-  -C "E:/Projects/trishul-tactical-engine"
+  -C "<repo_dir>"
 ```
 
 ### 6. Parsing an Existing NUnit XML Report
 ```bash
 python "skills/unity-pipeline/scripts/unity_pipeline.py" parse-xml \
-  "E:/Projects/trishul-tactical-engine/test-results-editmode.xml"
+  "<repo_dir>/test-results-editmode.xml"
 ```

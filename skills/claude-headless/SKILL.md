@@ -29,27 +29,27 @@ This skill provides an automated execution harness for Anthropic's Claude Code C
 
 ### 1. Basic Fast Architectural Query (Haiku)
 ```bash
-python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
+python "scripts/claude_headless.py" \
   -m claude-3-5-haiku \
   --bare \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   "Summarize the relationship between EntityRegistry and CombatManager."
 ```
 
 ### 2. Implementation Brief with Whitelisted Tools
 ```bash
-python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
+python "scripts/claude_headless.py" \
   -m claude-3-7-sonnet \
   --allowed-tools "Read,Edit,Bash(git status),Bash(git diff)" \
   --dangerously-skip-permissions \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   --prompt-file "briefs/patch-comms-channel.md" \
   --timeout 1800
 ```
 
 ### 3. Review / Audit with System Prompt Invariants
 ```bash
-python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
+python "scripts/claude_headless.py" \
   -m claude-3-7-sonnet \
   --system-prompt "You are a strict security and determinism auditor. Flag all memory allocations in tick loops." \
   --output-format json \
@@ -58,14 +58,14 @@ python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
 
 ### 4. Resuming an Ongoing Session
 ```bash
-python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
+python "scripts/claude_headless.py" \
   --resume "01efca8c-0342-4efb-8af4-61632e4afa01" \
   "Proceed with batch 2 implementation and report diff."
 ```
 
 ### 5. Dry-Run Verification (0 Quota Spent)
 ```bash
-python "E:/Projects/Skills/skills/claude-headless/scripts/claude_headless.py" \
+python "scripts/claude_headless.py" \
   -m claude-3-7-sonnet --dangerously-skip-permissions --dry-run "Test dry run"
 ```
 

@@ -28,28 +28,28 @@ This skill provides a programmatic, non-interactive execution harness for OpenAI
 
 ### 1. Basic Read-Only Query / Code Review
 ```bash
-python "E:/Projects/Skills/skills/codex-headless/scripts/codex_headless.py" \
+python "scripts/codex_headless.py" \
   -m gpt-6.1-sol \
   -e high \
   -s read-only \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   "Review Assets/Scripts/Combat/CombatManager.cs for allocation hot-spots and list top 3 issues."
 ```
 
 ### 2. Large Implementation Brief via Prompt File
 ```bash
-python "E:/Projects/Skills/skills/codex-headless/scripts/codex_headless.py" \
+python "scripts/codex_headless.py" \
   -m gpt-6.1-sol \
   -e high \
   -s workspace-write \
-  -C "E:/Projects/trishul-tactical-engine" \
+  -C "<repo_dir>" \
   --prompt-file "briefs/phase-spec-step-04.md" \
   --timeout 1800
 ```
 
 ### 3. Enforcing Structured JSON Output Schema
 ```bash
-python "E:/Projects/Skills/skills/codex-headless/scripts/codex_headless.py" \
+python "scripts/codex_headless.py" \
   -m gpt-6.1-terra \
   -e medium \
   -s read-only \
@@ -59,14 +59,14 @@ python "E:/Projects/Skills/skills/codex-headless/scripts/codex_headless.py" \
 
 ### 4. Resuming an Existing Thread
 ```bash
-python "E:/Projects/Skills/skills/codex-headless/scripts/codex_headless.py" \
+python "scripts/codex_headless.py" \
   --resume "01a1a10e-d6b3-7673-aa39-442645d464eb" \
   "Now implement the second test case and run the compilation check."
 ```
 
 ### 5. Dry-Run Verification (0 Quota Spent)
 ```bash
-python "E:/Projects/Skills/skills/codex-headless/scripts/codex_headless.py" \
+python "scripts/codex_headless.py" \
   -m gpt-6.1-sol -e ultra --worktree --dry-run "Test prompt"
 ```
 

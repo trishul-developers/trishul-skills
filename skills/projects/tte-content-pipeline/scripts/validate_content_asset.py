@@ -86,10 +86,30 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
         elif unit not in q_def["units"]:
             errors.append(f"Key '{key}' unit '{unit}' not valid for quantity '{quantity}'. Allowed: {sorted(q_def['units'])}")
 
+        if "value" not in entry or entry["value"] is None:
+            errors.append(f"Key '{key}' missing 'value' field.")
+            return errors
+
         value = entry.get("value")
-        if q_def["is_table"]:
-            if not isinstance(value, list) or not all(isinstance(row, list) and len(row) == 2 for row in value):
-                errors.append(f"Key '{key}' is table quantity '{quantity}'; value must be a list of [x, y] pairs.")
+        if quantity == "penetration_rha":
+            # penetration_rha can be either a scalar (constant mm) or a range-penetration table [[m, mm], ...]
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                pass  # Valid scalar penetration
+            elif isinstance(value, list) and len(value) > 0 and all(isinstance(row, list) and len(row) == 2 for row in value):
+                x_vals = [row[0] for row in value]
+                if any(x_vals[i] >= x_vals[i+1] for i in range(len(x_vals)-1)):
+                    errors.append(f"Key '{key}' table x values must be strictly ascending: {x_vals}")
+                x_qty = entry.get("xQuantity")
+                x_unit = entry.get("xUnit")
+                if x_qty != q_def["x_quantity"]:
+                    errors.append(f"Key '{key}' table requires xQuantity='{q_def['x_quantity']}', found '{x_qty}'.")
+                if x_unit != q_def["x_unit"]:
+                    errors.append(f"Key '{key}' table requires xUnit='{q_def['x_unit']}', found '{x_unit}'.")
+            else:
+                errors.append(f"Key '{key}' is quantity 'penetration_rha'; value must be a scalar number or list of [range, rha] pairs.")
+        elif q_def["is_table"]:
+            if not isinstance(value, list) or len(value) == 0 or not all(isinstance(row, list) and len(row) == 2 for row in value):
+                errors.append(f"Key '{key}' is table quantity '{quantity}'; value must be a non-empty list of [x, y] pairs.")
             else:
                 x_vals = [row[0] for row in value]
                 if any(x_vals[i] >= x_vals[i+1] for i in range(len(x_vals)-1)):
@@ -104,6 +124,8 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
         else:
             if isinstance(value, list):
                 errors.append(f"Key '{key}' is scalar quantity '{quantity}' but has table list value.")
+            elif not isinstance(value, (int, float, str)) or isinstance(value, bool):
+                errors.append(f"Key '{key}' is scalar quantity '{quantity}'; value must be a number or string.")
 
     # Placeholder rules
     if key.startswith("plc."):
@@ -158,6 +180,30 @@ def audit_register_file(path: Path) -> Tuple[List[str], List[Tuple[str, int]]]:
     return errors, key_hashes
 
 
+def scan_definition_assets(content_dir: Path) -> Tuple[List[str], List[Tuple[str, int, Path]]]:
+    """Scan all .asset files under content_dir for m_Key definitions."""
+    errors = []
+    asset_keys = []
+    key_pattern = re.compile(r"^[ \t]*m_Key:[ \t]*([a-zA-Z0-9._-]+)[ \t]*$", re.M)
+
+    for asset_file in sorted(content_dir.glob("**/*.asset")):
+        try:
+            content = asset_file.read_text(encoding="utf-8", errors="replace")
+        except Exception as e:
+            errors.append(f"Failed to read asset {asset_file}: {e}")
+            continue
+
+        for m in key_pattern.finditer(content):
+            k = m.group(1).strip()
+            if not is_valid_key(k):
+                errors.append(f"{asset_file.name}: Definition key '{k}' violates format rules.")
+            else:
+                h = fnv1a_32(k)
+                asset_keys.append((k, h, asset_file))
+
+    return errors, asset_keys
+
+
 def audit_content_tree(content_dir: Path) -> int:
     print(f"Scanning Content tree at {content_dir}...")
     all_errors = []
@@ -165,12 +211,14 @@ def audit_content_tree(content_dir: Path) -> int:
     seen_hashes: Dict[int, Tuple[str, Path]] = {}
 
     register_files = list(content_dir.glob("**/Register/*.json"))
-    if not register_files:
-        print(f"Warning: No register JSON files found under {content_dir}")
+    asset_files = list(content_dir.glob("**/*.asset"))
+    if not register_files and not asset_files:
+        print(f"Warning: No register JSON or .asset files found under {content_dir}")
         return 0
 
-    print(f"Found {len(register_files)} register JSON file(s).")
+    print(f"Found {len(register_files)} register JSON file(s) and {len(asset_files)} .asset file(s).")
 
+    # 1. Audit register JSON files
     for rf in sorted(register_files):
         errs, key_hashes = audit_register_file(rf)
         all_errors.extend(errs)
@@ -190,8 +238,25 @@ def audit_content_tree(content_dir: Path) -> int:
             else:
                 seen_hashes[h] = (key, rf)
 
+    # 2. Audit definition .asset files
+    asset_errs, asset_keys = scan_definition_assets(content_dir)
+    all_errors.extend(asset_errs)
+    for key, h, af in asset_keys:
+        if key in seen_keys:
+            all_errors.append(f"DUPLICATE KEY: '{key}' in {af.name} already defined in {seen_keys[key]}")
+        else:
+            seen_keys[key] = af
+
+        if h in seen_hashes:
+            other_key, other_file = seen_hashes[h]
+            if other_key != key:
+                all_errors.append(f"FNV-1a HASH COLLISION (0x{h:08x}): '{key}' in {af.name} collides with '{other_key}' in {other_file}")
+        else:
+            seen_hashes[h] = (key, af)
+
     print(f"\nAudit Results:")
     print(f"  - Register files scanned: {len(register_files)}")
+    print(f"  - Definition assets scanned: {len(asset_files)}")
     print(f"  - Total unique keys: {len(seen_keys)}")
     print(f"  - Total DefinitionId hashes: {len(seen_hashes)}")
     print(f"  - Errors / Invariant Violations: {len(all_errors)}")
@@ -202,7 +267,7 @@ def audit_content_tree(content_dir: Path) -> int:
             print(f"  [ERROR] {err}")
         return 1
 
-    print("\nAll register files, keys, and DefinitionIds are 100% valid and collision-free!")
+    print("\nAll register files, definition assets, keys, and DefinitionIds are 100% valid and collision-free!")
     return 0
 
 
@@ -244,10 +309,18 @@ def main():
 
     content_dir = Path(args.content_dir).resolve()
     if not content_dir.exists():
-        # Check if run from repository root or skills root
-        alt = Path("E:/Projects/trishul-tactical-engine/Assets/Content")
-        if alt.exists():
-            content_dir = alt
+        # Check current working directory or relative candidates
+        candidates = [
+            Path.cwd() / "Assets" / "Content",
+            Path.cwd() / "Content",
+        ]
+        found = None
+        for cand in candidates:
+            if cand.exists():
+                found = cand
+                break
+        if found:
+            content_dir = found
         else:
             print(f"Error: Content directory {content_dir} does not exist.", file=sys.stderr)
             sys.exit(1)

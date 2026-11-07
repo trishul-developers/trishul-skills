@@ -106,7 +106,7 @@ You are the IMPLEMENTOR subagent for Milestone <milestone_name>.
 1. <objective_1>
 2. Run targeted local tests: <test_command>
 3. Verify linter & formatting: <lint_command>
-4. Commit changes: git commit -am "<commit_message>"
+4. Stage and commit only allowed paths: git add <allowed_path_1> <allowed_path_2> && git commit -m "<commit_message>". (MANDATORY: Never use wildcard staging such as git commit -am or git add -A, especially in Unity or mixed workspaces).
 5. Push candidate commit to origin/<branch>.
 6. Return structured IMPLEMENTOR report with candidate SHA, file diffs, and test results.
 ```
@@ -210,7 +210,10 @@ When a Reviewer or Executor reports blocking findings (`BLK-001`):
    Please apply this fix, verify tests locally, commit, push, and report the new candidate SHA.
    ```
 5. Await the remediated candidate SHA.
-6. Dispatch a fresh Reviewer/Executor to verify the remediation diff.
+6. Dispatch the **same Reviewer** (preserving review continuity and focusing validation on what changed, rather than a fresh reviewer re-auditing the entire baseline) to verify the remediation diff.
+
+> [!NOTE]
+> **Reviewer Continuity Mandate**: In projects with strict audit standards (such as TTE or safety-critical PR workflows), re-checks must be routed back to the *same* Reviewer who identified the initial findings. Spawning a fresh reviewer leads to contradictory scope evaluations and invalidates previous sign-offs.
 
 ---
 
