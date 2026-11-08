@@ -1,10 +1,10 @@
 {
   "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 16,
+  "total_skills": 17,
   "categories": {
     "headless": 3,
-    "platform": 4,
+    "platform": 5,
     "projects": 9
   },
   "skills": [
@@ -51,6 +51,15 @@
       "local_path": "skills\\github-pr-workflow",
       "has_scripts": true,
       "has_references": true,
+      "has_tests": true
+    },
+    {
+      "name": "hub-messenger",
+      "description": "Zero-model messenger daemon for Trishul Agent Hub. Periodically polls participant inboxes and wakes idle workers with unread mail via detached CLI resumption or logging, eliminating expensive model-turn polling chats.",
+      "category": "platform",
+      "local_path": "skills\\hub-messenger",
+      "has_scripts": true,
+      "has_references": false,
       "has_tests": true
     },
     {

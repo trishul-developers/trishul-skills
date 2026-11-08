@@ -13,13 +13,14 @@ WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 
-# The 7 universal / platform skills (strictly skills/*, not skills/projects/*)
+# The 8 universal / platform skills (strictly skills/*, not skills/projects/*)
 GLOBAL_SKILL_NAMES = [
     "agy-headless",
     "claude-headless",
     "codex-headless",
     "engineering-orchestrator",
     "github-pr-workflow",
+    "hub-messenger",
     "pr-handoff-lifecycle",
     "unity-pipeline",
 ]
@@ -193,7 +194,7 @@ def deploy_project_skills() -> None:
 
 
 def main():
-    print(f"Deploying 7 Global Skills from {SKILLS_DIR}...")
+    print(f"Deploying {len(GLOBAL_SKILL_NAMES)} Global Skills from {SKILLS_DIR}...")
     for name in GLOBAL_SKILL_NAMES:
         print(f"  - {name}")
 

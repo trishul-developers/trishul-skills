@@ -1,0 +1,67 @@
+[
+  {
+    "address": "trishul-tactical-engine/architect",
+    "name": "architect",
+    "project": "trishul-tactical-engine",
+    "role": "architect",
+    "kind": "specialist",
+    "mode": "interactive",
+    "provider": "claude",
+    "status": "active",
+    "waiting": false,
+    "last_seen_at": null,
+    "pending": 0
+  },
+  {
+    "address": "trishul-tactical-engine/manager",
+    "name": "manager",
+    "project": "trishul-tactical-engine",
+    "role": "project-manager",
+    "kind": "specialist",
+    "mode": "interactive",
+    "provider": "claude",
+    "status": "active",
+    "waiting": false,
+    "last_seen_at": "2026-11-08T16:24:28.204Z",
+    "pending": 5
+  },
+  {
+    "address": "trishul-tactical-engine/orchestrator-codex",
+    "name": "orchestrator-codex",
+    "project": "trishul-tactical-engine",
+    "role": "orchestrator",
+    "kind": "specialist",
+    "mode": "interactive",
+    "provider": "codex",
+    "status": "active",
+    "waiting": false,
+    "last_seen_at": "2026-11-08T16:39:47.237Z",
+    "pending": 2
+  },
+  {
+    "address": "trishul-tactical-engine/orchestrator-claude",
+    "name": "orchestrator-claude",
+    "project": "trishul-tactical-engine",
+    "role": "orchestrator",
+    "kind": "specialist",
+    "mode": "interactive",
+    "provider": "claude",
+    "status": "active",
+    "waiting": true,
+    "last_seen_at": "2026-11-08T15:54:16.534Z",
+    "pending": 3
+  },
+  {
+    "address": "trishul-tactical-engine/phase-reviewer-codex",
+    "name": "phase-reviewer-codex",
+    "project": "trishul-tactical-engine",
+    "role": "phase-reviewer",
+    "kind": "specialist",
+    "mode": "interactive",
+    "provider": "codex",
+    "status": "active",
+    "waiting": false,
+    "last_seen_at": null,
+    "pending": 0
+  }
+]

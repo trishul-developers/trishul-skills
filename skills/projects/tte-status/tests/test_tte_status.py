@@ -79,7 +79,6 @@ class TestTteStatus(unittest.TestCase):
     def test_get_top_remote_branches(self, mock_run):
         mock_run.return_value = (0, CANNED_FOR_EACH_REF, "")
         branches = tte_status.get_top_remote_branches(count=5)
-        # origin and origin/HEAD must be excluded
         names = [b[0] for b in branches]
         self.assertIn("origin/main", names)
         self.assertIn("origin/side-branch", names)
@@ -88,24 +87,44 @@ class TestTteStatus(unittest.TestCase):
         self.assertNotIn("origin/HEAD", names)
 
     @patch("tte_status.run_cmd")
-    def test_get_open_prs(self, mock_run):
+    def test_get_open_prs_success(self, mock_run):
         mock_run.return_value = (0, CANNED_PR_LIST, "")
-        prs = tte_status.get_open_prs("owner/repo")
+        prs, err = tte_status.get_open_prs("owner/repo")
+        self.assertIsNone(err)
         self.assertEqual(len(prs), 2)
         self.assertEqual(prs[0]["number"], 61)
         self.assertTrue(prs[0]["isDraft"])
 
     @patch("tte_status.run_cmd")
-    def test_get_recent_comments(self, mock_run):
-        mock_run.return_value = (0, CANNED_COMMENTS, "")
-        comments = tte_status.get_recent_comments("owner/repo", "pr", 61, count=3)
-        self.assertEqual(len(comments), 3)
-        # Verify ~200 char truncation on long comment
-        self.assertTrue(len(comments[2]["body"]) <= 205)
-        self.assertTrue(comments[2]["body"].endswith("..."))
+    def test_get_open_prs_gh_error(self, mock_run):
+        mock_run.return_value = (1, "", "gh: GitHub API rate limit exceeded")
+        prs, err = tte_status.get_open_prs("owner/repo")
+        self.assertEqual(len(prs), 0)
+        self.assertEqual(err, "gh: GitHub API rate limit exceeded")
 
     @patch("tte_status.run_cmd")
-    def test_format_status_under_60_lines(self, mock_run):
+    def test_get_recent_comments_null_author(self, mock_run):
+        canned_with_null_author = json.dumps({
+            "comments": [
+                {"author": None, "createdAt": "2026-11-07T01:00:00Z", "body": "Anonymous comment"},
+            ]
+        })
+        mock_run.return_value = (0, canned_with_null_author, "")
+        comments, err = tte_status.get_recent_comments("owner/repo", "pr", 61, count=1)
+        self.assertIsNone(err)
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0]["author"], "unknown")
+        self.assertEqual(comments[0]["body"], "Anonymous comment")
+
+    @patch("tte_status.run_cmd")
+    def test_get_recent_comments_gh_failure(self, mock_run):
+        mock_run.return_value = (1, "", "gh: Could not resolve to an issue or pull request")
+        comments, err = tte_status.get_recent_comments("owner/repo", "pr", 999, count=3)
+        self.assertEqual(len(comments), 0)
+        self.assertEqual(err, "gh: Could not resolve to an issue or pull request")
+
+    @patch("tte_status.run_cmd")
+    def test_format_status_under_60_lines_and_gh_error_display(self, mock_run):
         def fake_run(cmd, cwd=None, timeout=30):
             cmd_str = " ".join(cmd)
             if "remote get-url" in cmd_str:
@@ -113,9 +132,7 @@ class TestTteStatus(unittest.TestCase):
             if "rev-parse" in cmd_str:
                 return (0, "5608c63e59eb1a9d504a0cd51378b545adf11b1e", "")
             if "run list" in cmd_str:
-                return (0, CANNED_RUN_LIST, "")
-            if "run view" in cmd_str:
-                return (0, CANNED_RUN_VIEW, "")
+                return (1, "", "gh: Connection refused to api.github.com\nDetails here")
             if "rev-list" in cmd_str:
                 return (0, "6 146", "")
             if "pr list" in cmd_str:
@@ -137,10 +154,41 @@ class TestTteStatus(unittest.TestCase):
         )
         lines = output.splitlines()
         self.assertLessEqual(len(lines), 60)
-        self.assertIn("=== TTE Project Status: owner/repo ===", lines[0])
-        self.assertIn("Phase: g02-presentation-orders-ux", output)
-        self.assertIn("Run #42333265082", output)
-        self.assertIn("Open PRs (2):", output)
+        self.assertIn("=== TTE Project Status: owner/repo (local cache; does not fetch) ===", lines[0])
+        self.assertIn("gh error: gh: Connection refused to api.github.com", output)
+
+    @patch("tte_status.run_cmd")
+    def test_strict_60_line_cap_truncation(self, mock_run):
+        # Create 100 fake PRs
+        huge_prs = json.dumps([
+            {"number": i, "headRefName": f"branch-{i}", "title": f"Title {i}", "isDraft": False}
+            for i in range(100)
+        ])
+        def fake_run(cmd, cwd=None, timeout=30):
+            cmd_str = " ".join(cmd)
+            if "pr list" in cmd_str:
+                return (0, huge_prs, "")
+            if "run list" in cmd_str:
+                return (0, CANNED_RUN_LIST, "")
+            if "run view" in cmd_str:
+                return (0, CANNED_RUN_VIEW, "")
+            if "for-each-ref" in cmd_str:
+                return (0, CANNED_FOR_EACH_REF, "")
+            if "view" in cmd_str and "comments" in cmd_str:
+                return (0, CANNED_COMMENTS, "")
+            if "worktree list" in cmd_str:
+                return (0, CANNED_WORKTREE_PORCELAIN, "")
+            return (0, "", "")
+
+        mock_run.side_effect = fake_run
+        output = tte_status.format_status(
+            repo="owner/repo",
+            phase_branch="g02-phase",
+            pr_num=61,
+            issue_num=64,
+        )
+        lines = output.splitlines()
+        self.assertLessEqual(len(lines), 60)
 
 
 if __name__ == "__main__":

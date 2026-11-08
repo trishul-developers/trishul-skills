@@ -24,16 +24,18 @@ This skill provides the standard, concise template used by the Project Manager t
 ## 2. Steps & Assignments
 | Step | Description | Risk Tier | Model & Effort | Subagent Role |
 |---|---|---|---|---|
-| G02.08 | Visual entity class binding | Tier 2 | Sonnet high (or Sol med) | Implementor |
-| G02.09 | Multi-selection command fan-out | Tier 1 | Sonnet high (or Sol med) | Implementor |
-| G02.10 | Tactical order queues & benchmarks | Tier 1 | Sonnet high (or Sol med) | Implementor |
+| `<Step ID>` | `<Step description from spec>` | Tier 1 | Sol, medium | Implementor |
+| `<Step ID>` | `<Step description from spec>` | Tier 2 | Terra, high | Implementor |
+| `<Step ID>` | `<Step description from spec>` | Tier 3 / Docs / Execution | Luna | Light Worker |
+
+*Assignment follows `workflow.md` §2: Tier 1 implementation is Sol medium, Tier 2 and 3 implementation is Terra high, and light tasks/docs/execution are Luna. If Codex is out of quota, the fallback is Sonnet high (or Haiku for light tasks).*
 
 ## 3. Governing Invariants
 - **Tests First**: Acceptance tests written first; reviewed together with code (no standalone test review).
 - **Settings Guard**: Never commit or modify `ProjectSettings/**` or `Packages/**`.
 - **Differential Note**: Re-baseline simulation pins at batch end only, with an explicit cause citing a spec step or architect ruling for every outcome move.
 - **Blockers Only**: Only player-facing defects, replay/save breaks, or unexplained outcome pin moves block. All others go to the phase list.
-- **Attribution**: No AI attribution trailers (`Generated with`, `Co-Authored-By`) anywhere.
+- **Attribution**: No AI attribution trailers (`Generated with`, `Co-Authored-By`) anywhere (owner rule).
 
 ## 4. Phase-List Items Carried Forward
 - [ ] `<Item 1 from previous batch review / issue comments>`
@@ -41,7 +43,7 @@ This skill provides the standard, concise template used by the Project Manager t
 
 ## 5. What to Report
 On completion, the orchestrator reports:
-1. Verdict: `PASS` or `BLOCKED`
+1. Verdict: `PASS` or `CHANGES_REQUIRED`
 2. Final Commit SHA: `<40-char SHA>`
 3. Verification: FastCompile, EditMode, and PlayMode test counts
 4. Differential Note table (if pins moved)

@@ -73,10 +73,18 @@ def compute_merge_base(branch_a: str, branch_b: str, cwd: Optional[Path] = None)
 
 
 def get_changed_files(base_sha: str, branch: str, cwd: Optional[Path] = None) -> List[str]:
-    code, stdout, _ = run_cmd(["git", "diff", "--name-only", f"{base_sha}...{branch}"], cwd=cwd)
+    code, stdout, _ = run_cmd(
+        ["git", "diff", "--no-renames", "-z", "--name-only", f"{base_sha}...{branch}"],
+        cwd=cwd,
+    )
     if code == 0 and stdout:
-        return [f.strip() for f in stdout.splitlines() if f.strip()]
+        return [f.strip() for f in stdout.split("\0") if f.strip()]
     return []
+
+
+def resolve_full_ref(ref_name: str, cwd: Optional[Path] = None) -> str:
+    code, stdout, _ = run_cmd(["git", "rev-parse", "--symbolic-full-name", ref_name], cwd=cwd)
+    return stdout.strip() if code == 0 else ""
 
 
 def wait_for_ci_run(repo: str, phase_branch: str, target_sha: str, timeout: int = 60, cwd: Optional[Path] = None) -> Optional[Dict]:
@@ -116,8 +124,23 @@ def execute_phase_merge(
 ) -> int:
     repo = detect_repo(project_dir, repo_override)
 
-    # 1. Prohibit main branch manipulation
-    if side_branch.lower() == "main" or phase_branch.lower() == "main":
+    # 1. Prohibit branch names starting with '-' and main branch manipulation
+    if side_branch.startswith("-") or phase_branch.startswith("-"):
+        print("ERROR: Branch names starting with '-' are prohibited.", file=sys.stderr)
+        return 1
+
+    banned_ref_names = {"main", "origin/main", "heads/main"}
+    banned_full_refs = {"refs/heads/main", "refs/remotes/origin/main"}
+
+    side_full = resolve_full_ref(side_branch, cwd=project_dir)
+    phase_full = resolve_full_ref(phase_branch, cwd=project_dir)
+
+    if (
+        side_branch.lower() in banned_ref_names
+        or phase_branch.lower() in banned_ref_names
+        or side_full in banned_full_refs
+        or phase_full in banned_full_refs
+    ):
         print("ERROR: Touching, merging into, or merging from 'main' is prohibited by phase workflow rules.", file=sys.stderr)
         return 1
 
@@ -125,24 +148,17 @@ def execute_phase_merge(
         print(f"ERROR: Side branch '{side_branch}' and phase branch '{phase_branch}' are identical.", file=sys.stderr)
         return 1
 
-    # 2. Check clean working tree
-    clean, status_lines = is_working_tree_clean(project_dir)
-    if not clean:
-        print("ERROR: Working tree is not clean. Commit or stash changes before merging:", file=sys.stderr)
-        for sl in status_lines.splitlines()[:10]:
-            print(f"  {sl}", file=sys.stderr)
-        return 1
+    # 2. Check remote alignment for phase branch (warn if differs)
+    run_cmd(["git", "fetch", "origin", phase_branch], cwd=project_dir, timeout=120)
+    code_l, local_sha, _ = run_cmd(["git", "rev-parse", phase_branch], cwd=project_dir)
+    code_r, remote_sha, _ = run_cmd(["git", "rev-parse", f"origin/{phase_branch}"], cwd=project_dir)
+    if code_l == 0 and code_r == 0 and local_sha and remote_sha and local_sha != remote_sha:
+        print(
+            f"WARNING: Local phase branch '{phase_branch}' ({local_sha[:7]}) differs from 'origin/{phase_branch}' ({remote_sha[:7]}).",
+            file=sys.stderr,
+        )
 
-    # 3. Ensure we are on phase_branch
-    curr_branch = get_current_branch(project_dir)
-    if curr_branch != phase_branch:
-        print(f"Current branch is '{curr_branch}'. Switching to phase branch '{phase_branch}'...")
-        code, _, err = run_cmd(["git", "checkout", phase_branch], cwd=project_dir)
-        if code != 0:
-            print(f"ERROR: Failed to checkout phase branch '{phase_branch}': {err}", file=sys.stderr)
-            return 1
-
-    # 4. Compute merge base and changed files
+    # 3. Compute merge base and changed files (WITHOUT checkout)
     merge_base = compute_merge_base(phase_branch, side_branch, cwd=project_dir)
     if not merge_base:
         print(f"ERROR: Could not compute merge base between '{phase_branch}' and '{side_branch}'. Ensure '{side_branch}' exists.", file=sys.stderr)
@@ -156,7 +172,7 @@ def execute_phase_merge(
     if len(changed_files) > 15:
         print(f"  ... (+{len(changed_files) - 15} more files)")
 
-    # 5. Protected settings check
+    # 4. Protected settings check
     offending = [
         f for f in changed_files
         if f.startswith("ProjectSettings/") or f.startswith("ProjectSettings\\")
@@ -172,27 +188,68 @@ def execute_phase_merge(
         print("Refusing merge. Use --allow-settings if changes were authorized by owner/architect.", file=sys.stderr)
         return 1
 
-    if dry_run:
-        print("\nDry-run mode enabled. Previews passed cleanly; no merge performed.")
+    # 5. Check if already merged
+    code_ancestor, _, _ = run_cmd(["git", "merge-base", "--is-ancestor", side_branch, phase_branch], cwd=project_dir)
+    if code_ancestor == 0:
+        print(f"Notice: '{side_branch}' is already merged into '{phase_branch}'. Nothing to merge.")
         return 0
 
-    # 6. Perform merge commit (--no-ff)
+    if dry_run:
+        print("\nDry-run mode enabled. Previews passed cleanly; no checkout or merge performed.")
+        return 0
+
+    # 6. Check clean working tree
+    clean, status_lines = is_working_tree_clean(project_dir)
+    if not clean:
+        print("ERROR: Working tree is not clean. Commit or stash changes before merging:", file=sys.stderr)
+        for sl in status_lines.splitlines()[:10]:
+            print(f"  {sl}", file=sys.stderr)
+        return 1
+
+    # 7. Ensure we are on phase_branch
+    curr_branch = get_current_branch(project_dir)
+    if curr_branch != phase_branch:
+        print(f"Current branch is '{curr_branch}'. Switching to phase branch '{phase_branch}'...")
+        code, _, err = run_cmd(["git", "checkout", phase_branch], cwd=project_dir)
+        if code != 0:
+            print(f"ERROR: Failed to checkout phase branch '{phase_branch}': {err}", file=sys.stderr)
+            return 1
+
+    # 8. Perform merge commit (--no-ff)
     msg = custom_message or f"Merge branch '{side_branch}' into {phase_branch}"
     print(f"\nMerging '{side_branch}' into '{phase_branch}' (--no-ff)...")
     code, stdout, stderr = run_cmd(["git", "merge", "--no-ff", "-m", msg, side_branch], cwd=project_dir)
     if code != 0:
-        print(f"ERROR: Merge conflict or failure during git merge:\n{stderr or stdout}", file=sys.stderr)
-        run_cmd(["git", "merge", "--abort"], cwd=project_dir)
-        return code
+        print(f"ERROR: Merge conflict or failure during git merge:", file=sys.stderr)
+        if stdout:
+            print(f"git stdout:\n{stdout}", file=sys.stderr)
+        if stderr:
+            print(f"git stderr:\n{stderr}", file=sys.stderr)
+
+        # Print conflicted files before aborting
+        u_code, u_out, _ = run_cmd(["git", "diff", "--name-only", "--diff-filter=U"], cwd=project_dir)
+        conflicted_files = [f.strip() for f in u_out.splitlines() if f.strip()]
+        if conflicted_files:
+            print("Conflicted files:", file=sys.stderr)
+            for cf in conflicted_files:
+                print(f"  - {cf}", file=sys.stderr)
+
+        # Abort merge and check returncode
+        abort_code, a_stdout, a_stderr = run_cmd(["git", "merge", "--abort"], cwd=project_dir)
+        if abort_code != 0:
+            print(f"WARNING: 'git merge --abort' failed with exit code {abort_code}:\n{a_stderr or a_stdout}", file=sys.stderr)
+        else:
+            print("Successfully aborted merge and restored clean tree.", file=sys.stderr)
+        return 2
 
     code, new_sha, _ = run_cmd(["git", "rev-parse", "HEAD"], cwd=project_dir)
     new_sha = new_sha.strip()
     print(f"SUCCESS: Created merge commit {new_sha[:7]} ({new_sha}) on {phase_branch}.")
 
-    # 7. Push handling
+    # 9. Push handling
     if push:
         print(f"Pushing '{phase_branch}' to origin...")
-        code, p_stdout, p_stderr = run_cmd(["git", "push", "origin", phase_branch], cwd=project_dir)
+        code, p_stdout, p_stderr = run_cmd(["git", "push", "origin", phase_branch], cwd=project_dir, timeout=300)
         if code != 0:
             print(f"ERROR: git push failed:\n{p_stderr or p_stdout}", file=sys.stderr)
             return code

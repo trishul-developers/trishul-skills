@@ -7,14 +7,14 @@ tags: [tte, status, orchestrator, manager, git, gh, ci]
 
 # TTE Project Status
 
-`tte-status` produces a single, concise snapshot ($\le 60$ lines) of the Trishul Tactical Engine project state required by an orchestrator or manager upon waking. It eliminates dozens of exploratory tool calls across `git` and `gh`.
+`tte-status` produces a single, concise snapshot (<=60 lines) of the Trishul Tactical Engine project state required by an orchestrator or manager upon waking. It eliminates dozens of exploratory tool calls across `git` and `gh`. It inspects the local git cache and GitHub via `gh`; it does not perform a `git fetch`.
 
 ## What It Reports
 1. **Phase Branch & CI**: Phase head SHA, latest CI workflow run ID, conclusion, and individual job conclusions (e.g. `Fast C# compile gate`, `Unity EditMode`, `Unity PlayMode`).
 2. **Phase Divergence**: Exact commit counts ahead of and behind `main`.
 3. **Open PRs**: Number, branch name, title, and draft state.
 4. **Remote Branches**: Top 8 remote branches sorted by most recent commit, with short SHA and relative age.
-5. **Recent Context**: Last 3 comments on the phase PR (default 61) and question log issue (default 64), each cut to $\sim 200$ characters.
+5. **Recent Context**: Last 3 comments on the phase PR (default 61) and question log issue (default 64), each cut to ~200 characters.
 6. **Local Worktrees**: Worktree directories, checked-out branches, and current HEAD SHAs.
 
 ## Usage

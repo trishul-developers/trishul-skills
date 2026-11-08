@@ -2,15 +2,15 @@
 
 Welcome to the central **AIAgent Skill Hub** (`trishul-skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
 
-All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **16 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
+All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **17 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **16 skills** in [`catalog.json`](./catalog.json)
+- **Total Custom Skills Registered**: **17 skills** in [`catalog.json`](./catalog.json)
 - **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](./skills)
-- **Consolidated Platform Skills**: 4 skills directly in [`skills/`](./skills)
+- **Consolidated Platform Skills**: 5 skills directly in [`skills/`](./skills)
 - **Project-Specific Skills**: 9 custom skills residing in project repositories in [`skills/projects/`](./skills/projects)
 
 ---
@@ -19,7 +19,7 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 ```
 trishul-skills/
-  ├── catalog.json                             # Machine-readable registry of all 16 custom skills
+  ├── catalog.json                             # Machine-readable registry of all 17 custom skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
@@ -31,6 +31,7 @@ trishul-skills/
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
   │     ├── engineering-orchestrator/          # Canonical roles & compute governance
   │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest & git ops
+  │     ├── hub-messenger/                     # Zero-model Agent Hub poller & wakeup daemon
   │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
   │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
   │     └── projects/                          # Project-specific custom skills
@@ -124,7 +125,7 @@ python skills/projects/tte-content-pipeline/scripts/validate_content_asset.py --
 *Docs*: [`skills/projects/tte-content-pipeline/SKILL.md`](./skills/projects/tte-content-pipeline/SKILL.md)
 
 ### E. TTE Project Wakeup Status (`tte-status`)
-One command that prints the full project status required on waking in $\le 60$ lines:
+One command that prints the full project status required on waking in <= 60 lines:
 ```powershell
 python skills/projects/tte-status/scripts/tte_status.py -C "E:/Projects/trishul-tactical-engine"
 ```
@@ -136,6 +137,13 @@ Merges side branch into phase branch (`--no-ff`), enforces clean tree, protects 
 python skills/projects/tte-phase-merge/scripts/tte_phase_merge.py -C "E:/Projects/trishul-tactical-engine" --push "g02-q36-stale-target"
 ```
 *Docs*: [`skills/projects/tte-phase-merge/SKILL.md`](./skills/projects/tte-phase-merge/SKILL.md)
+
+### G. Trishul Agent Hub Messenger Daemon (`hub-messenger`)
+Zero-model poller and waking harness for Agent Hub participants with unread inbox messages:
+```powershell
+python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\owner.token" --target log
+```
+*Docs*: [`skills/hub-messenger/SKILL.md`](./skills/hub-messenger/SKILL.md)
 
 ---
 

@@ -263,7 +263,7 @@ def parse_tte_ci_job_log(repo: str, run_id: int, job_id: int, max_failures: int 
     failures = []
 
     for idx, l in enumerate(clean_lines):
-        if l.startswith("| total |") and idx + 2 < len(clean_lines):
+        if l.startswith("| total |") and counts is None and idx + 2 < len(clean_lines):
             data_line = clean_lines[idx + 2]
             parts = [p.strip() for p in data_line.split("|") if p.strip()]
             if len(parts) >= 4:
@@ -277,12 +277,14 @@ def parse_tte_ci_job_log(repo: str, run_id: int, job_id: int, max_failures: int 
                 except ValueError:
                     pass
 
-        if "First failures" in l:
-            for f_idx in range(idx + 1, min(idx + 1 + max_failures + 10, len(clean_lines))):
+        if "First failures" in l and not failures:
+            for f_idx in range(idx + 1, min(idx + 1 + max_failures + 30, len(clean_lines))):
                 f_line = clean_lines[f_idx]
-                if not f_line or f_line.startswith("##[") or f_line.startswith("|"):
+                if f_line.startswith("##[") or f_line.startswith("### "):
                     break
-                if f_line.startswith("- "):
+                if not f_line or f_line.startswith("|"):
+                    continue
+                if f_line.startswith("- ") or f_line.startswith("* "):
                     item = f_line[2:].strip()
                     if ":" in item:
                         name_part, msg_part = item.split(":", 1)
@@ -291,6 +293,9 @@ def parse_tte_ci_job_log(repo: str, run_id: int, job_id: int, max_failures: int 
                         failures.append((name, msg))
                     else:
                         failures.append((item.strip("`"), ""))
+
+        if counts and failures and l.startswith("### "):
+            break
 
     if counts or failures:
         return {"counts": counts, "failures": failures[:max_failures]}
@@ -438,10 +443,12 @@ def cmd_ci_digest(args):
     head_branch = run_info.get("headBranch") or ""
     conclusion = (run_info.get("conclusion") or run_info.get("status") or "UNKNOWN").upper()
 
-    print(f"=== CI Digest: {run_info.get('name', 'Run')} #{run_id} ===")
-    print(f"Run URL: {run_url}")
-    print(f"Branch:  {head_branch} @ {head_sha} | Verdict: [{conclusion}]")
-    print("\nJobs:")
+    lines = []
+    lines.append(f"=== CI Digest: {run_info.get('name', 'Run')} #{run_id} ===")
+    lines.append(f"Run URL: {run_url}")
+    lines.append(f"Branch:  {head_branch} @ {head_sha} | Verdict: [{conclusion}]")
+    lines.append("")
+    lines.append("Jobs:")
 
     jobs = run_info.get("jobs", [])
     for j in jobs:
@@ -450,28 +457,38 @@ def cmd_ci_digest(args):
         j_status = j.get("status", "")
         j_concl = (j.get("conclusion") or j_status or "UNKNOWN").upper()
 
-        print(f"- [{j_concl}] {j_name}")
-        if j_concl == "FAILURE":
-            parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
-            if not parsed:
-                parsed = parse_nunit_artifact(repo, run_id, j_name, max_failures)
+        lines.append(f"- [{j_concl}] {j_name}")
+        # Parse test counts for passing as well as failing jobs
+        parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
+        if not parsed:
+            parsed = parse_nunit_artifact(repo, run_id, j_name, max_failures)
 
-            if parsed:
-                if parsed.get("counts"):
-                    c = parsed["counts"]
-                    print(f"    Tests: {c.get('passed', 0)} passed, {c.get('failed', 0)} failed, {c.get('skipped', 0)} skipped (total {c.get('total', 0)})")
-                if parsed.get("failures"):
-                    fails = parsed["failures"]
-                    print(f"    First failures ({len(fails)}):")
-                    for name, msg in fails[:max_failures]:
-                        msg_str = f": {msg[:200]}" if msg else ""
-                        print(f"    * `{name}`{msg_str}")
-            else:
+        if parsed and parsed.get("counts"):
+            c = parsed["counts"]
+            lines.append(f"    Tests: {c.get('passed', 0)} passed, {c.get('failed', 0)} failed, {c.get('skipped', 0)} skipped (total {c.get('total', 0)})")
+
+        if j_concl == "FAILURE":
+            if parsed and parsed.get("failures"):
+                fails = parsed["failures"]
+                lines.append(f"    First failures ({len(fails)}):")
+                for name, msg in fails[:max_failures]:
+                    msg_str = f": {msg[:200]}" if msg else ""
+                    lines.append(f"    * `{name}`{msg_str}")
+            elif not (parsed and parsed.get("counts")):
                 err_lines = extract_job_error_lines(repo, run_id, j_id)
                 if err_lines:
-                    print("    Errors:")
+                    lines.append("    Errors:")
                     for el in err_lines[:5]:
-                        print(f"    * {el}")
+                        lines.append(f"    * {el}")
+
+    # Enforce strict 50-line cap
+    flat_lines = []
+    for l in lines:
+        flat_lines.extend(l.splitlines())
+    if len(flat_lines) > 50:
+        flat_lines = flat_lines[:49] + [f"... (+{len(flat_lines) - 49} lines truncated to meet 50-line cap)"]
+
+    print("\n".join(flat_lines))
 
 
 # ----------------------------------------------------------------------
@@ -549,18 +566,18 @@ def main():
     p_ci = subparsers.add_parser("ci", help="CI workflow and run operations", parents=[repo_parent])
     ci_sub = p_ci.add_subparsers(dest="action", required=True)
 
+    # Shared parser for ci digest and ci-digest
+    p_digest_opts = argparse.ArgumentParser(add_help=False)
+    p_digest_opts.add_argument("--run-id", type=int, help="Workflow run database ID")
+    p_digest_opts.add_argument("--branch", help="Branch name (fetches latest run for this branch)")
+    p_digest_opts.add_argument("--max-failures", type=int, default=10, help="Max failure lines to show (default: 10)")
+
     # ci digest
-    c_digest = ci_sub.add_parser("digest", help="Digest CI run or branch into compact summary", parents=[repo_parent])
-    c_digest.add_argument("--run-id", type=int, help="Workflow run database ID")
-    c_digest.add_argument("--branch", help="Branch name (fetches latest run for this branch)")
-    c_digest.add_argument("--max-failures", type=int, default=10, help="Max failure lines to show (default: 10)")
+    c_digest = ci_sub.add_parser("digest", help="Digest CI run or branch into compact summary", parents=[repo_parent, p_digest_opts])
     c_digest.set_defaults(func=cmd_ci_digest)
 
     # ci-digest (convenience alias for 'ci digest')
-    p_cid = subparsers.add_parser("ci-digest", help="Alias for 'ci digest'", parents=[repo_parent])
-    p_cid.add_argument("--run-id", type=int, help="Workflow run database ID")
-    p_cid.add_argument("--branch", help="Branch name (fetches latest run for this branch)")
-    p_cid.add_argument("--max-failures", type=int, default=10, help="Max failure lines to show (default: 10)")
+    p_cid = subparsers.add_parser("ci-digest", help="Alias for 'ci digest'", parents=[repo_parent, p_digest_opts])
     p_cid.set_defaults(func=cmd_ci_digest)
 
     args = parser.parse_args()

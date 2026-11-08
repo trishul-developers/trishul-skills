@@ -63,7 +63,7 @@ def get_phase_ci_status(repo: str, phase_branch: str, cwd: Optional[Path] = None
     head_sha = sha_out.strip() if code == 0 and sha_out else ""
 
     # 2. Get latest CI run for branch
-    code, run_json, _ = run_cmd([
+    code, run_json, stderr = run_cmd([
         "gh", "run", "list",
         "--repo", repo,
         "--branch", phase_branch,
@@ -75,8 +75,12 @@ def get_phase_ci_status(repo: str, phase_branch: str, cwd: Optional[Path] = None
     run_conclusion = "unknown"
     run_url = ""
     jobs = []
+    gh_error = None
 
-    if code == 0 and run_json:
+    if code != 0:
+        first_err = stderr.splitlines()[0].strip() if stderr.strip() else f"exit code {code}"
+        gh_error = first_err
+    elif run_json:
         try:
             runs = json.loads(run_json)
             if runs:
@@ -91,12 +95,12 @@ def get_phase_ci_status(repo: str, phase_branch: str, cwd: Optional[Path] = None
             pass
 
     if run_id:
-        code, jobs_json, _ = run_cmd([
+        code_j, jobs_json, stderr_j = run_cmd([
             "gh", "run", "view", str(run_id),
             "--repo", repo,
             "--json", "jobs",
         ])
-        if code == 0 and jobs_json:
+        if code_j == 0 and jobs_json:
             try:
                 data = json.loads(jobs_json)
                 for j in data.get("jobs", []):
@@ -114,6 +118,7 @@ def get_phase_ci_status(repo: str, phase_branch: str, cwd: Optional[Path] = None
         "conclusion": run_conclusion,
         "url": run_url,
         "jobs": jobs,
+        "error": gh_error,
     }
 
 
@@ -141,19 +146,22 @@ def get_ahead_behind(phase_branch: str, cwd: Optional[Path] = None) -> Tuple[int
     return 0, 0
 
 
-def get_open_prs(repo: str) -> List[Dict]:
-    code, stdout, _ = run_cmd([
+def get_open_prs(repo: str) -> Tuple[List[Dict], Optional[str]]:
+    code, stdout, stderr = run_cmd([
         "gh", "pr", "list",
         "--repo", repo,
         "--state", "open",
         "--json", "number,headRefName,title,isDraft",
     ])
-    if code == 0 and stdout:
+    if code != 0:
+        first_err = stderr.splitlines()[0].strip() if stderr.strip() else f"exit code {code}"
+        return [], first_err
+    if stdout:
         try:
-            return json.loads(stdout)
+            return json.loads(stdout), None
         except Exception:
             pass
-    return []
+    return [], None
 
 
 def get_top_remote_branches(count: int = 8, cwd: Optional[Path] = None) -> List[Tuple[str, str, str]]:
@@ -177,16 +185,20 @@ def get_top_remote_branches(count: int = 8, cwd: Optional[Path] = None) -> List[
     return branches
 
 
-def get_recent_comments(repo: str, item_type: str, item_num: int, count: int = 3) -> List[Dict]:
+def get_recent_comments(repo: str, item_type: str, item_num: int, count: int = 3) -> Tuple[List[Dict], Optional[str]]:
     cmd = ["gh", item_type, "view", str(item_num), "--repo", repo, "--json", "comments"]
-    code, stdout, _ = run_cmd(cmd)
+    code, stdout, stderr = run_cmd(cmd)
+    if code != 0:
+        first_err = stderr.splitlines()[0].strip() if stderr.strip() else f"exit code {code}"
+        return [], first_err
     comments = []
-    if code == 0 and stdout:
+    if stdout:
         try:
             data = json.loads(stdout)
             all_comments = data.get("comments", [])
             for c in all_comments[-count:]:
-                author = c.get("author", {}).get("login", "unknown")
+                author_dict = c.get("author") or {}
+                author = author_dict.get("login", "unknown") if isinstance(author_dict, dict) else "unknown"
                 body = (c.get("body") or "").replace("\r\n", " ").replace("\n", " ").strip()
                 created = c.get("createdAt", "")[:16].replace("T", " ")
                 # Cut body to ~200 chars
@@ -198,7 +210,7 @@ def get_recent_comments(repo: str, item_type: str, item_num: int, count: int = 3
                 })
         except Exception:
             pass
-    return comments
+    return comments, None
 
 
 def get_local_worktrees(cwd: Optional[Path] = None) -> List[Dict]:
@@ -235,7 +247,7 @@ def format_status(
     project_dir: Optional[Path] = None,
 ) -> str:
     lines = []
-    lines.append(f"=== TTE Project Status: {repo} ===")
+    lines.append(f"=== TTE Project Status: {repo} (local cache; does not fetch) ===")
 
     # 1. Phase Branch & CI Run
     ci_info = get_phase_ci_status(repo, phase_branch, cwd=project_dir)
@@ -243,7 +255,9 @@ def format_status(
     run_str = f"Run #{ci_info['run_id']} [{ci_info['conclusion'].upper()}]" if ci_info.get("run_id") else "No CI run"
     jobs_summary = ", ".join([f"{j['name']} [{j['conclusion']}]" for j in ci_info.get("jobs", [])])
     lines.append(f"Phase: {phase_branch} @ {sha_short} | CI: {run_str}")
-    if jobs_summary:
+    if ci_info.get("error"):
+        lines.append(f"  gh error: {ci_info['error']}")
+    elif jobs_summary:
         lines.append(f"  Jobs: {jobs_summary}")
 
     # 2. Ahead / Behind
@@ -251,15 +265,19 @@ def format_status(
     lines.append(f"Divergence: ahead {ahead}, behind {behind} (vs main)")
 
     # 3. Open PRs
-    prs = get_open_prs(repo)
+    prs, pr_err = get_open_prs(repo)
     lines.append(f"\nOpen PRs ({len(prs)}):")
-    if prs:
-        for p in prs:
+    if pr_err:
+        lines.append(f"  gh error: {pr_err}")
+    elif prs:
+        for p in prs[:6]:
             draft_tag = "Draft" if p.get("isDraft") else "Ready"
             title = p.get("title", "")
             if len(title) > 60:
                 title = title[:57] + "..."
             lines.append(f"  #{p['number']} [{p.get('headRefName', '')}] {title} ({draft_tag})")
+        if len(prs) > 6:
+            lines.append(f"  ... (+{len(prs) - 6} more)")
     else:
         lines.append("  (none)")
 
@@ -270,18 +288,22 @@ def format_status(
         lines.append(f"  {name} @ {sha} ({age})")
 
     # 5. Last 3 Comments on PR
-    pr_comments = get_recent_comments(repo, "pr", pr_num, count=3)
+    pr_comments, pr_c_err = get_recent_comments(repo, "pr", pr_num, count=3)
     lines.append(f"\nPR #{pr_num} Last Comments ({len(pr_comments)}):")
-    if pr_comments:
+    if pr_c_err:
+        lines.append(f"  gh error: {pr_c_err}")
+    elif pr_comments:
         for c in pr_comments:
             lines.append(f"  [{c['created']} @{c['author']}]: {c['body']}")
     else:
         lines.append("  (none)")
 
     # 6. Last 3 Comments on Issue
-    issue_comments = get_recent_comments(repo, "issue", issue_num, count=3)
+    issue_comments, is_c_err = get_recent_comments(repo, "issue", issue_num, count=3)
     lines.append(f"\nIssue #{issue_num} Last Comments ({len(issue_comments)}):")
-    if issue_comments:
+    if is_c_err:
+        lines.append(f"  gh error: {is_c_err}")
+    elif issue_comments:
         for c in issue_comments:
             lines.append(f"  [{c['created']} @{c['author']}]: {c['body']}")
     else:
@@ -290,14 +312,17 @@ def format_status(
     # 7. Local Worktrees (Compact)
     wts = get_local_worktrees(cwd=project_dir)
     lines.append(f"\nLocal Worktrees ({len(wts)}):")
-    # Show active/unique ones, compact
-    for w in wts[:8]:
+    for w in wts[:6]:
         p_name = Path(w.get("path", "")).name
         branch = w.get("branch", "unknown")
         head = (w.get("head", ""))[:7]
         lines.append(f"  {p_name} -> {branch} @ {head}")
-    if len(wts) > 8:
-        lines.append(f"  ... (+{len(wts) - 8} more worktrees)")
+    if len(wts) > 6:
+        lines.append(f"  ... (+{len(wts) - 6} more)")
+
+    # Enforce strict 60-line cap
+    if len(lines) > 60:
+        lines = lines[:59] + [f"... (+{len(lines) - 59} lines truncated to meet 60-line cap)"]
 
     return "\n".join(lines)
 

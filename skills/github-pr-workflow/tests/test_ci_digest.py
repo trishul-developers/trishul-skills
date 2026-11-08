@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for CI digest in gh_helper.py."""
 
+import io
 import json
 import os
 import sys
@@ -14,18 +15,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import gh_helper  # noqa: E402
 
-
-SAMPLE_CI_LOG = """
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1832275Z ### Unity EditMode
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1832583Z 
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1832752Z | total | passed | failed | skipped | inconclusive | minutes | unity exit |
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1833067Z |---:|---:|---:|---:|---:|---:|---:|
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1833269Z | 3709 | 3699 | 1 | 9 | 0 | 16 | 2 |
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1833397Z 
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1833481Z First failures (of 1):
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.1834058Z - `Trishul.Tests.EditMode.SampleTest.MyTestMethod`: System.Exception : Failed on assertion.
-Unity EditMode	UNKNOWN STEP	2026-11-07T01:39:50.2077247Z ##[error]Process completed with exit code 1.
-"""
+FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_tte_ci.log"
 
 SAMPLE_NUNIT_XML = """<?xml version="1.0" encoding="utf-8"?>
 <test-run id="2" testcasecount="50" result="Failed" total="50" passed="48" failed="2" skipped="0" duration="1.25">
@@ -53,19 +43,27 @@ class TestCiDigest(unittest.TestCase):
         self.assertEqual(clean, "| total | passed |")
 
     @patch("gh_helper.run_cmd")
-    def test_parse_tte_ci_job_log(self, mock_run_cmd):
-        mock_run_cmd.return_value = (0, SAMPLE_CI_LOG, "")
-        res = gh_helper.parse_tte_ci_job_log("owner/repo", 12345, 67890)
+    def test_parse_real_tte_ci_fixture(self, mock_run_cmd):
+        self.assertTrue(FIXTURE_PATH.exists(), f"Fixture file not found: {FIXTURE_PATH}")
+        fixture_content = FIXTURE_PATH.read_text(encoding="utf-8")
+        mock_run_cmd.return_value = (0, fixture_content, "")
+
+        res = gh_helper.parse_tte_ci_job_log("tosumitdhaka/trishul-tactical-engine", 42323789243, 1001)
         self.assertIsNotNone(res)
         counts = res["counts"]
         self.assertEqual(counts["total"], 3709)
         self.assertEqual(counts["passed"], 3699)
         self.assertEqual(counts["failed"], 1)
         self.assertEqual(counts["skipped"], 9)
+
+        # Ensure failure is parsed despite blank lines and markdown table rows
         failures = res["failures"]
         self.assertEqual(len(failures), 1)
-        self.assertEqual(failures[0][0], "Trishul.Tests.EditMode.SampleTest.MyTestMethod")
-        self.assertIn("Failed on assertion", failures[0][1])
+        self.assertEqual(
+            failures[0][0],
+            "Trishul.Tests.EditMode.G02Orders.LargeSelectionMoveTests.NormalSceneTearDown_ReleasesConsumerAndClearsHeldViews",
+        )
+        self.assertIn("Ambiguous match found", failures[0][1])
 
     def test_parse_nunit_artifact_fallback(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -74,7 +72,6 @@ class TestCiDigest(unittest.TestCase):
 
             with patch("gh_helper.run_cmd") as mock_run_cmd:
                 def fake_download(cmd):
-                    # simulate downloading into tmpdir
                     dest_dir = cmd[cmd.index("--dir") + 1]
                     target = Path(dest_dir) / "test-results.xml"
                     target.write_text(SAMPLE_NUNIT_XML, encoding="utf-8")
@@ -89,6 +86,69 @@ class TestCiDigest(unittest.TestCase):
                 self.assertEqual(len(res["failures"]), 2)
                 self.assertEqual(res["failures"][0][0], "Trishul.Tests.PlayMode.SamplePlayModeTest")
                 self.assertIn("Expected: True", res["failures"][0][1])
+
+    @patch("gh_helper.parse_tte_ci_job_log")
+    @patch("gh_helper.run_cmd")
+    def test_ci_digest_50_line_cap_and_passing_test_counts(self, mock_run, mock_parse_log):
+        # 30 jobs to exceed 50 lines
+        jobs = []
+        for i in range(30):
+            jobs.append({
+                "id": 1000 + i,
+                "name": f"Job {i}",
+                "status": "completed",
+                "conclusion": "success" if i % 2 == 0 else "failure",
+            })
+
+        canned_run_info = {
+            "name": "Unity CI",
+            "url": "https://github.com/owner/repo/actions/runs/123",
+            "headSha": "abcdef1234567890",
+            "headBranch": "main",
+            "status": "completed",
+            "conclusion": "failure",
+            "jobs": jobs,
+        }
+
+        mock_run.return_value = (0, json.dumps(canned_run_info), "")
+        mock_parse_log.return_value = {
+            "counts": {"total": 100, "passed": 98, "failed": 2, "skipped": 0},
+            "failures": [("TestA", "Error message")],
+        }
+
+        class FakeArgs:
+            repo = "owner/repo"
+            run_id = 123
+            branch = None
+            max_failures = 5
+
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            gh_helper.cmd_ci_digest(FakeArgs())
+
+        output = buf.getvalue()
+        lines = output.strip().splitlines()
+        self.assertLessEqual(len(lines), 50)
+        self.assertTrue(any("Tests: 98 passed, 2 failed" in l for l in lines))
+        self.assertTrue(any("truncated to meet 50-line cap" in l for l in lines))
+
+    def test_shared_digest_subparser(self):
+        # Verify both commands share subparser options
+        with patch("sys.argv", ["gh_helper.py", "ci-digest", "--run-id", "12345", "--max-failures", "5"]):
+            with patch("gh_helper.cmd_ci_digest") as mock_ci_digest:
+                gh_helper.main()
+                self.assertTrue(mock_ci_digest.called)
+                args = mock_ci_digest.call_args[0][0]
+                self.assertEqual(args.run_id, 12345)
+                self.assertEqual(args.max_failures, 5)
+
+        with patch("sys.argv", ["gh_helper.py", "ci", "digest", "--run-id", "67890", "--max-failures", "8"]):
+            with patch("gh_helper.cmd_ci_digest") as mock_ci_digest:
+                gh_helper.main()
+                self.assertTrue(mock_ci_digest.called)
+                args = mock_ci_digest.call_args[0][0]
+                self.assertEqual(args.run_id, 67890)
+                self.assertEqual(args.max_failures, 8)
 
 
 if __name__ == "__main__":

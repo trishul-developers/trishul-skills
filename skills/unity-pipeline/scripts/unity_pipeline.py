@@ -22,6 +22,7 @@ import signal
 import subprocess
 import sys
 import time
+import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -59,7 +60,36 @@ class UnityMachineLock:
         self.acquired = False
         self._registered_handlers = False
 
-    def is_pid_alive(self, pid: int) -> bool:
+    def get_process_creation_time(self, pid: int) -> Optional[float]:
+        if sys.platform != "win32" or pid <= 0:
+            return None
+        import ctypes
+        from ctypes import wintypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return None
+        try:
+            creation_time = wintypes.FILETIME()
+            exit_time = wintypes.FILETIME()
+            kernel_time = wintypes.FILETIME()
+            user_time = wintypes.FILETIME()
+            res = ctypes.windll.kernel32.GetProcessTimes(
+                handle,
+                ctypes.byref(creation_time),
+                ctypes.byref(exit_time),
+                ctypes.byref(kernel_time),
+                ctypes.byref(user_time),
+            )
+            if not res:
+                return None
+            ft_int = (creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime
+            return float(ft_int)
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+
+    def is_pid_alive(self, pid: int, expected_creation_time: Optional[float] = None) -> bool:
         if pid <= 0:
             return False
         if sys.platform == "win32":
@@ -72,11 +102,20 @@ class UnityMachineLock:
             )
             if not handle:
                 return False
-            exit_code = ctypes.c_ulong()
-            ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
-            ctypes.windll.kernel32.CloseHandle(handle)
-            # STILL_ACTIVE = 259
-            return exit_code.value == 259
+            try:
+                exit_code = ctypes.c_ulong()
+                ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                # STILL_ACTIVE = 259
+                if exit_code.value != 259:
+                    return False
+                if expected_creation_time is not None:
+                    curr_creation = self.get_process_creation_time(pid)
+                    if curr_creation is not None and curr_creation != expected_creation_time:
+                        # Process ID was reused by another process
+                        return False
+                return True
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
         else:
             try:
                 os.kill(pid, 0)
@@ -84,29 +123,107 @@ class UnityMachineLock:
             except (ProcessLookupError, PermissionError):
                 return False
 
-    def read_lock(self) -> Optional[Dict[str, Any]]:
+    def read_lock(self, grace_period: float = 2.0) -> Optional[Dict[str, Any]]:
         if not self.lock_file.exists():
             return None
-        try:
-            content = self.lock_file.read_text(encoding="utf-8", errors="replace")
-            data = json.loads(content)
-            if isinstance(data, dict) and "pid" in data:
-                return data
-        except Exception:
-            pass
-        return None
 
-    def write_lock(self) -> None:
+        deadline = time.monotonic() + grace_period
+        while True:
+            try:
+                stat_res = self.lock_file.stat()
+                file_age = time.time() - stat_res.st_mtime
+            except FileNotFoundError:
+                return None
+            except Exception:
+                return None
+
+            content = ""
+            try:
+                content = self.lock_file.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+            if content.strip():
+                try:
+                    parsed = json.loads(content)
+                    if isinstance(parsed, dict) and "pid" in parsed:
+                        pid_val = parsed["pid"]
+                        if isinstance(pid_val, int) or (isinstance(pid_val, str) and pid_val.isdigit()):
+                            parsed["pid"] = int(pid_val)
+                            return parsed
+                except Exception:
+                    pass
+
+            if file_age < grace_period and time.monotonic() < deadline:
+                time.sleep(0.05)
+                continue
+
+            return {
+                "pid": -1,
+                "stale": True,
+                "reason": "corrupt_or_empty",
+                "project_path": "unknown",
+                "start_time": stat_res.st_mtime,
+            }
+
+    def _try_create_lock(self) -> bool:
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        creation_time = self.get_process_creation_time(os.getpid())
         payload = {
             "pid": os.getpid(),
+            "creation_time": creation_time,
             "start_time": time.time(),
             "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             "project_path": str(self.project_path),
         }
-        tmp_file = self.lock_file.with_name(f"{self.lock_file.name}.tmp.{os.getpid()}")
-        tmp_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        tmp_file.replace(self.lock_file)
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        try:
+            fd = os.open(str(self.lock_file), flags, 0o644)
+        except (FileExistsError, OSError):
+            return False
+
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(payload, indent=2))
+            self.acquired = True
+            self._install_handlers()
+            return True
+        except Exception:
+            try:
+                self.lock_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return False
+
+    def write_lock(self) -> None:
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        creation_time = self.get_process_creation_time(os.getpid())
+        payload = {
+            "pid": os.getpid(),
+            "creation_time": creation_time,
+            "start_time": time.time(),
+            "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            "project_path": str(self.project_path),
+        }
+        tmp_file = self.lock_file.with_name(f"{self.lock_file.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
+        try:
+            tmp_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            retries = 10
+            while retries > 0:
+                try:
+                    tmp_file.replace(self.lock_file)
+                    break
+                except PermissionError:
+                    retries -= 1
+                    if retries == 0:
+                        raise
+                    time.sleep(0.05)
+        finally:
+            if tmp_file.exists():
+                try:
+                    tmp_file.unlink()
+                except Exception:
+                    pass
         self.acquired = True
         self._install_handlers()
 
@@ -129,28 +246,53 @@ class UnityMachineLock:
     def acquire(self) -> None:
         start_wait = time.monotonic()
         while True:
+            if self._try_create_lock():
+                return
+
             lock_data = self.read_lock()
             if lock_data is None:
-                self.write_lock()
-                return
+                time.sleep(0.05)
+                continue
 
             locked_pid = int(lock_data.get("pid", 0))
             locked_proj = lock_data.get("project_path", "unknown")
             start_time_str = lock_data.get("start_time_iso") or str(
                 lock_data.get("start_time", "unknown")
             )
+            expected_creation = lock_data.get("creation_time")
 
             if locked_pid == os.getpid():
                 self.acquired = True
                 return
 
-            if not self.is_pid_alive(locked_pid):
-                print(
-                    f"Notice: Found stale Unity lock from dead PID {locked_pid} (project: '{locked_proj}'). Taking over lock.",
-                    file=sys.stderr,
+            is_stale = lock_data.get("stale", False) or not self.is_pid_alive(
+                locked_pid, expected_creation_time=expected_creation
+            )
+
+            if is_stale:
+                # Stale takeover: rename stale file first to unique name
+                stale_target = self.lock_file.with_name(
+                    f"{self.lock_file.name}.stale.{uuid.uuid4().hex}"
                 )
-                self.write_lock()
-                return
+                try:
+                    os.rename(str(self.lock_file), str(stale_target))
+                except (FileNotFoundError, PermissionError, OSError):
+                    time.sleep(0.05)
+                    continue
+
+                try:
+                    stale_target.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+                if self._try_create_lock():
+                    print(
+                        f"Notice: Took over stale Unity lock from dead PID {locked_pid} (project: '{locked_proj}').",
+                        file=sys.stderr,
+                    )
+                    return
+                time.sleep(0.05)
+                continue
 
             if self.mode == "exit":
                 print(
@@ -171,12 +313,12 @@ class UnityMachineLock:
                 f"Unity lock held by PID {locked_pid} (project: '{locked_proj}', started: {start_time_str}). Waiting for release (elapsed: {int(elapsed)}s)...",
                 file=sys.stderr,
             )
-            time.sleep(2)
+            time.sleep(1)
 
     def release(self) -> None:
         if self.acquired:
             try:
-                lock_data = self.read_lock()
+                lock_data = self.read_lock(grace_period=0.2)
                 if lock_data and int(lock_data.get("pid", 0)) == os.getpid():
                     if self.lock_file.exists():
                         self.lock_file.unlink()
@@ -432,7 +574,7 @@ def resolve_unity_exe(
 
     editor_version = None
     try:
-        for line in ver_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        for line in ver_file.read_text(encoding="utf-8-sig", errors="replace").splitlines():
             line = line.strip()
             if line.startswith("m_EditorVersion:"):
                 editor_version = line.split(":", 1)[1].strip()
@@ -688,21 +830,58 @@ def main() -> int:
             code, stdout, stderr = run_cmd(
                 cmd, cwd=project_path, timeout=getattr(args, "timeout", 1800)
             )
-        if not xml_out.exists() or xml_out.stat().st_mtime < t_launch:
-            print(f"Gate Step 3 (EditMode Tests): FAILED - No fresh XML report produced (exit code {code})")
-            err_logs = inspect_logs(log_file)
-            if err_logs:
-                print("\n".join(err_logs))
-            return 1
+            if not xml_out.exists() or xml_out.stat().st_mtime < t_launch:
+                print(f"Gate Step 3 (EditMode Tests): FAILED - No fresh XML report produced (exit code {code})")
+                err_logs = inspect_logs(log_file)
+                if err_logs:
+                    print("\n".join(err_logs))
+                return 1
 
-        report = parse_nunit_xml(xml_out)
-        if not report.get("passed"):
-            print(f"Gate Step 3 (EditMode Tests): FAILED ({report.get('error') or str(report.get('failed_count')) + ' failures'})")
-            if report.get("failures"):
-                print(f"  First failure: {report['failures'][0]['name']} - {report['failures'][0]['message']}")
-            return 1
+            report = parse_nunit_xml(xml_out)
+            if not report.get("passed"):
+                print(f"Gate Step 3 (EditMode Tests): FAILED ({report.get('error') or str(report.get('failed_count')) + ' failures'})")
+                if report.get("failures"):
+                    print(f"  First failure: {report['failures'][0]['name']} - {report['failures'][0]['message']}")
+                return 1
 
-        print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']}/{report['total']})")
+            print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']}/{report['total']})")
+
+            # Step 4: PlayMode Tests
+            xml_play = project_path / "gate-playmode-results.xml"
+            log_play = project_path / "gate-playmode-unity.log"
+            if xml_play.exists():
+                xml_play.unlink()
+
+            t_launch_play = time.time()
+            cmd_play = [
+                unity_exe, "-batchmode",
+                "-projectPath", str(project_path),
+                "-runTests", "-testPlatform", "PlayMode",
+                "-testResults", str(xml_play), "-logFile", str(log_play),
+            ]
+            if args.filter:
+                cmd_play.extend(["-testFilter", args.filter])
+
+            print(f"Gate Step 4 (PlayMode Tests with {unity_exe})...")
+            code_p, stdout_p, stderr_p = run_cmd(
+                cmd_play, cwd=project_path, timeout=getattr(args, "timeout", 1800)
+            )
+            if not xml_play.exists() or xml_play.stat().st_mtime < t_launch_play:
+                print(f"Gate Step 4 (PlayMode Tests): FAILED - No fresh XML report produced (exit code {code_p})")
+                err_logs = inspect_logs(log_play)
+                if err_logs:
+                    print("\n".join(err_logs))
+                return 1
+
+            report_play = parse_nunit_xml(xml_play)
+            if not report_play.get("passed"):
+                print(f"Gate Step 4 (PlayMode Tests): FAILED ({report_play.get('error') or str(report_play.get('failed_count')) + ' failures'})")
+                if report_play.get("failures"):
+                    print(f"  First failure: {report_play['failures'][0]['name']} - {report_play['failures'][0]['message']}")
+                return 1
+
+            print(f"Gate Step 4 (PlayMode Tests): PASSED ({report_play['passed_count']}/{report_play['total']})")
+
         print(f"\nCOMPOSITE GATE {phase_label}: AUTHORITATIVE GREEN")
         return 0
 

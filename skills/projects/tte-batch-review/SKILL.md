@@ -26,7 +26,10 @@ Only the following three categories constitute a **BLOCKER** that stops a merge 
 3. **Unexplained Outcome Pin Move**: A simulation outcome pin change that has no named spec step or architect ruling in the differential note.
 
 > [!IMPORTANT]
-> **Everything else goes on the phase list.** Findings regarding secondary edge cases, naming, non-allocating refactors, comment clarity, or future debt are classified as non-blocking and recorded on the phase issue list for whole-phase review.
+> **Classification per `workflow.md` §5:**
+> Findings are classified as **blocker**, **should-fix**, or **nit**:
+> - **Blocker**: Something a player can hit, or a break in replay or save/restore in a normal run. An outcome pin move with no named cause is also a blocker. Blockers block the batch (`CHANGES_REQUIRED`) and go to the implementor for a single recheck of changed items by the same reviewer.
+> - **Should-fix & Nit**: Anything else, including edge cases that need a full capacity table or a test-only path, is should-fix or a nit. These do not gate the batch and go on the phase list (kept on the phase issue) for the whole-phase review.
 
 ---
 
@@ -52,7 +55,7 @@ The reviewer must structure their review response using this exact schema:
 - **Differential Note Checked**: [YES | N/A]
 
 #### Findings
-1. **[BLOCKER | PHASE-LIST]** `<file>:<line>`
+1. **[BLOCKER | SHOULD-FIX | NIT]** `<file>:<line>`
    - **Failing Scenario**: `<concrete reproducer or scenario>`
    - **Spec / Ruling Citation**: `<spec clause, D-doc section, or #64 ruling>`
    - **Required Action**: `<exact fix required>`
