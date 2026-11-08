@@ -179,8 +179,11 @@ class UnityMachineLock:
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
             fd = os.open(str(self.lock_file), flags, 0o644)
-        except (FileExistsError, OSError):
+        except FileExistsError:
             return False
+        except OSError as e:
+            print(f"ERROR: Cannot create lock file '{self.lock_file}': {e}", file=sys.stderr)
+            sys.exit(1)
 
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -188,12 +191,13 @@ class UnityMachineLock:
             self.acquired = True
             self._install_handlers()
             return True
-        except Exception:
+        except Exception as e:
             try:
                 self.lock_file.unlink(missing_ok=True)
             except Exception:
                 pass
-            return False
+            print(f"ERROR: Failed to write lock file '{self.lock_file}': {e}", file=sys.stderr)
+            sys.exit(1)
 
     def write_lock(self) -> None:
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
@@ -246,6 +250,14 @@ class UnityMachineLock:
     def acquire(self) -> None:
         start_wait = time.monotonic()
         while True:
+            elapsed = time.monotonic() - start_wait
+            if elapsed >= self.timeout:
+                print(
+                    f"ERROR: Timed out waiting {self.timeout}s for Unity lock '{self.lock_file}'.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
             if self._try_create_lock():
                 return
 
@@ -280,6 +292,32 @@ class UnityMachineLock:
                     time.sleep(0.05)
                     continue
 
+                # Verify we renamed the stale file we actually observed, not a newly created live lock
+                renamed_data = None
+                try:
+                    content = stale_target.read_text(encoding="utf-8", errors="replace")
+                    if content.strip():
+                        renamed_data = json.loads(content)
+                except Exception:
+                    pass
+
+                # If renamed file has different PID or creation_time than stale data, put it back!
+                if isinstance(renamed_data, dict):
+                    renamed_pid = renamed_data.get("pid")
+                    renamed_creation = renamed_data.get("creation_time")
+                    if renamed_pid != locked_pid or (
+                        expected_creation is not None and renamed_creation != expected_creation
+                    ):
+                        try:
+                            if hasattr(os, "replace"):
+                                os.replace(str(stale_target), str(self.lock_file))
+                            else:
+                                os.rename(str(stale_target), str(self.lock_file))
+                        except Exception:
+                            pass
+                        time.sleep(0.05)
+                        continue
+
                 try:
                     stale_target.unlink(missing_ok=True)
                 except Exception:
@@ -300,14 +338,6 @@ class UnityMachineLock:
                     file=sys.stderr,
                 )
                 sys.exit(75)
-
-            elapsed = time.monotonic() - start_wait
-            if elapsed >= self.timeout:
-                print(
-                    f"ERROR: Timed out waiting {self.timeout}s for Unity lock held by PID {locked_pid} (project: '{locked_proj}').",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
 
             print(
                 f"Unity lock held by PID {locked_pid} (project: '{locked_proj}', started: {start_time_str}). Waiting for release (elapsed: {int(elapsed)}s)...",

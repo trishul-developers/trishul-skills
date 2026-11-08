@@ -67,13 +67,13 @@ class TestCiDigest(unittest.TestCase):
 
     def test_parse_nunit_artifact_fallback(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            xml_file = Path(tmpdir) / "editmode.xml"
+            xml_file = Path(tmpdir) / "TestResults-editmode.xml"
             xml_file.write_text(SAMPLE_NUNIT_XML, encoding="utf-8")
 
             with patch("gh_helper.run_cmd") as mock_run_cmd:
                 def fake_download(cmd):
                     dest_dir = cmd[cmd.index("--dir") + 1]
-                    target = Path(dest_dir) / "test-results.xml"
+                    target = Path(dest_dir) / "TestResults-editmode.xml"
                     target.write_text(SAMPLE_NUNIT_XML, encoding="utf-8")
                     return (0, "Downloaded", "")
 
@@ -87,17 +87,28 @@ class TestCiDigest(unittest.TestCase):
                 self.assertEqual(res["failures"][0][0], "Trishul.Tests.PlayMode.SamplePlayModeTest")
                 self.assertIn("Expected: True", res["failures"][0][1])
 
+    def test_strict_matching_never_falls_back_to_xml_files_0(self):
+        # Strict matching: unrelated xml filename must return None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "unrelated_other.xml"
+            target.write_text(SAMPLE_NUNIT_XML, encoding="utf-8")
+
+            with patch("gh_helper.run_cmd") as mock_run_cmd:
+                mock_run_cmd.return_value = (0, "Downloaded", "")
+                res = gh_helper.parse_nunit_artifact("owner/repo", 12345, "Unity EditMode", target_dir=tmpdir)
+                self.assertIsNone(res)
+
     @patch("gh_helper.parse_tte_ci_job_log")
     @patch("gh_helper.run_cmd")
-    def test_ci_digest_50_line_cap_and_passing_test_counts(self, mock_run, mock_parse_log):
+    def test_ci_digest_50_line_cap_and_failed_unity_test_counts(self, mock_run, mock_parse_log):
         # 30 jobs to exceed 50 lines
         jobs = []
         for i in range(30):
             jobs.append({
                 "id": 1000 + i,
-                "name": f"Job {i}",
+                "name": f"Unity EditMode Job {i}",
                 "status": "completed",
-                "conclusion": "success" if i % 2 == 0 else "failure",
+                "conclusion": "failure" if i % 2 == 0 else "success",
             })
 
         canned_run_info = {
@@ -131,6 +142,51 @@ class TestCiDigest(unittest.TestCase):
         self.assertLessEqual(len(lines), 50)
         self.assertTrue(any("Tests: 98 passed, 2 failed" in l for l in lines))
         self.assertTrue(any("truncated to meet 50-line cap" in l for l in lines))
+
+    def test_api_request_failure_exits_one_line_cleanly(self):
+        # Test api_request HTTPError and URLError handling with single line error and code 1
+        with patch("urllib.request.urlopen") as mock_open:
+            import urllib.error
+            mock_open.side_effect = urllib.error.HTTPError(
+                "https://api.github.com/test", 404, "Not Found", {}, io.BytesIO(b'{"message": "Resource not found"}')
+            )
+            with patch("gh_helper.get_token", return_value="dummy_token"):
+                err_buf = io.StringIO()
+                with patch("sys.stderr", err_buf):
+                    with self.assertRaises(SystemExit) as ctx:
+                        gh_helper.api_request("/test")
+                    self.assertEqual(ctx.exception.code, 1)
+                self.assertIn("ERROR: GitHub API HTTP 404", err_buf.getvalue())
+                self.assertIn("Resource not found", err_buf.getvalue())
+                # Must be single line (no traceback)
+                self.assertEqual(len(err_buf.getvalue().strip().splitlines()), 1)
+
+    @patch("gh_helper.get_token")
+    @patch("gh_helper.run_cmd")
+    def test_ci_digest_uses_gh_only_no_token_or_credential_fill(self, mock_run, mock_token):
+        canned_run_info = {
+            "name": "Unity CI",
+            "url": "https://github.com/owner/repo/actions/runs/123",
+            "headSha": "abcdef1234567890",
+            "headBranch": "main",
+            "status": "completed",
+            "conclusion": "success",
+            "jobs": [{"id": 1, "name": "Lint", "status": "completed", "conclusion": "success"}],
+        }
+        mock_run.return_value = (0, json.dumps(canned_run_info), "")
+
+        class FakeArgs:
+            repo = "owner/repo"
+            run_id = 123
+            branch = None
+            max_failures = 5
+
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            gh_helper.cmd_ci_digest(FakeArgs())
+
+        # Verify get_token (which invokes git credential fill) was NEVER called
+        self.assertFalse(mock_token.called)
 
     def test_shared_digest_subparser(self):
         # Verify both commands share subparser options

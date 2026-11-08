@@ -266,6 +266,204 @@ class TestHubMessenger(unittest.TestCase):
         log_content = self.log_path.read_text(encoding="utf-8")
         self.assertIn("Skipping wake for 'test-target': previous wake process is still active", log_content)
 
+    def test_default_wake_timeout_900_and_timeout_terminates_turn(self):
+        m = hub_messenger.HubMessenger(
+            hub_url="http://127.0.0.1:8765",
+            project="tte",
+            token_file=self.token_path,
+            config_path=self.config_path,
+            state_path=self.state_path,
+            log_path=self.log_path,
+            dry_run=False,
+        )
+        self.assertEqual(hub_messenger.DEFAULT_WAKE_TIMEOUT, 900)
+
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+        mock_proc.pid = 7890
+        # Started 901 seconds ago
+        m.active_wakes["stalled-target"] = (mock_proc, time.monotonic() - 901, 900)
+
+        m.poll_active_wakes()
+        self.assertTrue(mock_proc.terminate.called)
+        self.assertNotIn("stalled-target", m.active_wakes)
+        log_text = self.log_path.read_text(encoding="utf-8")
+        self.assertIn("timed out after 900s", log_text)
+        self.assertIn("Terminating turn in progress", log_text)
+
+    def test_wake_command_line_and_ids_never_logged(self):
+        m = hub_messenger.HubMessenger(
+            hub_url="http://127.0.0.1:8765",
+            project="tte",
+            token_file=self.token_path,
+            config_path=self.config_path,
+            state_path=self.state_path,
+            log_path=self.log_path,
+            dry_run=False,
+        )
+
+        secret_thread = "thread-uuid-SECRET-HANDLE-12345"
+        target_cfg = {"mode": "codex", "thread_id": secret_thread}
+
+        with patch("subprocess.Popen") as mock_popen:
+            mock_proc = MagicMock()
+            mock_proc.pid = 1111
+            mock_popen.return_value = mock_proc
+            m.launch_wake("codex-worker", target_cfg)
+
+        log_text = self.log_path.read_text(encoding="utf-8")
+        # Mode and target name are logged
+        self.assertIn("Launching detached wake for 'codex-worker' [mode=codex]", log_text)
+        # Thread ID and full command line are NEVER logged
+        self.assertNotIn(secret_thread, log_text)
+        self.assertNotIn("exec resume", log_text)
+
+    def test_single_instance_pidfile_guard_and_stale_takeover(self):
+        pid_file = self.base_dir / "test_messenger.pid"
+        lock1 = hub_messenger.MessengerPidLock(pid_file)
+        lock1.acquire()
+        self.assertTrue(lock1.acquired)
+        self.assertTrue(pid_file.exists())
+
+        # Second instance trying to acquire same pidfile while live PID runs must raise RuntimeError
+        lock2 = hub_messenger.MessengerPidLock(pid_file)
+        with self.assertRaises(RuntimeError) as ctx:
+            lock2.acquire()
+        self.assertIn("Another hub-messenger instance is already running", str(ctx.exception))
+
+        # Release first lock
+        lock1.release()
+        self.assertFalse(pid_file.exists())
+
+        # Now simulate a stale lock (PID 999999, dead)
+        stale_data = {
+            "pid": 999999,
+            "creation_time": 100.0,
+            "start_time": 1000.0,
+            "start_time_iso": "2026-01-01 00:00:00",
+        }
+        pid_file.write_text(json.dumps(stale_data), encoding="utf-8")
+
+        # Second instance must detect stale dead PID and successfully acquire
+        lock3 = hub_messenger.MessengerPidLock(pid_file)
+        lock3.acquire()
+        self.assertTrue(lock3.acquired)
+        curr_data = json.loads(pid_file.read_text(encoding="utf-8"))
+        import os
+        self.assertEqual(curr_data["pid"], os.getpid())
+        lock3.release()
+
+    def test_missing_or_locked_token_file_does_not_crash_and_logs_once(self):
+        missing_token = self.base_dir / "nonexistent.token"
+        m = hub_messenger.HubMessenger(
+            hub_url="http://127.0.0.1:8765",
+            project="tte",
+            token_file=missing_token,
+            config_path=self.config_path,
+            state_path=self.state_path,
+            log_path=self.log_path,
+            interval=60,
+            dry_run=True,
+        )
+
+        # Cycle 1: Missing token file logs once and returns backoff delay without crashing
+        delay1 = m.run_poll_cycle()
+        self.assertTrue(m.hub_down)
+        self.assertTrue(m.token_error_logged)
+        self.assertEqual(delay1, 120)
+
+        # Cycle 2: Does NOT log duplicate token error
+        delay2 = m.run_poll_cycle()
+        self.assertEqual(delay2, 240)
+
+        log_text = self.log_path.read_text(encoding="utf-8")
+        self.assertEqual(log_text.count("Cannot read token file"), 1)
+        self.assertIn("nonexistent.token", log_text)
+
+    def test_http_401_logs_once_and_backs_off(self):
+        m = hub_messenger.HubMessenger(
+            hub_url="http://127.0.0.1:8765",
+            project="tte",
+            token_file=self.token_path,
+            config_path=self.config_path,
+            state_path=self.state_path,
+            log_path=self.log_path,
+            interval=60,
+            dry_run=True,
+        )
+
+        with patch("urllib.request.urlopen") as mock_open:
+            import urllib.error
+            mock_open.side_effect = urllib.error.HTTPError(
+                "http://127.0.0.1:8765/v1/participants?project=tte",
+                401,
+                "Unauthorized",
+                {},
+                None,
+            )
+            # Cycle 1: logs HTTP 401 error
+            delay1 = m.run_poll_cycle()
+            self.assertTrue(m.hub_down)
+            self.assertTrue(m.auth_failed)
+            self.assertEqual(delay1, 120)
+
+            # Cycle 2: backs off without duplicate log
+            delay2 = m.run_poll_cycle()
+            self.assertEqual(delay2, 240)
+
+        log_text = self.log_path.read_text(encoding="utf-8")
+        self.assertEqual(log_text.count("Authentication failed (HTTP 401)"), 1)
+
+    def test_config_type_validation(self):
+        # Mode not a string
+        valid1, err1 = hub_messenger.validate_target_config("target-bad-mode", {"mode": 123})
+        self.assertFalse(valid1)
+        self.assertIn("must be a string", err1)
+
+        # Timeout not an int
+        valid2, err2 = hub_messenger.validate_target_config("target-bad-timeout", {"mode": "log", "timeout": "not-a-number"})
+        self.assertFalse(valid2)
+        self.assertIn("must be an integer", err2)
+
+        # Valid config
+        valid3, err3 = hub_messenger.validate_target_config("target-ok", {"mode": "codex", "timeout": 600})
+        self.assertTrue(valid3)
+        self.assertIsNone(err3)
+
+    def test_stdin_devnull_and_shutil_which_and_reject_hyphen_ids(self):
+        m = hub_messenger.HubMessenger(
+            hub_url="http://127.0.0.1:8765",
+            project="tte",
+            token_file=self.token_path,
+            config_path=self.config_path,
+            state_path=self.state_path,
+            log_path=self.log_path,
+            dry_run=False,
+        )
+
+        # 1. Hyphen thread_id rejected
+        with patch("subprocess.Popen") as mock_popen:
+            m.launch_wake("codex-bad", {"mode": "codex", "thread_id": "-injected-flag"})
+            self.assertFalse(mock_popen.called)
+        log_text = self.log_path.read_text(encoding="utf-8")
+        self.assertIn("cannot start with '-'", log_text)
+
+        # 2. Valid codex wake sets stdin=DEVNULL and resolves shutil.which
+        with patch("shutil.which", return_value="C:/npm/codex.cmd") as mock_which:
+            with patch("subprocess.Popen") as mock_popen:
+                mock_proc = MagicMock()
+                mock_proc.pid = 9911
+                mock_popen.return_value = mock_proc
+
+                m.launch_wake("codex-good", {"mode": "codex", "thread_id": "thread-abc"})
+                self.assertTrue(mock_which.called)
+                self.assertTrue(mock_popen.called)
+                args, kwargs = mock_popen.call_args
+                import subprocess
+                self.assertEqual(kwargs.get("stdin"), subprocess.DEVNULL)
+                self.assertEqual(args[0][0], "C:/npm/codex.cmd")
+                self.assertEqual(args[0][3], "thread-abc")
+
 
 if __name__ == "__main__":
     unittest.main()

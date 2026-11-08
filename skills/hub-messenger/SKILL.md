@@ -40,17 +40,17 @@ Wake behavior is configured in `%LOCALAPPDATA%\hub-messenger\config.json` (outsi
     "orchestrator-codex": {
       "mode": "codex",
       "thread_id": "<codex-session-uuid>",
-      "timeout": 30
+      "timeout": 900
     },
     "orchestrator-claude": {
       "mode": "claude",
       "session_id": "<claude-session-id>",
-      "timeout": 30
+      "timeout": 900
     },
     "custom-worker": {
       "mode": "command",
       "command": ["python", "C:/path/to/worker_wake.py"],
-      "timeout": 30
+      "timeout": 900
     }
   }
 }
@@ -62,9 +62,11 @@ Wake behavior is configured in `%LOCALAPPDATA%\hub-messenger\config.json` (outsi
 - **`claude`**: Executes `claude -p --resume <session-id> "Check your hub inbox."` detached and non-blocking with a timeout.
 - **`command`**: Executes an explicit argument list specified in the target configuration.
 
-### Concurrency Safeguards:
+### Concurrency & Lifecycle Safeguards:
 - Never launches more than one wake process for the same target simultaneously. If a previous wake process is still active, subsequent wake triggers for that target are skipped until the active process terminates.
-- Subprocesses are detached, non-blocking, enforced by a timeout, and their exit codes are logged.
+- **Default Wake Timeout (900 s)**: Each wake subprocess defaults to a timeout of 900 seconds (15 minutes). If a wake process exceeds this timeout, `hub-messenger` terminates it (`proc.terminate()`), terminating a turn in progress to prevent stalled runs.
+- **Single-Instance PID Lock**: An atomic `O_EXCL` pidfile (`state.pid`) protects the daemon so multiple messenger processes cannot run against the same state file simultaneously. Dead instances are detected and recovered via process creation time validation.
+- Subprocesses are spawned detached and non-blocking with `stdin=DEVNULL`, and exit codes are logged.
 
 ---
 
@@ -76,12 +78,13 @@ The daemon accepts a bearer token via `--token-file <path>`:
 - Log and error messages refer strictly to the file path (e.g. `'C:\Users\...\owner.token'`), never its contents.
 
 Available token options under `C:\Users\tosum\TrishulAgentHub\tokens`:
-- `owner.token`: Trishul Agent Hub owner token.
+- `runtime.token`: Recommended daemon runtime token (least privilege; listing participants is allowed for any authenticated actor per `permissions.py:426`).
+- `coordinator.token`: Participant token for coordinator.
 - `controller.token`: Controller credential.
-- `runtime.token`: Headless runner and daemon runtime token.
 - `app-codex.token`: Codex app client credential.
 - `app-claude-code.token`: Claude Code app client credential.
 - `app-antigravity.token`: Antigravity app client credential.
+- `owner.token`: Trishul Agent Hub owner token (administrative operations).
 
 ---
 
@@ -89,18 +92,18 @@ Available token options under `C:\Users\tosum\TrishulAgentHub\tokens`:
 
 ### Basic Polling Run
 ```bash
-python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\owner.token"
+python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
 ```
 
 ### Single Cycle Verification (--once & --dry-run)
 ```bash
-python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\owner.token" --once --dry-run
+python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token" --once --dry-run
 ```
 
 ### Command Options:
 - `--hub-url <url>`: Agent Hub base URL (default: `http://127.0.0.1:8765`).
 - `--project <name>`: Project name to poll (default: `tte`, automatically resolves to `trishul-tactical-engine` if aliased).
-- `--token-file <path>`: Path to file containing bearer token.
+- `--token-file <path>`: Path to file containing bearer token (recommend a least-privilege token like `runtime.token`).
 - `--interval <seconds>`: Poll interval in seconds (default: `60`).
 - `--config <path>`: Path to target configuration JSON (default: `%LOCALAPPDATA%\hub-messenger\config.json`).
 - `--state-file <path>`: Path to persistent state file (default: `%LOCALAPPDATA%\hub-messenger\state.json`).
@@ -116,7 +119,7 @@ python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosu
 To start `hub-messenger` automatically in the background upon Windows logon, run this command from an elevated PowerShell prompt:
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute "python.exe" -Argument "E:\Projects\Skills\skills\hub-messenger\scripts\hub_messenger.py --token-file C:\Users\tosum\TrishulAgentHub\tokens\owner.token"
+$action = New-ScheduledTaskAction -Execute "python.exe" -Argument "E:\Projects\Skills\skills\hub-messenger\scripts\hub_messenger.py --token-file C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
 Register-ScheduledTask -TaskName "TrishulHubMessenger" -Action $action -Trigger $trigger -Settings $settings -Description "Trishul Agent Hub Standby Messenger Daemon"

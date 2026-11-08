@@ -19,6 +19,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -109,11 +110,26 @@ def api_request(endpoint, method="GET", data=None, repo=None):
             content = resp.read().decode("utf-8")
             return json.loads(content) if content else {}
     except urllib.error.HTTPError as e:
-        err_msg = e.read().decode("utf-8", errors="replace")
-        print(f"HTTP ERROR {e.code} on {method} {url}: {err_msg}", file=sys.stderr)
+        err_msg = ""
+        try:
+            raw_err = e.read().decode("utf-8", errors="replace")
+            err_json = json.loads(raw_err)
+            if isinstance(err_json, dict) and "message" in err_json:
+                err_msg = err_json["message"]
+            else:
+                err_msg = raw_err
+        except Exception:
+            err_msg = str(e.reason)
+        first_line = err_msg.strip().splitlines()[0] if err_msg.strip() else str(e.reason)
+        print(f"ERROR: GitHub API HTTP {e.code} on {method} {url}: {first_line}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        msg = str(e.reason).strip().splitlines()[0] if e.reason else str(e)
+        print(f"ERROR: GitHub API connection failed on {method} {url}: {msg}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"ERROR on {method} {url}: {e}", file=sys.stderr)
+        msg = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+        print(f"ERROR: GitHub API failed on {method} {url}: {msg}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -302,49 +318,65 @@ def parse_tte_ci_job_log(repo: str, run_id: int, job_id: int, max_failures: int 
     return None
 
 
-def parse_nunit_artifact(repo: str, run_id: int, job_name: str, max_failures: int = 10):
-    """Fallback: download NUnit XML artifacts and parse test counts and failures."""
-    import tempfile
-    import xml.etree.ElementTree as ET
+def is_unity_test_job(job_name: str) -> bool:
+    nl = job_name.lower()
+    return "editmode" in nl or "playmode" in nl or ("unity" in nl and "test" in nl)
 
+
+def match_nunit_xml_for_job(xml_files: List[Path], job_name: str) -> Optional[Path]:
+    j_lower = job_name.lower()
+    for xf in xml_files:
+        x_lower = xf.name.lower()
+        if "editmode" in j_lower and "editmode" in x_lower:
+            return xf
+        if "playmode" in j_lower and "playmode" in x_lower:
+            return xf
+    return None
+
+
+def parse_nunit_xml(xml_path: Path, max_failures: int = 10) -> Optional[Dict[str, Any]]:
+    import xml.etree.ElementTree as ET
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        counts = {
+            "total": int(root.attrib.get("total", 0)),
+            "passed": int(root.attrib.get("passed", 0)),
+            "failed": int(root.attrib.get("failed", 0)),
+            "skipped": int(root.attrib.get("skipped", 0)),
+        }
+        failures = []
+        for tc in root.iter("test-case"):
+            res = tc.attrib.get("result", "")
+            if res.lower() in ("failed", "failure"):
+                name = tc.attrib.get("fullname") or tc.attrib.get("name") or "UnknownTest"
+                fail_node = tc.find("failure")
+                msg = fail_node.findtext("message") if fail_node is not None else ""
+                failures.append((name, (msg or "").strip()))
+        return {"counts": counts, "failures": failures[:max_failures]}
+    except Exception:
+        return None
+
+
+def parse_nunit_artifact(repo: str, run_id: int, job_name: str, max_failures: int = 10, target_dir: Optional[str] = None):
+    """Fallback: parse NUnit XML report artifact with strict job matching (never falls back to xml_files[0])."""
+    if target_dir:
+        xml_files = list(Path(target_dir).rglob("*.xml"))
+        matched_xml = match_nunit_xml_for_job(xml_files, job_name)
+        if matched_xml:
+            return parse_nunit_xml(matched_xml, max_failures)
+        return None
+
+    import tempfile
     with tempfile.TemporaryDirectory() as tmpdir:
         code, _, _ = run_cmd(["gh", "run", "download", str(run_id), "--repo", repo, "--dir", tmpdir])
         if code != 0:
             return None
-
         xml_files = list(Path(tmpdir).rglob("*.xml"))
-        if not xml_files:
-            return None
-
-        target_xml = xml_files[0]
-        for xf in xml_files:
-            if "editmode" in job_name.lower() and "editmode" in xf.name.lower():
-                target_xml = xf
-                break
-            if "playmode" in job_name.lower() and "playmode" in xf.name.lower():
-                target_xml = xf
-                break
-
-        try:
-            tree = ET.parse(target_xml)
-            root = tree.getroot()
-            counts = {
-                "total": int(root.attrib.get("total", 0)),
-                "passed": int(root.attrib.get("passed", 0)),
-                "failed": int(root.attrib.get("failed", 0)),
-                "skipped": int(root.attrib.get("skipped", 0)),
-            }
-            failures = []
-            for tc in root.iter("test-case"):
-                res = tc.attrib.get("result", "")
-                if res.lower() in ("failed", "failure"):
-                    name = tc.attrib.get("fullname") or tc.attrib.get("name") or "UnknownTest"
-                    fail_node = tc.find("failure")
-                    msg = fail_node.findtext("message") if fail_node is not None else ""
-                    failures.append((name, (msg or "").strip()))
-            return {"counts": counts, "failures": failures[:max_failures]}
-        except Exception:
-            return None
+        matched_xml = match_nunit_xml_for_job(xml_files, job_name)
+        if matched_xml:
+            return parse_nunit_xml(matched_xml, max_failures)
+        return None
 
 
 def extract_job_error_lines(repo: str, run_id: int, job_id: int):
@@ -374,7 +406,7 @@ def cmd_ci_digest(args):
     branch = getattr(args, "branch", None)
     max_failures = getattr(args, "max_failures", 10)
 
-    # 1. Resolve run_id if not given
+    # 1. Resolve run_id via gh only
     if not run_id:
         if not branch:
             code, curr_branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -383,7 +415,7 @@ def cmd_ci_digest(args):
             else:
                 branch = "main"
 
-        code, stdout, _ = run_cmd([
+        code, stdout, stderr = run_cmd([
             "gh", "run", "list",
             "--repo", repo,
             "--branch", branch,
@@ -399,21 +431,13 @@ def cmd_ci_digest(args):
                 pass
 
         if not run_id:
-            try:
-                data = api_request(f"/repos/{repo}/actions/runs?branch={branch}&per_page=1")
-                runs = data.get("workflow_runs", [])
-                if runs:
-                    run_id = runs[0].get("id")
-            except Exception:
-                pass
-
-        if not run_id:
-            print(f"ERROR: No CI workflow runs found for branch '{branch}' in {repo}.", file=sys.stderr)
+            err = stderr.strip().splitlines()[0] if stderr.strip() else f"No CI workflow runs found for branch '{branch}' in {repo}."
+            print(f"ERROR: {err}", file=sys.stderr)
             sys.exit(1)
 
-    # 2. Fetch run details & jobs
+    # 2. Fetch run details & jobs via gh only
     run_info = None
-    code, stdout, _ = run_cmd([
+    code, stdout, stderr = run_cmd([
         "gh", "run", "view", str(run_id),
         "--repo", repo,
         "--json", "databaseId,headSha,headBranch,status,conclusion,url,jobs,name",
@@ -425,18 +449,9 @@ def cmd_ci_digest(args):
             pass
 
     if not run_info:
-        run_data = api_request(f"/repos/{repo}/actions/runs/{run_id}")
-        jobs_data = api_request(f"/repos/{repo}/actions/runs/{run_id}/jobs")
-        run_info = {
-            "databaseId": run_data.get("id"),
-            "headSha": run_data.get("head_sha"),
-            "headBranch": run_data.get("head_branch"),
-            "status": run_data.get("status"),
-            "conclusion": run_data.get("conclusion"),
-            "url": run_data.get("html_url"),
-            "name": run_data.get("name"),
-            "jobs": jobs_data.get("jobs", []),
-        }
+        err = stderr.strip().splitlines()[0] if stderr.strip() else f"Failed to view run {run_id} via 'gh'."
+        print(f"ERROR: {err}", file=sys.stderr)
+        sys.exit(1)
 
     run_url = run_info.get("url") or f"https://github.com/{repo}/actions/runs/{run_id}"
     head_sha = (run_info.get("headSha") or "")[:7]
@@ -450,36 +465,67 @@ def cmd_ci_digest(args):
     lines.append("")
     lines.append("Jobs:")
 
-    jobs = run_info.get("jobs", [])
-    for j in jobs:
-        j_id = j.get("id") or j.get("databaseId")
-        j_name = j.get("name", "Unnamed")
-        j_status = j.get("status", "")
-        j_concl = (j.get("conclusion") or j_status or "UNKNOWN").upper()
+    import tempfile
+    downloaded_artifacts_tmp: Optional[tempfile.TemporaryDirectory] = None
+    cached_xml_files: Optional[List[Path]] = None
 
-        lines.append(f"- [{j_concl}] {j_name}")
-        # Parse test counts for passing as well as failing jobs
-        parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
-        if not parsed:
-            parsed = parse_nunit_artifact(repo, run_id, j_name, max_failures)
+    def get_run_xml_files() -> List[Path]:
+        nonlocal downloaded_artifacts_tmp, cached_xml_files
+        if cached_xml_files is not None:
+            return cached_xml_files
+        downloaded_artifacts_tmp = tempfile.TemporaryDirectory()
+        code, _, _ = run_cmd([
+            "gh", "run", "download", str(run_id),
+            "--repo", repo,
+            "--dir", downloaded_artifacts_tmp.name,
+        ])
+        if code == 0:
+            cached_xml_files = list(Path(downloaded_artifacts_tmp.name).rglob("*.xml"))
+        else:
+            cached_xml_files = []
+        return cached_xml_files
 
-        if parsed and parsed.get("counts"):
-            c = parsed["counts"]
-            lines.append(f"    Tests: {c.get('passed', 0)} passed, {c.get('failed', 0)} failed, {c.get('skipped', 0)} skipped (total {c.get('total', 0)})")
+    try:
+        jobs = run_info.get("jobs", [])
+        for j in jobs:
+            j_id = j.get("id") or j.get("databaseId")
+            j_name = j.get("name", "Unnamed")
+            j_status = j.get("status", "")
+            j_concl = (j.get("conclusion") or j_status or "UNKNOWN").upper()
 
-        if j_concl == "FAILURE":
-            if parsed and parsed.get("failures"):
-                fails = parsed["failures"]
-                lines.append(f"    First failures ({len(fails)}):")
-                for name, msg in fails[:max_failures]:
-                    msg_str = f": {msg[:200]}" if msg else ""
-                    lines.append(f"    * `{name}`{msg_str}")
-            elif not (parsed and parsed.get("counts")):
-                err_lines = extract_job_error_lines(repo, run_id, j_id)
-                if err_lines:
-                    lines.append("    Errors:")
-                    for el in err_lines[:5]:
-                        lines.append(f"    * {el}")
+            lines.append(f"- [{j_concl}] {j_name}")
+
+            # Fetch job logs and NUnit artifact fallback only for failed Unity test jobs whose log has no summary
+            if j_concl == "FAILURE" and is_unity_test_job(j_name):
+                parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
+                if not (parsed and parsed.get("counts")):
+                    xml_files = get_run_xml_files()
+                    matched_xml = match_nunit_xml_for_job(xml_files, j_name)
+                    if matched_xml:
+                        parsed = parse_nunit_xml(matched_xml, max_failures)
+
+                if parsed and parsed.get("counts"):
+                    c = parsed["counts"]
+                    lines.append(f"    Tests: {c.get('passed', 0)} passed, {c.get('failed', 0)} failed, {c.get('skipped', 0)} skipped (total {c.get('total', 0)})")
+
+                if parsed and parsed.get("failures"):
+                    fails = parsed["failures"]
+                    lines.append(f"    First failures ({len(fails)}):")
+                    for name, msg in fails[:max_failures]:
+                        msg_str = f": {msg[:200]}" if msg else ""
+                        lines.append(f"    * `{name}`{msg_str}")
+                elif not (parsed and parsed.get("counts")):
+                    err_lines = extract_job_error_lines(repo, run_id, j_id)
+                    if err_lines:
+                        lines.append("    Errors:")
+                        for el in err_lines[:5]:
+                            lines.append(f"    * {el}")
+    finally:
+        if downloaded_artifacts_tmp is not None:
+            try:
+                downloaded_artifacts_tmp.cleanup()
+            except Exception:
+                pass
 
     # Enforce strict 50-line cap
     flat_lines = []

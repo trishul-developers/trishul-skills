@@ -15,16 +15,20 @@ Standard library Python 3 only.
 """
 
 import argparse
+import atexit
 import json
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+import shutil
+import signal
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -36,6 +40,7 @@ for stream in (sys.stdout, sys.stderr):
 DEFAULT_HUB_URL = "http://127.0.0.1:8765"
 DEFAULT_PROJECT = "tte"
 DEFAULT_INTERVAL = 60
+DEFAULT_WAKE_TIMEOUT = 900
 WAKE_TEXT = "Check your hub inbox."
 THIRTY_MINUTES_SEC = 1800.0
 
@@ -79,7 +84,7 @@ def setup_logger(log_file: Path) -> logging.Logger:
 
 def read_token(token_file: Path) -> str:
     """Read token file into memory only.
-    
+
     Never print, log, echo, pass on a command line, or write it anywhere.
     Error messages name the path, never the contents.
     """
@@ -92,6 +97,28 @@ def read_token(token_file: Path) -> str:
     if not content:
         raise ValueError(f"Token file '{token_file}' is empty.")
     return content
+
+
+def validate_target_config(target_name: str, target_cfg: Any) -> Tuple[bool, Optional[str]]:
+    """Validate target configuration schema and types."""
+    if not isinstance(target_cfg, dict):
+        return False, f"Target '{target_name}' config must be a JSON object, got {type(target_cfg).__name__}"
+
+    mode = target_cfg.get("mode", "log")
+    if not isinstance(mode, str):
+        return False, f"Target '{target_name}' mode must be a string, got {type(mode).__name__}"
+
+    timeout = target_cfg.get("timeout", DEFAULT_WAKE_TIMEOUT)
+    if isinstance(timeout, int):
+        if timeout <= 0:
+            return False, f"Target '{target_name}' timeout must be a positive integer, got {timeout}"
+    elif isinstance(timeout, str) and timeout.isdigit():
+        if int(timeout) <= 0:
+            return False, f"Target '{target_name}' timeout must be a positive integer, got {timeout}"
+    else:
+        return False, f"Target '{target_name}' timeout must be an integer, got {type(timeout).__name__}"
+
+    return True, None
 
 
 def load_config(config_file: Path) -> Dict[str, Any]:
@@ -170,6 +197,196 @@ def should_wake_participant(
     return False, f"Pending unchanged ({pending}) and only {int((now_ts - last_wake_ts)//60)}m elapsed"
 
 
+class MessengerPidLock:
+    """Single-instance guard using atomic O_EXCL file creation with stale-PID handling."""
+
+    def __init__(self, pid_file: Path):
+        self.pid_file = pid_file
+        self.acquired = False
+        self._registered_handlers = False
+
+    def get_process_creation_time(self, pid: int) -> Optional[float]:
+        if sys.platform != "win32" or pid <= 0:
+            return None
+        import ctypes
+        from ctypes import wintypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return None
+        try:
+            creation_time = wintypes.FILETIME()
+            exit_time = wintypes.FILETIME()
+            kernel_time = wintypes.FILETIME()
+            user_time = wintypes.FILETIME()
+            res = ctypes.windll.kernel32.GetProcessTimes(
+                handle,
+                ctypes.byref(creation_time),
+                ctypes.byref(exit_time),
+                ctypes.byref(kernel_time),
+                ctypes.byref(user_time),
+            )
+            if not res:
+                return None
+            ft_int = (creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime
+            return float(ft_int)
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
+
+    def is_pid_alive(self, pid: int, expected_creation_time: Optional[float] = None) -> bool:
+        if pid <= 0:
+            return False
+        if sys.platform == "win32":
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            SYNCHRONIZE = 0x00100000
+            handle = ctypes.windll.kernel32.OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid
+            )
+            if not handle:
+                return False
+            try:
+                exit_code = ctypes.c_ulong()
+                ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                if exit_code.value != 259:  # STILL_ACTIVE
+                    return False
+                if expected_creation_time is not None:
+                    curr_creation = self.get_process_creation_time(pid)
+                    if curr_creation is not None and curr_creation != expected_creation_time:
+                        return False
+                return True
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        else:
+            try:
+                os.kill(pid, 0)
+                return True
+            except (ProcessLookupError, PermissionError):
+                return False
+
+    def _try_create_pidfile(self) -> bool:
+        self.pid_file.parent.mkdir(parents=True, exist_ok=True)
+        creation_time = self.get_process_creation_time(os.getpid())
+        payload = {
+            "pid": os.getpid(),
+            "creation_time": creation_time,
+            "start_time": time.time(),
+            "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+        }
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        try:
+            fd = os.open(str(self.pid_file), flags, 0o644)
+        except FileExistsError:
+            return False
+        except OSError as e:
+            raise OSError(f"Cannot create pidfile '{self.pid_file}': {e}") from e
+
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(payload, indent=2))
+            self.acquired = True
+            self._install_handlers()
+            return True
+        except Exception:
+            try:
+                self.pid_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return False
+
+    def acquire(self) -> None:
+        if self._try_create_pidfile():
+            return
+
+        lock_data = None
+        try:
+            content = self.pid_file.read_text(encoding="utf-8", errors="replace")
+            if content.strip():
+                lock_data = json.loads(content)
+        except Exception:
+            pass
+
+        locked_pid = int(lock_data.get("pid", -1)) if isinstance(lock_data, dict) else -1
+        expected_creation = lock_data.get("creation_time") if isinstance(lock_data, dict) else None
+
+        is_stale = locked_pid <= 0 or not self.is_pid_alive(
+            locked_pid, expected_creation_time=expected_creation
+        )
+
+        if is_stale:
+            stale_target = self.pid_file.with_name(
+                f"{self.pid_file.name}.stale.{uuid.uuid4().hex}"
+            )
+            try:
+                os.rename(str(self.pid_file), str(stale_target))
+            except (FileNotFoundError, PermissionError, OSError):
+                pass
+            else:
+                renamed_data = None
+                try:
+                    content = stale_target.read_text(encoding="utf-8", errors="replace")
+                    if content.strip():
+                        renamed_data = json.loads(content)
+                except Exception:
+                    pass
+
+                if isinstance(renamed_data, dict):
+                    renamed_pid = renamed_data.get("pid")
+                    renamed_creation = renamed_data.get("creation_time")
+                    if renamed_pid != locked_pid or (
+                        expected_creation is not None and renamed_creation != expected_creation
+                    ):
+                        try:
+                            if hasattr(os, "replace"):
+                                os.replace(str(stale_target), str(self.pid_file))
+                            else:
+                                os.rename(str(stale_target), str(self.pid_file))
+                        except Exception:
+                            pass
+                        raise RuntimeError(
+                            f"Another hub-messenger instance is already running (PID {renamed_pid}). Exiting."
+                        )
+
+                try:
+                    stale_target.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+                if self._try_create_pidfile():
+                    return
+
+        raise RuntimeError(
+            f"Another hub-messenger instance is already running (PID {locked_pid}). Exiting."
+        )
+
+    def release(self) -> None:
+        if self.acquired:
+            try:
+                if self.pid_file.exists():
+                    self.pid_file.unlink()
+            except Exception:
+                pass
+            self.acquired = False
+
+    def _install_handlers(self) -> None:
+        if self._registered_handlers:
+            return
+        self._registered_handlers = True
+        atexit.register(self.release)
+
+        def _signal_handler(signum, frame):
+            self.release()
+            sys.exit(128 + signum if isinstance(signum, int) else 1)
+
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                signal.signal(sig, _signal_handler)
+            except (ValueError, AttributeError):
+                pass
+
+
 class HubMessenger:
     def __init__(
         self,
@@ -192,18 +409,33 @@ class HubMessenger:
         self.interval = interval
         self.dry_run = dry_run
         self.logger = setup_logger(log_path)
+        self.pid_lock = MessengerPidLock(self.state_path.with_suffix(".pid"))
 
         # Active wake subprocesses: target_name -> (proc, start_ts, timeout)
         self.active_wakes: Dict[str, Tuple[subprocess.Popen, float, int]] = {}
 
-        # Outage tracking
+        # Outage and error tracking
         self.hub_down = False
         self.backoff_delay = interval
+        self.token_error_logged = False
+        self.auth_failed = False
 
     def fetch_participants(self) -> Optional[List[Dict[str, Any]]]:
         token = ""
         if self.token_file:
-            token = read_token(self.token_file)
+            try:
+                token = read_token(self.token_file)
+                if self.token_error_logged:
+                    self.logger.info(f"Token file '{self.token_file}' is now accessible. Resuming...")
+                    self.token_error_logged = False
+            except Exception:
+                if not self.token_error_logged:
+                    self.logger.error(
+                        f"Cannot read token file '{self.token_file}'. Backing off..."
+                    )
+                    self.token_error_logged = True
+                self.hub_down = True
+                return None
 
         headers = {
             "Accept": "application/json",
@@ -232,16 +464,20 @@ class HubMessenger:
                             if proj != self.resolved_project:
                                 self.logger.info(f"Resolved project '{self.resolved_project}' to '{proj}'")
                                 self.resolved_project = proj
+                            if self.auth_failed:
+                                self.auth_failed = False
                             return data
                 except urllib.error.HTTPError as e:
                     last_error = e
                     if e.code == 404:
                         continue
-                    # If unauthenticated (401), report token file error
                     if e.code == 401:
-                        self.logger.error(
-                            f"Authentication failed (HTTP 401) using token file '{self.token_file}'."
-                        )
+                        if not self.auth_failed:
+                            self.logger.error(
+                                f"Authentication failed (HTTP 401) using token file '{self.token_file}'. Backing off..."
+                            )
+                            self.auth_failed = True
+                        self.hub_down = True
                         return None
                 except Exception as e:
                     last_error = e
@@ -266,7 +502,7 @@ class HubMessenger:
                 finished.append(target)
             elif now - start_ts > timeout:
                 self.logger.warning(
-                    f"Wake process for '{target}' timed out after {timeout}s (PID {proc.pid}). Terminating."
+                    f"Wake process for '{target}' timed out after {timeout}s (PID {proc.pid}). Terminating turn in progress."
                 )
                 try:
                     proc.terminate()
@@ -278,11 +514,16 @@ class HubMessenger:
             del self.active_wakes[target]
 
     def launch_wake(self, target_name: str, target_cfg: Dict[str, Any]) -> None:
-        mode = target_cfg.get("mode", "log").lower()
+        valid, err = validate_target_config(target_name, target_cfg)
+        if not valid:
+            self.logger.error(f"Invalid configuration for target '{target_name}': {err}")
+            return
+
+        mode = str(target_cfg.get("mode", "log")).lower()
         if self.dry_run:
             mode = "log"
 
-        timeout = int(target_cfg.get("timeout", 30))
+        timeout = int(target_cfg.get("timeout", DEFAULT_WAKE_TIMEOUT))
 
         if mode == "log":
             self.logger.info(f"[LOG] Would wake participant '{target_name}': '{WAKE_TEXT}'")
@@ -302,14 +543,24 @@ class HubMessenger:
             if not thread_id:
                 self.logger.error(f"Cannot wake '{target_name}' via codex: 'thread_id' missing from config.")
                 return
-            cmd = ["codex", "exec", "resume", str(thread_id), WAKE_TEXT]
+            thread_id_str = str(thread_id).strip()
+            if thread_id_str.startswith("-"):
+                self.logger.error(f"Cannot wake '{target_name}' via codex: 'thread_id' cannot start with '-'.")
+                return
+            codex_bin = shutil.which("codex") or "codex"
+            cmd = [codex_bin, "exec", "resume", thread_id_str, WAKE_TEXT]
 
         elif mode == "claude":
             session_id = target_cfg.get("session_id")
             if not session_id:
                 self.logger.error(f"Cannot wake '{target_name}' via claude: 'session_id' missing from config.")
                 return
-            cmd = ["claude", "-p", "--resume", str(session_id), WAKE_TEXT]
+            session_id_str = str(session_id).strip()
+            if session_id_str.startswith("-"):
+                self.logger.error(f"Cannot wake '{target_name}' via claude: 'session_id' cannot start with '-'.")
+                return
+            claude_bin = shutil.which("claude") or "claude"
+            cmd = [claude_bin, "-p", "--resume", session_id_str, WAKE_TEXT]
 
         elif mode == "command":
             raw_cmd = target_cfg.get("command")
@@ -325,10 +576,12 @@ class HubMessenger:
             self.logger.info(f"[LOG] Would wake participant '{target_name}': '{WAKE_TEXT}'")
             return
 
-        self.logger.info(f"Launching detached wake for '{target_name}' [{mode}]: {' '.join(cmd)}")
+        # N5: Never log the wake command line (thread and session IDs are handles). Log mode and target name only.
+        self.logger.info(f"Launching detached wake for '{target_name}' [mode={mode}]")
         try:
-            # Launch non-blocking detached process
+            # Launch non-blocking detached process with stdin=DEVNULL
             kwargs: Dict[str, Any] = {
+                "stdin": subprocess.DEVNULL,
                 "stdout": subprocess.DEVNULL,
                 "stderr": subprocess.DEVNULL,
             }
@@ -400,17 +653,21 @@ class HubMessenger:
         return self.interval
 
     def start(self, once: bool = False) -> None:
-        self.logger.info(
-            f"Hub Messenger started. Target hub: {self.hub_url} | Project: {self.project} | Dry-run: {self.dry_run}"
-        )
-        if once:
-            self.run_poll_cycle()
-            self.logger.info("Single poll cycle complete (--once). Exiting.")
-            return
+        self.pid_lock.acquire()
+        try:
+            self.logger.info(
+                f"Hub Messenger started. Target hub: {self.hub_url} | Project: {self.project} | Dry-run: {self.dry_run}"
+            )
+            if once:
+                self.run_poll_cycle()
+                self.logger.info("Single poll cycle complete (--once). Exiting.")
+                return
 
-        while True:
-            sleep_duration = self.run_poll_cycle()
-            time.sleep(sleep_duration)
+            while True:
+                sleep_duration = self.run_poll_cycle()
+                time.sleep(sleep_duration)
+        finally:
+            self.pid_lock.release()
 
 
 def main():
@@ -443,19 +700,19 @@ def main():
         "--config",
         dest="config_path",
         default=str(base_dir / "config.json"),
-        help="Path to wake targets configuration file (default: %%LOCALAPPDATA%%\\hub-messenger\\config.json)",
+        help="Path to wake targets configuration file (default: %LOCALAPPDATA%\\hub-messenger\\config.json)",
     )
     parser.add_argument(
         "--state-file",
         dest="state_path",
         default=str(base_dir / "state.json"),
-        help="Path to participant wake state persistence file (default: %%LOCALAPPDATA%%\\hub-messenger\\state.json)",
+        help="Path to participant wake state persistence file (default: %LOCALAPPDATA%\\hub-messenger\\state.json)",
     )
     parser.add_argument(
         "--log-file",
         dest="log_path",
         default=str(base_dir / "hub-messenger.log"),
-        help="Path to log file (default: %%LOCALAPPDATA%%\\hub-messenger\\hub-messenger.log)",
+        help="Path to log file (default: %LOCALAPPDATA%\\hub-messenger\\hub-messenger.log)",
     )
     parser.add_argument(
         "--once",
@@ -485,7 +742,11 @@ def main():
         interval=args.interval,
         dry_run=args.dry_run,
     )
-    messenger.start(once=args.once)
+    try:
+        messenger.start(once=args.once)
+    except RuntimeError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

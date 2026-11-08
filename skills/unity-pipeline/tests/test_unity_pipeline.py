@@ -203,6 +203,105 @@ class TestUnityMachineLock(unittest.TestCase):
             data = json.loads(self.lock_path.read_text(encoding="utf-8"))
             self.assertEqual(data["pid"], os.getpid())
 
+    def test_oserror_fails_clearly_and_timeout_applies_every_path(self):
+        project_path = Path(self.temp_dir.name) / "FailProject"
+        lock = unity_pipeline.UnityMachineLock(
+            project_path=project_path,
+            mode="wait",
+            timeout=0.2,
+            lock_path=self.lock_path,
+        )
+
+        # 1. Non-FileExistsError OSError in _try_create_lock must fail clearly (sys.exit(1))
+        orig_open = os.open
+        try:
+            def mock_open_perm_error(*args, **kwargs):
+                raise PermissionError("Access denied to directory")
+            os.open = mock_open_perm_error
+            with self.assertRaises(SystemExit) as ctx:
+                lock._try_create_lock()
+            self.assertEqual(ctx.exception.code, 1)
+        finally:
+            os.open = orig_open
+
+        # 2. Wait timeout must apply on every path (even if read_lock returns None repeatedly)
+        orig_try_create = lock._try_create_lock
+        orig_read_lock = lock.read_lock
+        try:
+            lock._try_create_lock = lambda: False
+            lock.read_lock = lambda grace_period=2.0: None
+            start_t = time.monotonic()
+            with self.assertRaises(SystemExit) as ctx:
+                lock.acquire()
+            elapsed = time.monotonic() - start_t
+            self.assertEqual(ctx.exception.code, 1)
+            self.assertGreaterEqual(elapsed, 0.15)
+        finally:
+            lock._try_create_lock = orig_try_create
+            lock.read_lock = orig_read_lock
+
+    def test_stale_takeover_race_restores_live_lock(self):
+        project_path = Path(self.temp_dir.name) / "TakeoverRaceProject"
+        lock = unity_pipeline.UnityMachineLock(
+            project_path=project_path,
+            mode="exit",
+            timeout=0.5,
+            lock_path=self.lock_path,
+        )
+
+        # Write initial stale lock with dead PID 999999
+        stale_data = {
+            "pid": 999999,
+            "creation_time": 100.0,
+            "start_time": 1000.0,
+            "start_time_iso": "2026-01-01 00:00:00",
+            "project_path": "E:/Old/StaleProject",
+        }
+        self.lock_path.write_text(json.dumps(stale_data), encoding="utf-8")
+
+        # Simulate race: Waiter reads stale PID 999999.
+        # But when stale rename occurs, the file renamed was actually replaced by a LIVE PID 88888!
+        live_data = {
+            "pid": 88888,
+            "creation_time": 200.0,
+            "start_time": 1005.0,
+            "start_time_iso": "2026-01-01 00:00:05",
+            "project_path": "E:/Live/LiveProject",
+        }
+
+        orig_rename = os.rename
+        race_interleaved = [False]
+
+        def mock_rename(src, dst):
+            # When renaming lock_file to stale_target, simulate that live process wrote live_data
+            orig_rename(src, dst)
+            # Overwrite the renamed file with live_data to simulate the race
+            Path(dst).write_text(json.dumps(live_data), encoding="utf-8")
+            race_interleaved[0] = True
+
+        orig_is_alive = unity_pipeline.UnityMachineLock.is_pid_alive
+        try:
+            os.rename = mock_rename
+            # Mock PID 88888 as live
+            unity_pipeline.UnityMachineLock.is_pid_alive = (
+                lambda self, pid, expected_creation_time=None: pid == 88888
+            )
+
+            # In exit mode, when live PID is restored, acquire must exit 75 rather than stealing/deleting it
+            with self.assertRaises(SystemExit) as ctx:
+                lock.acquire()
+            self.assertEqual(ctx.exception.code, 75)
+            self.assertTrue(race_interleaved[0])
+
+            # Verify the live lock was restored and NOT unlinked or overwritten
+            self.assertTrue(self.lock_path.exists())
+            curr_data = json.loads(self.lock_path.read_text(encoding="utf-8"))
+            self.assertEqual(curr_data["pid"], 88888)
+            self.assertEqual(curr_data["creation_time"], 200.0)
+        finally:
+            os.rename = orig_rename
+            unity_pipeline.UnityMachineLock.is_pid_alive = orig_is_alive
+
     def test_multiprocessing_concurrent_acquire_race(self):
         project_path = Path(self.temp_dir.name) / "RaceProject"
         log_path = Path(self.temp_dir.name) / "race_log.txt"
