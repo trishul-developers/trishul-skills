@@ -73,6 +73,16 @@ def validate() -> int:
                 except py_compile.PyCompileError as e:
                     errors.append(f"Python syntax error in {file_path}: {e}")
 
+                if f.startswith("test_") and "tests" in file_path.parts:
+                    test_files_run += 1
+                    test_res = subprocess.run(
+                        [sys.executable, "-m", "unittest", str(file_path)],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if test_res.returncode != 0:
+                        errors.append(f"Python test failure in {file_path}:\n{test_res.stderr.strip() or test_res.stdout.strip()}")
+
             elif f.endswith((".js", ".mjs")):
                 checked_js_scripts += 1
                 res = subprocess.run(

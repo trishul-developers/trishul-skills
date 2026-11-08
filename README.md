@@ -2,16 +2,16 @@
 
 Welcome to the central **AIAgent Skill Hub** (`trishul-skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
 
-All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **12 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
+All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **16 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **12 skills** in [`catalog.json`](./catalog.json)
+- **Total Custom Skills Registered**: **16 skills** in [`catalog.json`](./catalog.json)
 - **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](./skills)
 - **Consolidated Platform Skills**: 4 skills directly in [`skills/`](./skills)
-- **Project-Specific Skills**: 5 custom skills residing in project repositories in [`skills/projects/`](./skills/projects)
+- **Project-Specific Skills**: 9 custom skills residing in project repositories in [`skills/projects/`](./skills/projects)
 
 ---
 
@@ -19,7 +19,7 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 ```
 trishul-skills/
-  ├── catalog.json                             # Machine-readable registry of all 12 custom skills
+  ├── catalog.json                             # Machine-readable registry of all 16 custom skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
@@ -30,15 +30,19 @@ trishul-skills/
   │     ├── claude-headless/                   # Universal runner & SKILL.md for `claude -p`
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
   │     ├── engineering-orchestrator/          # Canonical roles & compute governance
-  │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting & git ops
+  │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest & git ops
   │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
-  │     ├── unity-pipeline/                    # Unified compile, contract audit, test & gate pipeline
+  │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
   │     └── projects/                          # Project-specific custom skills
   │           ├── chatgpt-role-bridge/         # Persistent cloud role bridge (agent-control-plane)
   │           ├── handoff/                     # Agent Hub handoff worker (trishul-agent-hub)
+  │           ├── tte-batch-brief/             # Standard manager-to-orchestrator batch brief template (TTE)
+  │           ├── tte-batch-review/            # Lean batch-review procedure and blocker rules (TTE)
   │           ├── tte-content-pipeline/        # Register validation, key hashing & asset baking (TTE)
   │           ├── tte-golden-recapture/        # Simulation replay golden re-baseliner (TTE)
-  │           └── tte-phase-evidence/          # Automated phase acceptance evidence block generator (TTE)
+  │           ├── tte-phase-evidence/          # Automated phase acceptance evidence block generator (TTE)
+  │           ├── tte-phase-merge/             # Safe --no-ff phase branch merge with CI run detection (TTE)
+  │           └── tte-status/                  # Wake-up project status snapshot in <=60 lines (TTE)
   └── docs/
         ├── SKILL_ARCHITECTURE.md              # Comparative skill architecture across platforms
         ├── HEADLESS_CLI_GUIDE.md              # Comprehensive headless CLI execution manual
@@ -118,6 +122,20 @@ Fast offline validation of register JSON, unit vocabulary, and 32-bit FNV-1a `De
 python skills/projects/tte-content-pipeline/scripts/validate_content_asset.py --key plc.mbt.a
 ```
 *Docs*: [`skills/projects/tte-content-pipeline/SKILL.md`](./skills/projects/tte-content-pipeline/SKILL.md)
+
+### E. TTE Project Wakeup Status (`tte-status`)
+One command that prints the full project status required on waking in $\le 60$ lines:
+```powershell
+python skills/projects/tte-status/scripts/tte_status.py -C "E:/Projects/trishul-tactical-engine"
+```
+*Docs*: [`skills/projects/tte-status/SKILL.md`](./skills/projects/tte-status/SKILL.md)
+
+### F. Safe TTE Phase Branch Merge (`tte-phase-merge`)
+Merges side branch into phase branch (`--no-ff`), enforces clean tree, protects project settings, and polls CI run:
+```powershell
+python skills/projects/tte-phase-merge/scripts/tte_phase_merge.py -C "E:/Projects/trishul-tactical-engine" --push "g02-q36-stale-target"
+```
+*Docs*: [`skills/projects/tte-phase-merge/SKILL.md`](./skills/projects/tte-phase-merge/SKILL.md)
 
 ---
 

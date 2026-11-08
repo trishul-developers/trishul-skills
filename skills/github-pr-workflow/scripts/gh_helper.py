@@ -18,6 +18,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -236,6 +237,244 @@ def cmd_git_verify(args):
 
 
 # ----------------------------------------------------------------------
+# CI Digest
+# ----------------------------------------------------------------------
+
+def strip_log_prefix(line: str) -> str:
+    """Strip workflow runner and timestamp prefixes from log line."""
+    line = re.sub(r"^[^\t\r\n]+\t[^\t\r\n]+\t\d{4}-\d{2}-\d{2}T[^\s]+\s+", "", line)
+    line = re.sub(r"^\d{4}-\d{2}-\d{2}T[^\s]+\s+", "", line)
+    return line.strip()
+
+
+def parse_tte_ci_job_log(repo: str, run_id: int, job_id: int, max_failures: int = 10):
+    """Attempt to parse TTE CI summary table and 'First failures' block from job log."""
+    code, stdout, _ = run_cmd([
+        "gh", "run", "view", str(run_id),
+        "--repo", repo,
+        "--job", str(job_id),
+        "--log",
+    ])
+    if code != 0 or not stdout:
+        return None
+
+    clean_lines = [strip_log_prefix(l) for l in stdout.splitlines()]
+    counts = None
+    failures = []
+
+    for idx, l in enumerate(clean_lines):
+        if l.startswith("| total |") and idx + 2 < len(clean_lines):
+            data_line = clean_lines[idx + 2]
+            parts = [p.strip() for p in data_line.split("|") if p.strip()]
+            if len(parts) >= 4:
+                try:
+                    counts = {
+                        "total": int(parts[0]),
+                        "passed": int(parts[1]),
+                        "failed": int(parts[2]),
+                        "skipped": int(parts[3]),
+                    }
+                except ValueError:
+                    pass
+
+        if "First failures" in l:
+            for f_idx in range(idx + 1, min(idx + 1 + max_failures + 10, len(clean_lines))):
+                f_line = clean_lines[f_idx]
+                if not f_line or f_line.startswith("##[") or f_line.startswith("|"):
+                    break
+                if f_line.startswith("- "):
+                    item = f_line[2:].strip()
+                    if ":" in item:
+                        name_part, msg_part = item.split(":", 1)
+                        name = name_part.strip().strip("`")
+                        msg = msg_part.strip()
+                        failures.append((name, msg))
+                    else:
+                        failures.append((item.strip("`"), ""))
+
+    if counts or failures:
+        return {"counts": counts, "failures": failures[:max_failures]}
+    return None
+
+
+def parse_nunit_artifact(repo: str, run_id: int, job_name: str, max_failures: int = 10):
+    """Fallback: download NUnit XML artifacts and parse test counts and failures."""
+    import tempfile
+    import xml.etree.ElementTree as ET
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        code, _, _ = run_cmd(["gh", "run", "download", str(run_id), "--repo", repo, "--dir", tmpdir])
+        if code != 0:
+            return None
+
+        xml_files = list(Path(tmpdir).rglob("*.xml"))
+        if not xml_files:
+            return None
+
+        target_xml = xml_files[0]
+        for xf in xml_files:
+            if "editmode" in job_name.lower() and "editmode" in xf.name.lower():
+                target_xml = xf
+                break
+            if "playmode" in job_name.lower() and "playmode" in xf.name.lower():
+                target_xml = xf
+                break
+
+        try:
+            tree = ET.parse(target_xml)
+            root = tree.getroot()
+            counts = {
+                "total": int(root.attrib.get("total", 0)),
+                "passed": int(root.attrib.get("passed", 0)),
+                "failed": int(root.attrib.get("failed", 0)),
+                "skipped": int(root.attrib.get("skipped", 0)),
+            }
+            failures = []
+            for tc in root.iter("test-case"):
+                res = tc.attrib.get("result", "")
+                if res.lower() in ("failed", "failure"):
+                    name = tc.attrib.get("fullname") or tc.attrib.get("name") or "UnknownTest"
+                    fail_node = tc.find("failure")
+                    msg = fail_node.findtext("message") if fail_node is not None else ""
+                    failures.append((name, (msg or "").strip()))
+            return {"counts": counts, "failures": failures[:max_failures]}
+        except Exception:
+            return None
+
+
+def extract_job_error_lines(repo: str, run_id: int, job_id: int):
+    """Extract compiler error CS lines or general failure lines from job log."""
+    code, stdout, _ = run_cmd([
+        "gh", "run", "view", str(run_id),
+        "--repo", repo,
+        "--job", str(job_id),
+        "--log",
+    ])
+    if code != 0 or not stdout:
+        return []
+
+    errors = []
+    for line in stdout.splitlines():
+        cl = strip_log_prefix(line)
+        if ": error CS" in cl or ": error" in cl.lower() or "BuildFailedException:" in cl:
+            errors.append(cl)
+        elif "##[error]" in cl:
+            errors.append(cl.replace("##[error]", "").strip())
+    return errors[:5]
+
+
+def cmd_ci_digest(args):
+    repo = get_repo(getattr(args, "repo", None))
+    run_id = getattr(args, "run_id", None)
+    branch = getattr(args, "branch", None)
+    max_failures = getattr(args, "max_failures", 10)
+
+    # 1. Resolve run_id if not given
+    if not run_id:
+        if not branch:
+            code, curr_branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+            if code == 0 and curr_branch and curr_branch != "HEAD":
+                branch = curr_branch
+            else:
+                branch = "main"
+
+        code, stdout, _ = run_cmd([
+            "gh", "run", "list",
+            "--repo", repo,
+            "--branch", branch,
+            "--limit", "1",
+            "--json", "databaseId,headSha,status,conclusion,url",
+        ])
+        if code == 0 and stdout:
+            try:
+                runs = json.loads(stdout)
+                if runs:
+                    run_id = runs[0].get("databaseId")
+            except Exception:
+                pass
+
+        if not run_id:
+            try:
+                data = api_request(f"/repos/{repo}/actions/runs?branch={branch}&per_page=1")
+                runs = data.get("workflow_runs", [])
+                if runs:
+                    run_id = runs[0].get("id")
+            except Exception:
+                pass
+
+        if not run_id:
+            print(f"ERROR: No CI workflow runs found for branch '{branch}' in {repo}.", file=sys.stderr)
+            sys.exit(1)
+
+    # 2. Fetch run details & jobs
+    run_info = None
+    code, stdout, _ = run_cmd([
+        "gh", "run", "view", str(run_id),
+        "--repo", repo,
+        "--json", "databaseId,headSha,headBranch,status,conclusion,url,jobs,name",
+    ])
+    if code == 0 and stdout:
+        try:
+            run_info = json.loads(stdout)
+        except Exception:
+            pass
+
+    if not run_info:
+        run_data = api_request(f"/repos/{repo}/actions/runs/{run_id}")
+        jobs_data = api_request(f"/repos/{repo}/actions/runs/{run_id}/jobs")
+        run_info = {
+            "databaseId": run_data.get("id"),
+            "headSha": run_data.get("head_sha"),
+            "headBranch": run_data.get("head_branch"),
+            "status": run_data.get("status"),
+            "conclusion": run_data.get("conclusion"),
+            "url": run_data.get("html_url"),
+            "name": run_data.get("name"),
+            "jobs": jobs_data.get("jobs", []),
+        }
+
+    run_url = run_info.get("url") or f"https://github.com/{repo}/actions/runs/{run_id}"
+    head_sha = (run_info.get("headSha") or "")[:7]
+    head_branch = run_info.get("headBranch") or ""
+    conclusion = (run_info.get("conclusion") or run_info.get("status") or "UNKNOWN").upper()
+
+    print(f"=== CI Digest: {run_info.get('name', 'Run')} #{run_id} ===")
+    print(f"Run URL: {run_url}")
+    print(f"Branch:  {head_branch} @ {head_sha} | Verdict: [{conclusion}]")
+    print("\nJobs:")
+
+    jobs = run_info.get("jobs", [])
+    for j in jobs:
+        j_id = j.get("id") or j.get("databaseId")
+        j_name = j.get("name", "Unnamed")
+        j_status = j.get("status", "")
+        j_concl = (j.get("conclusion") or j_status or "UNKNOWN").upper()
+
+        print(f"- [{j_concl}] {j_name}")
+        if j_concl == "FAILURE":
+            parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
+            if not parsed:
+                parsed = parse_nunit_artifact(repo, run_id, j_name, max_failures)
+
+            if parsed:
+                if parsed.get("counts"):
+                    c = parsed["counts"]
+                    print(f"    Tests: {c.get('passed', 0)} passed, {c.get('failed', 0)} failed, {c.get('skipped', 0)} skipped (total {c.get('total', 0)})")
+                if parsed.get("failures"):
+                    fails = parsed["failures"]
+                    print(f"    First failures ({len(fails)}):")
+                    for name, msg in fails[:max_failures]:
+                        msg_str = f": {msg[:200]}" if msg else ""
+                        print(f"    * `{name}`{msg_str}")
+            else:
+                err_lines = extract_job_error_lines(repo, run_id, j_id)
+                if err_lines:
+                    print("    Errors:")
+                    for el in err_lines[:5]:
+                        print(f"    * {el}")
+
+
+# ----------------------------------------------------------------------
 # CLI Setup
 # ----------------------------------------------------------------------
 
@@ -305,6 +544,24 @@ def main():
     p_vc.add_argument("--branch", help="Expected branch name")
     p_vc.add_argument("--sha", help="Expected commit SHA")
     p_vc.set_defaults(func=cmd_git_verify)
+
+    # ci
+    p_ci = subparsers.add_parser("ci", help="CI workflow and run operations", parents=[repo_parent])
+    ci_sub = p_ci.add_subparsers(dest="action", required=True)
+
+    # ci digest
+    c_digest = ci_sub.add_parser("digest", help="Digest CI run or branch into compact summary", parents=[repo_parent])
+    c_digest.add_argument("--run-id", type=int, help="Workflow run database ID")
+    c_digest.add_argument("--branch", help="Branch name (fetches latest run for this branch)")
+    c_digest.add_argument("--max-failures", type=int, default=10, help="Max failure lines to show (default: 10)")
+    c_digest.set_defaults(func=cmd_ci_digest)
+
+    # ci-digest (convenience alias for 'ci digest')
+    p_cid = subparsers.add_parser("ci-digest", help="Alias for 'ci digest'", parents=[repo_parent])
+    p_cid.add_argument("--run-id", type=int, help="Workflow run database ID")
+    p_cid.add_argument("--branch", help="Branch name (fetches latest run for this branch)")
+    p_cid.add_argument("--max-failures", type=int, default=10, help="Max failure lines to show (default: 10)")
+    p_cid.set_defaults(func=cmd_ci_digest)
 
     args = parser.parse_args()
     if not hasattr(args, "repo"):

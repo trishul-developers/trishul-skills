@@ -11,6 +11,7 @@ from typing import List, Set
 
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
+PROJECTS_DIR = SKILLS_DIR / "projects"
 
 # The 7 universal / platform skills (strictly skills/*, not skills/projects/*)
 GLOBAL_SKILL_NAMES = [
@@ -154,6 +155,43 @@ def check_and_clean_projects() -> None:
                     print(f"  [KEEP PROJECT-SPECIFIC] {item.name} in {sdir}")
 
 
+def deploy_project_skills() -> None:
+    print(f"\n==========================================")
+    print(f"Deploying Project Skills to Dedicated Projects")
+    print(f"==========================================")
+
+    # 1. TTE project skills (skills/projects/tte-*)
+    tte_root = Path(r"E:\Projects\trishul-tactical-engine")
+    tte_claude_skills = tte_root / ".claude" / "skills"
+    if tte_root.exists() and PROJECTS_DIR.exists():
+        tte_claude_skills.mkdir(parents=True, exist_ok=True)
+        for item in sorted(PROJECTS_DIR.iterdir()):
+            if item.is_dir() and item.name.startswith("tte-"):
+                dest = tte_claude_skills / item.name
+                print(f"  [DEPLOY TTE SKILL] {item.name} -> {dest}")
+                copy_skill(item, dest)
+
+    # 2. agent-control-plane (chatgpt-role-bridge)
+    acp_root = Path(r"E:\Projects\agent-control-plane")
+    if acp_root.exists() and (PROJECTS_DIR / "chatgpt-role-bridge").exists():
+        for d in [acp_root / ".agents" / "skills", acp_root / ".claude" / "skills"]:
+            if d.parent.exists():
+                d.mkdir(parents=True, exist_ok=True)
+                dest = d / "chatgpt-role-bridge"
+                print(f"  [DEPLOY ACP SKILL] chatgpt-role-bridge -> {dest}")
+                copy_skill(PROJECTS_DIR / "chatgpt-role-bridge", dest)
+
+    # 3. trishul-agent-hub (handoff)
+    hub_root = Path(r"E:\Projects\trishul-agent-hub")
+    if hub_root.exists() and (PROJECTS_DIR / "handoff").exists():
+        for d in [hub_root / ".claude" / "skills", hub_root / ".agents" / "skills"]:
+            if d.parent.exists():
+                d.mkdir(parents=True, exist_ok=True)
+                dest = d / "handoff"
+                print(f"  [DEPLOY HUB SKILL] handoff -> {dest}")
+                copy_skill(PROJECTS_DIR / "handoff", dest)
+
+
 def main():
     print(f"Deploying 7 Global Skills from {SKILLS_DIR}...")
     for name in GLOBAL_SKILL_NAMES:
@@ -166,7 +204,10 @@ def main():
     # Clean duplicates from project scopes
     check_and_clean_projects()
 
-    print("\nGlobal deployment and cleanup completed successfully!")
+    # Deploy project skills
+    deploy_project_skills()
+
+    print("\nGlobal deployment, project sync, and cleanup completed successfully!")
 
 
 if __name__ == "__main__":

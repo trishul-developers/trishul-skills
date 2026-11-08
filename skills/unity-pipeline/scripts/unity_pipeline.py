@@ -13,29 +13,183 @@ Zero external dependencies (uses standard library Python 3).
 """
 
 import argparse
+import atexit
 import glob
+import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 for stream in (sys.stdout, sys.stderr):
     if hasattr(stream, "reconfigure"):
         stream.reconfigure(encoding="utf-8", errors="replace")
 
-# Default Unity Editor paths on Windows (searched in order of preference)
-DEFAULT_UNITY_PATHS = [
-    r"C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.32f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.26f1\Editor\Unity.exe",
-    r"C:\Program Files\Unity\Hub\Editor\6000.0.25f1\Editor\Unity.exe",
-]
+
+# ---------------------------------------------------------------------------
+# Machine-wide Unity Lock
+# ---------------------------------------------------------------------------
+class UnityMachineLock:
+    """Machine-wide lock around Unity launches stored under %LOCALAPPDATA%."""
+
+    def __init__(
+        self,
+        project_path: Path,
+        mode: str = "wait",
+        timeout: int = 600,
+        lock_path: Optional[Path] = None,
+    ):
+        self.project_path = project_path.resolve()
+        self.mode = mode.lower() if mode else "wait"
+        self.timeout = timeout
+        if lock_path:
+            self.lock_file = Path(lock_path)
+        else:
+            env_lock = os.environ.get("UNITY_LOCK_PATH")
+            if env_lock:
+                self.lock_file = Path(env_lock)
+            else:
+                local_appdata = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+                self.lock_file = Path(local_appdata) / "unity_pipeline.lock"
+        self.acquired = False
+        self._registered_handlers = False
+
+    def is_pid_alive(self, pid: int) -> bool:
+        if pid <= 0:
+            return False
+        if sys.platform == "win32":
+            import ctypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            SYNCHRONIZE = 0x00100000
+            handle = ctypes.windll.kernel32.OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid
+            )
+            if not handle:
+                return False
+            exit_code = ctypes.c_ulong()
+            ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+            ctypes.windll.kernel32.CloseHandle(handle)
+            # STILL_ACTIVE = 259
+            return exit_code.value == 259
+        else:
+            try:
+                os.kill(pid, 0)
+                return True
+            except (ProcessLookupError, PermissionError):
+                return False
+
+    def read_lock(self) -> Optional[Dict[str, Any]]:
+        if not self.lock_file.exists():
+            return None
+        try:
+            content = self.lock_file.read_text(encoding="utf-8", errors="replace")
+            data = json.loads(content)
+            if isinstance(data, dict) and "pid" in data:
+                return data
+        except Exception:
+            pass
+        return None
+
+    def write_lock(self) -> None:
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "pid": os.getpid(),
+            "start_time": time.time(),
+            "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            "project_path": str(self.project_path),
+        }
+        tmp_file = self.lock_file.with_name(f"{self.lock_file.name}.tmp.{os.getpid()}")
+        tmp_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp_file.replace(self.lock_file)
+        self.acquired = True
+        self._install_handlers()
+
+    def _install_handlers(self) -> None:
+        if self._registered_handlers:
+            return
+        self._registered_handlers = True
+        atexit.register(self.release)
+
+        def _signal_handler(signum, frame):
+            self.release()
+            sys.exit(128 + signum if isinstance(signum, int) else 1)
+
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                signal.signal(sig, _signal_handler)
+            except (ValueError, AttributeError):
+                pass
+
+    def acquire(self) -> None:
+        start_wait = time.monotonic()
+        while True:
+            lock_data = self.read_lock()
+            if lock_data is None:
+                self.write_lock()
+                return
+
+            locked_pid = int(lock_data.get("pid", 0))
+            locked_proj = lock_data.get("project_path", "unknown")
+            start_time_str = lock_data.get("start_time_iso") or str(
+                lock_data.get("start_time", "unknown")
+            )
+
+            if locked_pid == os.getpid():
+                self.acquired = True
+                return
+
+            if not self.is_pid_alive(locked_pid):
+                print(
+                    f"Notice: Found stale Unity lock from dead PID {locked_pid} (project: '{locked_proj}'). Taking over lock.",
+                    file=sys.stderr,
+                )
+                self.write_lock()
+                return
+
+            if self.mode == "exit":
+                print(
+                    f"ERROR: Another live Unity instance is currently running (PID {locked_pid}, started at {start_time_str}, project: '{locked_proj}'). Exiting immediately.",
+                    file=sys.stderr,
+                )
+                sys.exit(75)
+
+            elapsed = time.monotonic() - start_wait
+            if elapsed >= self.timeout:
+                print(
+                    f"ERROR: Timed out waiting {self.timeout}s for Unity lock held by PID {locked_pid} (project: '{locked_proj}').",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            print(
+                f"Unity lock held by PID {locked_pid} (project: '{locked_proj}', started: {start_time_str}). Waiting for release (elapsed: {int(elapsed)}s)...",
+                file=sys.stderr,
+            )
+            time.sleep(2)
+
+    def release(self) -> None:
+        if self.acquired:
+            try:
+                lock_data = self.read_lock()
+                if lock_data and int(lock_data.get("pid", 0)) == os.getpid():
+                    if self.lock_file.exists():
+                        self.lock_file.unlink()
+            except Exception:
+                pass
+            self.acquired = False
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
 
 # Static contract audit rules (regex pattern, severity, description)
 CONTRACT_RULES = [
@@ -252,32 +406,66 @@ def inspect_logs(log_path: Path, max_lines: int = 40) -> List[str]:
 # ---------------------------------------------------------------------------
 # Main CLI Orchestration
 # ---------------------------------------------------------------------------
-def resolve_unity_exe(project_path: Optional[Path] = None) -> str:
-    env_unity = os.environ.get("UNITY_PATH")
-    if env_unity and os.path.exists(env_unity):
-        return env_unity
+def resolve_unity_exe(
+    project_path: Optional[Path] = None,
+    unity_path_override: Optional[str] = None,
+) -> str:
+    """Resolve exact Unity executable from ProjectSettings/ProjectVersion.txt or explicit override."""
+    # 1. Explicit CLI override or environment variable
+    candidate = unity_path_override or os.environ.get("UNITY_PATH") or os.environ.get("UNITY_EXE")
+    if candidate:
+        candidate_path = Path(candidate)
+        if candidate_path.exists():
+            return str(candidate_path)
+        print(f"ERROR: Specified Unity path '{candidate}' does not exist.", file=sys.stderr)
+        sys.exit(1)
 
-    # 1. Check pinned project version from ProjectSettings/ProjectVersion.txt
-    if project_path:
-        ver_file = project_path / "ProjectSettings" / "ProjectVersion.txt"
-        if ver_file.exists():
-            for line in ver_file.read_text(encoding="utf-8", errors="replace").splitlines():
-                if line.startswith("m_EditorVersion:"):
-                    ver = line.split(":", 1)[1].strip()
-                    candidate = Path(r"C:\Program Files\Unity\Hub\Editor") / ver / "Editor" / "Unity.exe"
-                    if candidate.exists():
-                        return str(candidate)
+    # 2. Read exact m_EditorVersion from ProjectSettings/ProjectVersion.txt
+    proj_dir = Path(project_path).resolve() if project_path else Path(".").resolve()
+    ver_file = proj_dir / "ProjectSettings" / "ProjectVersion.txt"
+    if not ver_file.exists():
+        print(
+            f"ERROR: ProjectSettings/ProjectVersion.txt not found in '{proj_dir}'. Cannot resolve required Unity editor version.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
-    # 2. Check installed Unity versions in Hub directory
-    hub_editors = glob.glob(r"C:\Program Files\Unity\Hub\Editor\*\Editor\Unity.exe")
-    if hub_editors:
-        hub_editors.sort(reverse=True)
-        return hub_editors[0]
+    editor_version = None
+    try:
+        for line in ver_file.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if line.startswith("m_EditorVersion:"):
+                editor_version = line.split(":", 1)[1].strip()
+                break
+    except Exception as e:
+        print(f"ERROR: Failed reading ProjectVersion.txt in '{proj_dir}': {e}", file=sys.stderr)
+        sys.exit(1)
 
-    for p in DEFAULT_UNITY_PATHS:
-        if os.path.exists(p):
-            return p
-    return "Unity.exe"
+    if not editor_version:
+        print(f"ERROR: Could not parse 'm_EditorVersion' from '{ver_file}'.", file=sys.stderr)
+        sys.exit(1)
+
+    # 3. Search exact editor in Unity Hub install directory
+    hub_candidate = Path(r"C:\Program Files\Unity\Hub\Editor") / editor_version / "Editor" / "Unity.exe"
+    if hub_candidate.exists():
+        return str(hub_candidate)
+
+    # POSIX fallback Hub paths (Linux / macOS)
+    for posix_base in [
+        Path.home() / "Unity/Hub/Editor",
+        Path("/Applications/Unity/Hub/Editor"),
+        Path("/opt/unity/editors"),
+    ]:
+        posix_candidate = posix_base / editor_version / "Editor" / "Unity"
+        if posix_candidate.exists():
+            return str(posix_candidate)
+
+    print(
+        f"ERROR: Required Unity version '{editor_version}' is not installed in Unity Hub at '{hub_candidate}'. "
+        f"Fallback to another version is disabled. Install Unity {editor_version} or specify --unity-path.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def main() -> int:
@@ -304,12 +492,23 @@ def main() -> int:
     p_test.add_argument("--no-precheck", action="store_true", help="Bypass mandatory fast-fail static contract audit")
     p_test.add_argument("--no-graphics", action="store_true", help="Force -nographics (defaults to False for PlayMode, True for EditMode)")
     p_test.add_argument("--timeout", type=int, default=600, help="Test timeout in seconds")
+    p_test.add_argument("--unity-path", help="Explicit path to Unity executable override")
+    p_test.add_argument("--lock-mode", choices=["wait", "exit"], default="wait", help="Behavior if another Unity process is running: wait or exit (default: wait)")
+    p_test.add_argument("--lock-timeout", type=int, default=600, help="Maximum seconds to wait for Unity lock in wait mode (default: 600)")
+    p_test.add_argument("--wait-lock", dest="lock_mode", action="store_const", const="wait", help="Wait for Unity lock (default)")
+    p_test.add_argument("--exit-if-locked", dest="lock_mode", action="store_const", const="exit", help="Exit immediately if Unity lock is held by another live process")
 
     # 4. gate
     p_gate = subparsers.add_parser("gate", help="Run composite phase gate (FastCompile + EditMode + PlayMode)")
     p_gate.add_argument("-C", "--project-path", default=".", help="Project path")
     p_gate.add_argument("--phase", help="Phase identifier (e.g. G02, PairGateA)")
     p_gate.add_argument("--filter", help="Optional test filter pattern")
+    p_gate.add_argument("--unity-path", help="Explicit path to Unity executable override")
+    p_gate.add_argument("--lock-mode", choices=["wait", "exit"], default="wait", help="Behavior if another Unity process is running: wait or exit (default: wait)")
+    p_gate.add_argument("--lock-timeout", type=int, default=600, help="Maximum seconds to wait for Unity lock in wait mode (default: 600)")
+    p_gate.add_argument("--wait-lock", dest="lock_mode", action="store_const", const="wait", help="Wait for Unity lock (default)")
+    p_gate.add_argument("--exit-if-locked", dest="lock_mode", action="store_const", const="exit", help="Exit immediately if Unity lock is held by another live process")
+    p_gate.add_argument("--timeout", type=int, default=1800, help="Gate test timeout in seconds (default: 1800)")
 
     # 5. logs
     p_logs = subparsers.add_parser("logs", help="Inspect and extract errors from Unity Editor.log")
@@ -368,7 +567,9 @@ def main() -> int:
             print("Pre-Check: Static Contract Audit & FastCompile PASSED (0.8s)")
 
         # 2. RUN UNITY IN BATCHMODE
-        unity_exe = resolve_unity_exe(project_path)
+        unity_exe = resolve_unity_exe(
+            project_path, unity_path_override=getattr(args, "unity_path", None)
+        )
         xml_out = Path(args.xml_out) if args.xml_out else project_path / f"test-results-{args.platform.lower()}.xml"
         log_file = project_path / "unity-test.log"
 
@@ -396,7 +597,10 @@ def main() -> int:
 
         print(f"Executing Unity {args.platform} tests with {unity_exe} (filter: '{args.filter or 'all'}')...")
         t_start = time.monotonic()
-        code, stdout, stderr = run_cmd(cmd, cwd=project_path, timeout=args.timeout)
+        lock_mode = getattr(args, "lock_mode", "wait")
+        lock_timeout = getattr(args, "lock_timeout", 600)
+        with UnityMachineLock(project_path, mode=lock_mode, timeout=lock_timeout):
+            code, stdout, stderr = run_cmd(cmd, cwd=project_path, timeout=args.timeout)
         duration = round(time.monotonic() - t_start, 1)
 
         # Stale XML defense: verify xml_out exists and was generated during this run
@@ -458,7 +662,9 @@ def main() -> int:
         print("Gate Step 2 (FastCompile): PASSED")
 
         # Step 3: Run Tests
-        unity_exe = resolve_unity_exe(project_path)
+        unity_exe = resolve_unity_exe(
+            project_path, unity_path_override=getattr(args, "unity_path", None)
+        )
         xml_out = project_path / "gate-results.xml"
         log_file = project_path / "gate-unity.log"
 
@@ -476,7 +682,12 @@ def main() -> int:
             cmd.extend(["-testFilter", args.filter])
 
         print(f"Gate Step 3 (EditMode Tests with {unity_exe})...")
-        code, stdout, stderr = run_cmd(cmd, cwd=project_path)
+        lock_mode = getattr(args, "lock_mode", "wait")
+        lock_timeout = getattr(args, "lock_timeout", 600)
+        with UnityMachineLock(project_path, mode=lock_mode, timeout=lock_timeout):
+            code, stdout, stderr = run_cmd(
+                cmd, cwd=project_path, timeout=getattr(args, "timeout", 1800)
+            )
         if not xml_out.exists() or xml_out.stat().st_mtime < t_launch:
             print(f"Gate Step 3 (EditMode Tests): FAILED - No fresh XML report produced (exit code {code})")
             err_logs = inspect_logs(log_file)
@@ -492,35 +703,6 @@ def main() -> int:
             return 1
 
         print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']}/{report['total']})")
-        print("\nALL GATE CHECKS PASSED: Ready for review advancement.")
-        return 0
-        print("Gate Step 2 (FastCompile): PASSED")
-
-        # Step 3: Run Tests
-        unity_exe = resolve_unity_exe()
-        xml_out = project_path / "gate-results.xml"
-        log_file = project_path / "gate-unity.log"
-        cmd = [
-            unity_exe, "-batchmode", "-nographics",
-            "-projectPath", str(project_path),
-            "-runTests", "-testPlatform", "EditMode",
-            "-testResults", str(xml_out), "-logFile", str(log_file),
-        ]
-        if args.filter:
-            cmd.extend(["-testFilter", args.filter])
-
-        code, _, _ = run_cmd(cmd, cwd=project_path, timeout=900)
-        report = parse_nunit_xml(xml_out)
-        if not report.get("passed"):
-            print(f"Gate Step 3 (EditMode Tests): FAILED ({report.get('failed_count', '?')} failed)")
-            if report.get("failures"):
-                print(f"Failure: {report['failures'][0]['name']}: {report['failures'][0]['message']}")
-            return code if code != 0 else 1
-        if code != 0:
-            print(f"Gate Step 3 (EditMode Tests): FAILED (Unity exited with non-zero code {code})", file=sys.stderr)
-            return code
-
-        print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']} passed in {report['duration']}s)")
         print(f"\nCOMPOSITE GATE {phase_label}: AUTHORITATIVE GREEN")
         return 0
 

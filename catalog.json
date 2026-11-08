@@ -1,11 +1,11 @@
 {
-  "version": "4.2.0",
+  "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 12,
+  "total_skills": 16,
   "categories": {
     "headless": 3,
     "platform": 4,
-    "projects": 5
+    "projects": 9
   },
   "skills": [
     {
@@ -46,12 +46,12 @@
     },
     {
       "name": "github-pr-workflow",
-      "description": "Complete GitHub Pull Request workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
+      "description": "Complete GitHub Pull Request and CI workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), CI run failure & test digestion (<=50 lines), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
       "category": "platform",
       "local_path": "skills\\github-pr-workflow",
       "has_scripts": true,
       "has_references": true,
-      "has_tests": false
+      "has_tests": true
     },
     {
       "name": "pr-handoff-lifecycle",
@@ -64,12 +64,12 @@
     },
     {
       "name": "unity-pipeline",
-      "description": "Unified Unity C# engineering, verification, and testing pipeline. Integrates mandatory fast-fail static contract audits (<1s), fast C# compilation pre-checks, targeted batchmode test execution (EditMode/PlayMode), NUnit 3 XML report parsing, automated Editor.log failure diagnostics extraction, and composite phase gates into a single authoritative tool.",
+      "description": "Unified Unity C# engineering, verification, and testing pipeline. Integrates machine-wide Unity execution locking, exact ProjectVersion editor resolution, mandatory fast-fail static contract audits (<1s), fast C# compilation pre-checks, targeted batchmode test execution (EditMode/PlayMode), NUnit 3 XML report parsing, automated Editor.log failure diagnostics extraction, and composite phase gates into a single authoritative tool.",
       "category": "platform",
       "local_path": "skills\\unity-pipeline",
       "has_scripts": true,
       "has_references": false,
-      "has_tests": false
+      "has_tests": true
     },
     {
       "name": "chatgpt-role-bridge",
@@ -85,6 +85,24 @@
       "description": "Check and act on file handoffs in trishul-agent-hub. Use when asked to check handoffs, or on the 15-minute cron check, to pick up any package whose next_owner is antigravity.",
       "category": "projects",
       "local_path": "skills\\projects\\handoff",
+      "has_scripts": false,
+      "has_references": false,
+      "has_tests": false
+    },
+    {
+      "name": "tte-batch-brief",
+      "description": "Concise template and guidelines used by the project manager to brief an orchestrator for a 2-4 step work batch. Defines base branch & SHA, step table with risk tier and model, governing rules, carried-forward phase-list items, reporting requirements, and wait/idle boundaries.",
+      "category": "projects",
+      "local_path": "skills\\projects\\tte-batch-brief",
+      "has_scripts": false,
+      "has_references": false,
+      "has_tests": false
+    },
+    {
+      "name": "tte-batch-review",
+      "description": "Lean batch-review procedure for TTE reviewers and orchestrators. Enforces one joint review of tests and code together, a single recheck of changed items only by the same reviewer, strict blocker criteria (player-facing, replay/save-state breakage, or unexplained outcome pin moves), differential note validation, and standardized verdict reporting.",
+      "category": "projects",
+      "local_path": "skills\\projects\\tte-batch-review",
       "has_scripts": false,
       "has_references": false,
       "has_tests": false
@@ -115,6 +133,24 @@
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
+    },
+    {
+      "name": "tte-phase-merge",
+      "description": "Safely merge side/task branches into the active TTE phase branch with a non-fast-forward merge commit (--no-ff). Enforces clean working tree, blocks unapproved ProjectSettings/Packages changes, shows merge-base and diff preview, pushes only on demand with --push, and polls for GitHub Actions CI run ID. Strictly prohibits force-pushes and touching main.",
+      "category": "projects",
+      "local_path": "skills\\projects\\tte-phase-merge",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": true
+    },
+    {
+      "name": "tte-status",
+      "description": "Authoritative TTE project status reporter. Outputs complete waking state in <=60 lines (phase branch head SHA, CI run & job conclusions, open PRs, top 8 remote branches by recency, ahead/behind main divergence, last 3 comments on phase PR and question issue cut to ~200 chars, and local worktrees). Uses only git and gh.",
+      "category": "projects",
+      "local_path": "skills\\projects\\tte-status",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": true
     }
   ]
 }

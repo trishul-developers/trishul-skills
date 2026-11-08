@@ -117,7 +117,7 @@ def main():
     catalog_sorted = sorted(catalog, key=lambda x: (x["category"], x["name"]))
 
     metadata = {
-        "version": "4.2.0",
+        "version": "4.3.0",
         "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
         "total_skills": len(catalog_sorted),
         "categories": {
