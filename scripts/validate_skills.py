@@ -39,6 +39,7 @@ def validate() -> int:
     warnings = []
     checked_skills = 0
     checked_py_scripts = 0
+    checked_cli_helps = 0
     checked_js_scripts = 0
     test_files_run = 0
 
@@ -73,6 +74,20 @@ def validate() -> int:
                 except py_compile.PyCompileError as e:
                     errors.append(f"Python syntax error in {file_path}: {e}")
 
+                # Verify --help executes cleanly with code 0 on all CLI entrypoint scripts
+                if "scripts" in file_path.parts and not f.startswith("test_") and f != "__init__.py":
+                    checked_cli_helps += 1
+                    help_res = subprocess.run(
+                        [sys.executable, str(file_path), "--help"],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if help_res.returncode != 0:
+                        errors.append(
+                            f"CLI script --help failure in {file_path} (exit code {help_res.returncode}):\n"
+                            f"{help_res.stderr.strip() or help_res.stdout.strip()}"
+                        )
+
                 if f.startswith("test_") and "tests" in file_path.parts:
                     test_files_run += 1
                     test_res = subprocess.run(
@@ -106,6 +121,7 @@ def validate() -> int:
     print(f"Validation complete:")
     print(f"  - Skills checked: {checked_skills}")
     print(f"  - Python scripts checked: {checked_py_scripts}")
+    print(f"  - CLI scripts --help verified: {checked_cli_helps}")
     print(f"  - JS/ESM scripts checked: {checked_js_scripts}")
     print(f"  - Test suites executed: {test_files_run}")
     print(f"  - Errors: {len(errors)}")

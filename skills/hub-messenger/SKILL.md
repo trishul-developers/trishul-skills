@@ -40,7 +40,7 @@ Wake behavior is configured in `%LOCALAPPDATA%\hub-messenger\config.json` (outsi
     "orchestrator-codex": {
       "mode": "codex",
       "thread_id": "<codex-session-uuid>",
-      "timeout": 900
+      "timeout": 60
     },
     "orchestrator-claude": {
       "mode": "claude",
@@ -50,7 +50,7 @@ Wake behavior is configured in `%LOCALAPPDATA%\hub-messenger\config.json` (outsi
     "custom-worker": {
       "mode": "command",
       "command": ["python", "C:/path/to/worker_wake.py"],
-      "timeout": 900
+      "timeout": 60
     }
   }
 }
@@ -58,14 +58,14 @@ Wake behavior is configured in `%LOCALAPPDATA%\hub-messenger\config.json` (outsi
 
 ### Supported Modes:
 - **`log`** (default for every target): Logs and prints `[LOG] Would wake participant '<name>': 'Check your hub inbox.'` without spawning external processes.
-- **`codex`**: Executes `codex exec resume <thread-id> "Check your hub inbox."` detached and non-blocking with a timeout.
-- **`claude`**: Executes `claude -p --resume <session-id> "Check your hub inbox."` detached and non-blocking with a timeout.
-- **`command`**: Executes an explicit argument list specified in the target configuration.
+- **`codex`**: Executes `codex queue --thread <thread-id> --resume --message "Check your hub inbox."` detached and non-blocking. This queues a new turn after the chat's current turn ends instead of starting a second turn in parallel. Note: the Codex app-server daemon must be running; otherwise the prompt is only stored. Because `codex queue` returns quickly once queued, its timeout does not bound a turn (default timeout: 60 s).
+- **`claude`**: Executes `claude -p --resume <session-id> "Check your hub inbox."` detached and non-blocking. The 900 s (15 minutes) default timeout applies to `claude` mode to bound the full turn execution.
+- **`command`**: Executes an explicit argument list specified in the target configuration (default timeout: 60 s).
 
 ### Concurrency & Lifecycle Safeguards:
 - Never launches more than one wake process for the same target simultaneously. If a previous wake process is still active, subsequent wake triggers for that target are skipped until the active process terminates.
-- **Default Wake Timeout (900 s)**: Each wake subprocess defaults to a timeout of 900 seconds (15 minutes). If a wake process exceeds this timeout, `hub-messenger` terminates it (`proc.terminate()`), terminating a turn in progress to prevent stalled runs.
-- **Single-Instance PID Lock**: An atomic `O_EXCL` pidfile (`state.pid`) protects the daemon so multiple messenger processes cannot run against the same state file simultaneously. Dead instances are detected and recovered via process creation time validation.
+- **Wake Timeouts**: Defaults to 900 seconds (15 minutes) only for `claude` mode (where Claude Code runs the turn synchronously to completion), and 60 seconds for `codex` mode (where `codex queue` enqueues and exits quickly) and `command` mode. If a wake process exceeds its timeout, `hub-messenger` terminates it (`proc.terminate()`), terminating a turn in progress or hung command to prevent stalled runs.
+- **Single-Instance OS File Lock**: An OS-level advisory file lock (`msvcrt.locking(fd, LK_NBLCK, 1)` on Windows, `fcntl.flock(fd, LOCK_EX|LOCK_NB)` on POSIX) on `state.pid` held on an open file handle ensures that exactly one daemon instance runs at a time. The OS drops the lock automatically when the process terminates. Diagnostic details (PID, start time) are written to the file for human inspection but are never used to decide lock ownership; leftover diagnostics files from killed instances do not block new instances.
 - Subprocesses are spawned detached and non-blocking with `stdin=DEVNULL`, and exit codes are logged.
 
 ---

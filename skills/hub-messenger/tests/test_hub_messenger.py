@@ -4,6 +4,7 @@
 import io
 import json
 import logging
+import subprocess
 import sys
 import tempfile
 import time
@@ -318,40 +319,47 @@ class TestHubMessenger(unittest.TestCase):
         self.assertNotIn(secret_thread, log_text)
         self.assertNotIn("exec resume", log_text)
 
-    def test_single_instance_pidfile_guard_and_stale_takeover(self):
+    def test_single_instance_os_lock_and_killed_holder(self):
         pid_file = self.base_dir / "test_messenger.pid"
         lock1 = hub_messenger.MessengerPidLock(pid_file)
         lock1.acquire()
         self.assertTrue(lock1.acquired)
         self.assertTrue(pid_file.exists())
 
-        # Second instance trying to acquire same pidfile while live PID runs must raise RuntimeError
+        # Second instance trying to acquire same pidfile while live instance holds OS lock raises RuntimeError
         lock2 = hub_messenger.MessengerPidLock(pid_file)
         with self.assertRaises(RuntimeError) as ctx:
             lock2.acquire()
         self.assertIn("Another hub-messenger instance is already running", str(ctx.exception))
 
-        # Release first lock
+        # Releasing first lock drops OS lock
         lock1.release()
-        self.assertFalse(pid_file.exists())
+        self.assertFalse(lock1.acquired)
 
-        # Now simulate a stale lock (PID 999999, dead)
-        stale_data = {
-            "pid": 999999,
-            "creation_time": 100.0,
-            "start_time": 1000.0,
-            "start_time_iso": "2026-01-01 00:00:00",
-        }
-        pid_file.write_text(json.dumps(stale_data), encoding="utf-8")
+        # Second instance now acquires successfully
+        lock2.acquire()
+        self.assertTrue(lock2.acquired)
 
-        # Second instance must detect stale dead PID and successfully acquire
+        # Releasing lock2 leaves diagnostics file behind on disk (normal for OS locks)
+        lock2.release()
+        self.assertTrue(pid_file.exists())
+
+        # Third instance acquires immediately; leftover diagnostics file does NOT block
         lock3 = hub_messenger.MessengerPidLock(pid_file)
         lock3.acquire()
         self.assertTrue(lock3.acquired)
-        curr_data = json.loads(pid_file.read_text(encoding="utf-8"))
-        import os
-        self.assertEqual(curr_data["pid"], os.getpid())
         lock3.release()
+
+    def test_hub_messenger_help_exits_0(self):
+        script_path = SCRIPT_DIR / "hub_messenger.py"
+        res = subprocess.run(
+            [sys.executable, str(script_path), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("Zero-model Trishul Agent Hub messenger daemon", res.stdout)
+        self.assertIn("%LOCALAPPDATA%", res.stdout)
 
     def test_missing_or_locked_token_file_does_not_crash_and_logs_once(self):
         missing_token = self.base_dir / "nonexistent.token"
@@ -462,7 +470,12 @@ class TestHubMessenger(unittest.TestCase):
                 import subprocess
                 self.assertEqual(kwargs.get("stdin"), subprocess.DEVNULL)
                 self.assertEqual(args[0][0], "C:/npm/codex.cmd")
+                self.assertEqual(args[0][1], "queue")
+                self.assertEqual(args[0][2], "--thread")
                 self.assertEqual(args[0][3], "thread-abc")
+                self.assertEqual(args[0][4], "--resume")
+                self.assertEqual(args[0][5], "--message")
+                self.assertEqual(args[0][6], "Check your hub inbox.")
 
 
 if __name__ == "__main__":

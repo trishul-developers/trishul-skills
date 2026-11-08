@@ -495,10 +495,18 @@ def cmd_ci_digest(args):
 
             lines.append(f"- [{j_concl}] {j_name}")
 
-            # Fetch job logs and NUnit artifact fallback only for failed Unity test jobs whose log has no summary
-            if j_concl == "FAILURE" and is_unity_test_job(j_name):
+            # Optional: test counts for passing jobs, from log only without download
+            if j_concl == "SUCCESS" and is_unity_test_job(j_name):
                 parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
-                if not (parsed and parsed.get("counts")):
+                if parsed and parsed.get("counts"):
+                    c = parsed["counts"]
+                    lines.append(f"    Tests: {c.get('passed', 0)} passed, {c.get('failed', 0)} failed, {c.get('skipped', 0)} skipped (total {c.get('total', 0)})")
+
+            # For any failed job: parse log summary, else fall back to extract_job_error_lines
+            elif j_concl == "FAILURE":
+                parsed = parse_tte_ci_job_log(repo, run_id, j_id, max_failures)
+                if not (parsed and parsed.get("counts")) and is_unity_test_job(j_name):
+                    # Use artifact download ONLY for failed Unity test jobs whose log has no summary
                     xml_files = get_run_xml_files()
                     matched_xml = match_nunit_xml_for_job(xml_files, j_name)
                     if matched_xml:
@@ -514,7 +522,8 @@ def cmd_ci_digest(args):
                     for name, msg in fails[:max_failures]:
                         msg_str = f": {msg[:200]}" if msg else ""
                         lines.append(f"    * `{name}`{msg_str}")
-                elif not (parsed and parsed.get("counts")):
+                else:
+                    # Non-test / non-summary failure (e.g. failed C# compile gate): extract CS error lines
                     err_lines = extract_job_error_lines(repo, run_id, j_id)
                     if err_lines:
                         lines.append("    Errors:")

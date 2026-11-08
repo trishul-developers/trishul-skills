@@ -35,8 +35,113 @@ for stream in (sys.stdout, sys.stderr):
 # ---------------------------------------------------------------------------
 # Machine-wide Unity Lock
 # ---------------------------------------------------------------------------
+class OSLock:
+    """Cross-platform OS-level advisory file lock held on an open handle for process lifetime.
+
+    Windows: msvcrt.locking(fd, LK_NBLCK, 1)
+    POSIX:   fcntl.flock(fd, LOCK_EX | LOCK_NB)
+
+    When the holding process terminates (normal exit, crash, SIGKILL, or OS shutdown),
+    the OS automatically closes the handle and releases the lock. No stale PID checks
+    or file renames are needed.
+    """
+
+    def __init__(self, lock_path: Path):
+        self.lock_path = Path(lock_path)
+        self.fd: Optional[int] = None
+        self.acquired: bool = False
+
+    def try_acquire(self) -> bool:
+        if self.acquired:
+            return True
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(str(self.lock_path), os.O_RDWR | os.O_CREAT, 0o666)
+        except OSError:
+            return False
+
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, PermissionError, OSError):
+            os.close(fd)
+            return False
+
+        self.fd = fd
+        self.acquired = True
+        return True
+
+    def write_diagnostics(self, payload: Dict[str, Any]) -> None:
+        """Write diagnostics JSON for human readers. Lock state is determined solely by the OS lock."""
+        if not self.acquired or self.fd is None:
+            return
+        try:
+            prefix = b" " if sys.platform == "win32" else b""
+            data = prefix + (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+            os.lseek(self.fd, 0, os.SEEK_SET)
+            os.ftruncate(self.fd, 0)
+            os.write(self.fd, data)
+            if hasattr(os, "fsync"):
+                os.fsync(self.fd)
+        except Exception:
+            pass
+
+    def read_diagnostics(self) -> Dict[str, Any]:
+        """Read diagnostics from lock file for reporting. Never used to decide lock ownership."""
+        try:
+            if not self.lock_path.exists():
+                return {}
+            try:
+                content = self.lock_path.read_text(encoding="utf-8", errors="replace")
+            except PermissionError:
+                # On Windows, byte 0 is locked by msvcrt.locking; read starting at byte 1
+                with open(self.lock_path, "rb") as f:
+                    f.seek(1)
+                    content = f.read().decode("utf-8", errors="replace")
+            if content.strip():
+                parsed = json.loads(content.strip())
+                if isinstance(parsed, dict):
+                    return parsed
+        except Exception:
+            pass
+        return {}
+
+    def release(self) -> None:
+        if not self.acquired or self.fd is None:
+            return
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+
+                try:
+                    os.lseek(self.fd, 0, os.SEEK_SET)
+                    msvcrt.locking(self.fd, msvcrt.LK_UNLCK, 1)
+                except Exception:
+                    pass
+            else:
+                import fcntl
+
+                try:
+                    fcntl.flock(self.fd, fcntl.LOCK_UN)
+                except Exception:
+                    pass
+            os.close(self.fd)
+        except Exception:
+            pass
+        finally:
+            self.fd = None
+            self.acquired = False
+
+
 class UnityMachineLock:
-    """Machine-wide lock around Unity launches stored under %LOCALAPPDATA%."""
+    """Inter-process lock for Unity batchmode execution via OS-level file locking."""
 
     def __init__(
         self,
@@ -57,179 +162,9 @@ class UnityMachineLock:
             else:
                 local_appdata = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
                 self.lock_file = Path(local_appdata) / "unity_pipeline.lock"
+        self._os_lock = OSLock(self.lock_file)
         self.acquired = False
         self._registered_handlers = False
-
-    def get_process_creation_time(self, pid: int) -> Optional[float]:
-        if sys.platform != "win32" or pid <= 0:
-            return None
-        import ctypes
-        from ctypes import wintypes
-
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-        if not handle:
-            return None
-        try:
-            creation_time = wintypes.FILETIME()
-            exit_time = wintypes.FILETIME()
-            kernel_time = wintypes.FILETIME()
-            user_time = wintypes.FILETIME()
-            res = ctypes.windll.kernel32.GetProcessTimes(
-                handle,
-                ctypes.byref(creation_time),
-                ctypes.byref(exit_time),
-                ctypes.byref(kernel_time),
-                ctypes.byref(user_time),
-            )
-            if not res:
-                return None
-            ft_int = (creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime
-            return float(ft_int)
-        finally:
-            ctypes.windll.kernel32.CloseHandle(handle)
-
-    def is_pid_alive(self, pid: int, expected_creation_time: Optional[float] = None) -> bool:
-        if pid <= 0:
-            return False
-        if sys.platform == "win32":
-            import ctypes
-
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            SYNCHRONIZE = 0x00100000
-            handle = ctypes.windll.kernel32.OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid
-            )
-            if not handle:
-                return False
-            try:
-                exit_code = ctypes.c_ulong()
-                ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
-                # STILL_ACTIVE = 259
-                if exit_code.value != 259:
-                    return False
-                if expected_creation_time is not None:
-                    curr_creation = self.get_process_creation_time(pid)
-                    if curr_creation is not None and curr_creation != expected_creation_time:
-                        # Process ID was reused by another process
-                        return False
-                return True
-            finally:
-                ctypes.windll.kernel32.CloseHandle(handle)
-        else:
-            try:
-                os.kill(pid, 0)
-                return True
-            except (ProcessLookupError, PermissionError):
-                return False
-
-    def read_lock(self, grace_period: float = 2.0) -> Optional[Dict[str, Any]]:
-        if not self.lock_file.exists():
-            return None
-
-        deadline = time.monotonic() + grace_period
-        while True:
-            try:
-                stat_res = self.lock_file.stat()
-                file_age = time.time() - stat_res.st_mtime
-            except FileNotFoundError:
-                return None
-            except Exception:
-                return None
-
-            content = ""
-            try:
-                content = self.lock_file.read_text(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
-
-            if content.strip():
-                try:
-                    parsed = json.loads(content)
-                    if isinstance(parsed, dict) and "pid" in parsed:
-                        pid_val = parsed["pid"]
-                        if isinstance(pid_val, int) or (isinstance(pid_val, str) and pid_val.isdigit()):
-                            parsed["pid"] = int(pid_val)
-                            return parsed
-                except Exception:
-                    pass
-
-            if file_age < grace_period and time.monotonic() < deadline:
-                time.sleep(0.05)
-                continue
-
-            return {
-                "pid": -1,
-                "stale": True,
-                "reason": "corrupt_or_empty",
-                "project_path": "unknown",
-                "start_time": stat_res.st_mtime,
-            }
-
-    def _try_create_lock(self) -> bool:
-        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
-        creation_time = self.get_process_creation_time(os.getpid())
-        payload = {
-            "pid": os.getpid(),
-            "creation_time": creation_time,
-            "start_time": time.time(),
-            "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            "project_path": str(self.project_path),
-        }
-        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
-        try:
-            fd = os.open(str(self.lock_file), flags, 0o644)
-        except FileExistsError:
-            return False
-        except OSError as e:
-            print(f"ERROR: Cannot create lock file '{self.lock_file}': {e}", file=sys.stderr)
-            sys.exit(1)
-
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(json.dumps(payload, indent=2))
-            self.acquired = True
-            self._install_handlers()
-            return True
-        except Exception as e:
-            try:
-                self.lock_file.unlink(missing_ok=True)
-            except Exception:
-                pass
-            print(f"ERROR: Failed to write lock file '{self.lock_file}': {e}", file=sys.stderr)
-            sys.exit(1)
-
-    def write_lock(self) -> None:
-        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
-        creation_time = self.get_process_creation_time(os.getpid())
-        payload = {
-            "pid": os.getpid(),
-            "creation_time": creation_time,
-            "start_time": time.time(),
-            "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            "project_path": str(self.project_path),
-        }
-        tmp_file = self.lock_file.with_name(f"{self.lock_file.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
-        try:
-            tmp_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-            retries = 10
-            while retries > 0:
-                try:
-                    tmp_file.replace(self.lock_file)
-                    break
-                except PermissionError:
-                    retries -= 1
-                    if retries == 0:
-                        raise
-                    time.sleep(0.05)
-        finally:
-            if tmp_file.exists():
-                try:
-                    tmp_file.unlink()
-                except Exception:
-                    pass
-        self.acquired = True
-        self._install_handlers()
 
     def _install_handlers(self) -> None:
         if self._registered_handlers:
@@ -250,87 +185,25 @@ class UnityMachineLock:
     def acquire(self) -> None:
         start_wait = time.monotonic()
         while True:
-            elapsed = time.monotonic() - start_wait
-            if elapsed >= self.timeout:
-                print(
-                    f"ERROR: Timed out waiting {self.timeout}s for Unity lock '{self.lock_file}'.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-            if self._try_create_lock():
-                return
-
-            lock_data = self.read_lock()
-            if lock_data is None:
-                time.sleep(0.05)
-                continue
-
-            locked_pid = int(lock_data.get("pid", 0))
-            locked_proj = lock_data.get("project_path", "unknown")
-            start_time_str = lock_data.get("start_time_iso") or str(
-                lock_data.get("start_time", "unknown")
-            )
-            expected_creation = lock_data.get("creation_time")
-
-            if locked_pid == os.getpid():
+            if self._os_lock.try_acquire():
                 self.acquired = True
+                self._install_handlers()
+                payload = {
+                    "pid": os.getpid(),
+                    "start_time": time.time(),
+                    "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    "project_path": str(self.project_path),
+                }
+                self._os_lock.write_diagnostics(payload)
                 return
 
-            is_stale = lock_data.get("stale", False) or not self.is_pid_alive(
-                locked_pid, expected_creation_time=expected_creation
+            elapsed = time.monotonic() - start_wait
+            diag = self._os_lock.read_diagnostics()
+            locked_pid = diag.get("pid", "unknown")
+            locked_proj = diag.get("project_path", "unknown")
+            start_time_str = diag.get("start_time_iso") or str(
+                diag.get("start_time", "unknown")
             )
-
-            if is_stale:
-                # Stale takeover: rename stale file first to unique name
-                stale_target = self.lock_file.with_name(
-                    f"{self.lock_file.name}.stale.{uuid.uuid4().hex}"
-                )
-                try:
-                    os.rename(str(self.lock_file), str(stale_target))
-                except (FileNotFoundError, PermissionError, OSError):
-                    time.sleep(0.05)
-                    continue
-
-                # Verify we renamed the stale file we actually observed, not a newly created live lock
-                renamed_data = None
-                try:
-                    content = stale_target.read_text(encoding="utf-8", errors="replace")
-                    if content.strip():
-                        renamed_data = json.loads(content)
-                except Exception:
-                    pass
-
-                # If renamed file has different PID or creation_time than stale data, put it back!
-                if isinstance(renamed_data, dict):
-                    renamed_pid = renamed_data.get("pid")
-                    renamed_creation = renamed_data.get("creation_time")
-                    if renamed_pid != locked_pid or (
-                        expected_creation is not None and renamed_creation != expected_creation
-                    ):
-                        try:
-                            if hasattr(os, "replace"):
-                                os.replace(str(stale_target), str(self.lock_file))
-                            else:
-                                os.rename(str(stale_target), str(self.lock_file))
-                        except Exception:
-                            pass
-                        time.sleep(0.05)
-                        continue
-
-                try:
-                    stale_target.unlink(missing_ok=True)
-                except Exception:
-                    pass
-
-                if self._try_create_lock():
-                    print(
-                        f"Notice: Took over stale Unity lock from dead PID {locked_pid} (project: '{locked_proj}').",
-                        file=sys.stderr,
-                    )
-                    return
-                time.sleep(0.05)
-                continue
 
             if self.mode == "exit":
                 print(
@@ -338,6 +211,13 @@ class UnityMachineLock:
                     file=sys.stderr,
                 )
                 sys.exit(75)
+
+            if elapsed >= self.timeout:
+                print(
+                    f"ERROR: Timed out waiting {self.timeout}s for Unity lock held by PID {locked_pid} (project: '{locked_proj}').",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
             print(
                 f"Unity lock held by PID {locked_pid} (project: '{locked_proj}', started: {start_time_str}). Waiting for release (elapsed: {int(elapsed)}s)...",
@@ -347,14 +227,11 @@ class UnityMachineLock:
 
     def release(self) -> None:
         if self.acquired:
-            try:
-                lock_data = self.read_lock(grace_period=0.2)
-                if lock_data and int(lock_data.get("pid", 0)) == os.getpid():
-                    if self.lock_file.exists():
-                        self.lock_file.unlink()
-            except Exception:
-                pass
+            self._os_lock.release()
             self.acquired = False
+
+    def read_diagnostics(self) -> Dict[str, Any]:
+        return self._os_lock.read_diagnostics()
 
     def __enter__(self):
         self.acquire()

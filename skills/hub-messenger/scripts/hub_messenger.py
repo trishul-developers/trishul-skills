@@ -28,7 +28,6 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -108,15 +107,16 @@ def validate_target_config(target_name: str, target_cfg: Any) -> Tuple[bool, Opt
     if not isinstance(mode, str):
         return False, f"Target '{target_name}' mode must be a string, got {type(mode).__name__}"
 
-    timeout = target_cfg.get("timeout", DEFAULT_WAKE_TIMEOUT)
-    if isinstance(timeout, int):
-        if timeout <= 0:
-            return False, f"Target '{target_name}' timeout must be a positive integer, got {timeout}"
-    elif isinstance(timeout, str) and timeout.isdigit():
-        if int(timeout) <= 0:
-            return False, f"Target '{target_name}' timeout must be a positive integer, got {timeout}"
-    else:
-        return False, f"Target '{target_name}' timeout must be an integer, got {type(timeout).__name__}"
+    timeout = target_cfg.get("timeout")
+    if timeout is not None:
+        if isinstance(timeout, int):
+            if timeout <= 0:
+                return False, f"Target '{target_name}' timeout must be a positive integer, got {timeout}"
+        elif isinstance(timeout, str) and timeout.isdigit():
+            if int(timeout) <= 0:
+                return False, f"Target '{target_name}' timeout must be a positive integer, got {timeout}"
+        else:
+            return False, f"Target '{target_name}' timeout must be an integer, got {type(timeout).__name__}"
 
     return True, None
 
@@ -197,177 +197,141 @@ def should_wake_participant(
     return False, f"Pending unchanged ({pending}) and only {int((now_ts - last_wake_ts)//60)}m elapsed"
 
 
-class MessengerPidLock:
-    """Single-instance guard using atomic O_EXCL file creation with stale-PID handling."""
+class OSLock:
+    """Cross-platform OS-level advisory file lock held on an open handle for process lifetime.
 
-    def __init__(self, pid_file: Path):
-        self.pid_file = pid_file
-        self.acquired = False
-        self._registered_handlers = False
+    Windows: msvcrt.locking(fd, LK_NBLCK, 1)
+    POSIX:   fcntl.flock(fd, LOCK_EX | LOCK_NB)
 
-    def get_process_creation_time(self, pid: int) -> Optional[float]:
-        if sys.platform != "win32" or pid <= 0:
-            return None
-        import ctypes
-        from ctypes import wintypes
+    When the holding process terminates (normal exit, crash, SIGKILL, or OS shutdown),
+    the OS automatically closes the handle and releases the lock. No stale PID checks
+    or file renames are needed.
+    """
 
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-        if not handle:
-            return None
-        try:
-            creation_time = wintypes.FILETIME()
-            exit_time = wintypes.FILETIME()
-            kernel_time = wintypes.FILETIME()
-            user_time = wintypes.FILETIME()
-            res = ctypes.windll.kernel32.GetProcessTimes(
-                handle,
-                ctypes.byref(creation_time),
-                ctypes.byref(exit_time),
-                ctypes.byref(kernel_time),
-                ctypes.byref(user_time),
-            )
-            if not res:
-                return None
-            ft_int = (creation_time.dwHighDateTime << 32) + creation_time.dwLowDateTime
-            return float(ft_int)
-        finally:
-            ctypes.windll.kernel32.CloseHandle(handle)
+    def __init__(self, lock_path: Path):
+        self.lock_path = Path(lock_path)
+        self.fd: Optional[int] = None
+        self.acquired: bool = False
 
-    def is_pid_alive(self, pid: int, expected_creation_time: Optional[float] = None) -> bool:
-        if pid <= 0:
-            return False
-        if sys.platform == "win32":
-            import ctypes
-
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            SYNCHRONIZE = 0x00100000
-            handle = ctypes.windll.kernel32.OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid
-            )
-            if not handle:
-                return False
-            try:
-                exit_code = ctypes.c_ulong()
-                ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
-                if exit_code.value != 259:  # STILL_ACTIVE
-                    return False
-                if expected_creation_time is not None:
-                    curr_creation = self.get_process_creation_time(pid)
-                    if curr_creation is not None and curr_creation != expected_creation_time:
-                        return False
-                return True
-            finally:
-                ctypes.windll.kernel32.CloseHandle(handle)
-        else:
-            try:
-                os.kill(pid, 0)
-                return True
-            except (ProcessLookupError, PermissionError):
-                return False
-
-    def _try_create_pidfile(self) -> bool:
-        self.pid_file.parent.mkdir(parents=True, exist_ok=True)
-        creation_time = self.get_process_creation_time(os.getpid())
-        payload = {
-            "pid": os.getpid(),
-            "creation_time": creation_time,
-            "start_time": time.time(),
-            "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-        }
-        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
-        try:
-            fd = os.open(str(self.pid_file), flags, 0o644)
-        except FileExistsError:
-            return False
-        except OSError as e:
-            raise OSError(f"Cannot create pidfile '{self.pid_file}': {e}") from e
-
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(json.dumps(payload, indent=2))
-            self.acquired = True
-            self._install_handlers()
+    def try_acquire(self) -> bool:
+        if self.acquired:
             return True
-        except Exception:
-            try:
-                self.pid_file.unlink(missing_ok=True)
-            except Exception:
-                pass
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(str(self.lock_path), os.O_RDWR | os.O_CREAT, 0o666)
+        except OSError:
             return False
 
-    def acquire(self) -> None:
-        if self._try_create_pidfile():
-            return
-
-        lock_data = None
         try:
-            content = self.pid_file.read_text(encoding="utf-8", errors="replace")
-            if content.strip():
-                lock_data = json.loads(content)
+            if sys.platform == "win32":
+                import msvcrt
+
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, PermissionError, OSError):
+            os.close(fd)
+            return False
+
+        self.fd = fd
+        self.acquired = True
+        return True
+
+    def write_diagnostics(self, payload: Dict[str, Any]) -> None:
+        """Write diagnostics JSON for human readers. Lock state is determined solely by the OS lock."""
+        if not self.acquired or self.fd is None:
+            return
+        try:
+            prefix = b" " if sys.platform == "win32" else b""
+            data = prefix + (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+            os.lseek(self.fd, 0, os.SEEK_SET)
+            os.ftruncate(self.fd, 0)
+            os.write(self.fd, data)
+            if hasattr(os, "fsync"):
+                os.fsync(self.fd)
         except Exception:
             pass
 
-        locked_pid = int(lock_data.get("pid", -1)) if isinstance(lock_data, dict) else -1
-        expected_creation = lock_data.get("creation_time") if isinstance(lock_data, dict) else None
-
-        is_stale = locked_pid <= 0 or not self.is_pid_alive(
-            locked_pid, expected_creation_time=expected_creation
-        )
-
-        if is_stale:
-            stale_target = self.pid_file.with_name(
-                f"{self.pid_file.name}.stale.{uuid.uuid4().hex}"
-            )
+    def read_diagnostics(self) -> Dict[str, Any]:
+        """Read diagnostics from lock file for reporting. Never used to decide lock ownership."""
+        try:
+            if not self.lock_path.exists():
+                return {}
             try:
-                os.rename(str(self.pid_file), str(stale_target))
-            except (FileNotFoundError, PermissionError, OSError):
-                pass
+                content = self.lock_path.read_text(encoding="utf-8", errors="replace")
+            except PermissionError:
+                # On Windows, byte 0 is locked by msvcrt.locking; read starting at byte 1
+                with open(self.lock_path, "rb") as f:
+                    f.seek(1)
+                    content = f.read().decode("utf-8", errors="replace")
+            if content.strip():
+                parsed = json.loads(content.strip())
+                if isinstance(parsed, dict):
+                    return parsed
+        except Exception:
+            pass
+        return {}
+
+    def release(self) -> None:
+        if not self.acquired or self.fd is None:
+            return
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+
+                try:
+                    os.lseek(self.fd, 0, os.SEEK_SET)
+                    msvcrt.locking(self.fd, msvcrt.LK_UNLCK, 1)
+                except Exception:
+                    pass
             else:
-                renamed_data = None
-                try:
-                    content = stale_target.read_text(encoding="utf-8", errors="replace")
-                    if content.strip():
-                        renamed_data = json.loads(content)
-                except Exception:
-                    pass
-
-                if isinstance(renamed_data, dict):
-                    renamed_pid = renamed_data.get("pid")
-                    renamed_creation = renamed_data.get("creation_time")
-                    if renamed_pid != locked_pid or (
-                        expected_creation is not None and renamed_creation != expected_creation
-                    ):
-                        try:
-                            if hasattr(os, "replace"):
-                                os.replace(str(stale_target), str(self.pid_file))
-                            else:
-                                os.rename(str(stale_target), str(self.pid_file))
-                        except Exception:
-                            pass
-                        raise RuntimeError(
-                            f"Another hub-messenger instance is already running (PID {renamed_pid}). Exiting."
-                        )
+                import fcntl
 
                 try:
-                    stale_target.unlink(missing_ok=True)
+                    fcntl.flock(self.fd, fcntl.LOCK_UN)
                 except Exception:
                     pass
+            os.close(self.fd)
+        except Exception:
+            pass
+        finally:
+            self.fd = None
+            self.acquired = False
 
-                if self._try_create_pidfile():
-                    return
 
+class MessengerPidLock:
+    """Single-instance guard using OS-level file locking."""
+
+    def __init__(self, pid_file: Path):
+        self.pid_file = Path(pid_file)
+        self._os_lock = OSLock(self.pid_file)
+        self.acquired = False
+        self._registered_handlers = False
+
+    def acquire(self) -> None:
+        if self._os_lock.try_acquire():
+            self.acquired = True
+            self._install_handlers()
+            payload = {
+                "pid": os.getpid(),
+                "start_time": time.time(),
+                "start_time_iso": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            }
+            self._os_lock.write_diagnostics(payload)
+            return
+
+        diag = self._os_lock.read_diagnostics()
+        locked_pid = diag.get("pid", "unknown")
         raise RuntimeError(
             f"Another hub-messenger instance is already running (PID {locked_pid}). Exiting."
         )
 
     def release(self) -> None:
         if self.acquired:
-            try:
-                if self.pid_file.exists():
-                    self.pid_file.unlink()
-            except Exception:
-                pass
+            self._os_lock.release()
             self.acquired = False
 
     def _install_handlers(self) -> None:
@@ -523,7 +487,10 @@ class HubMessenger:
         if self.dry_run:
             mode = "log"
 
-        timeout = int(target_cfg.get("timeout", DEFAULT_WAKE_TIMEOUT))
+        # Default timeout: 900 s only for claude mode (which executes the turn synchronously to completion);
+        # 60 s for codex mode and command (since codex queue returns quickly once queued)
+        default_timeout = DEFAULT_WAKE_TIMEOUT if mode == "claude" else 60
+        timeout = int(target_cfg.get("timeout", default_timeout))
 
         if mode == "log":
             self.logger.info(f"[LOG] Would wake participant '{target_name}': '{WAKE_TEXT}'")
@@ -548,7 +515,7 @@ class HubMessenger:
                 self.logger.error(f"Cannot wake '{target_name}' via codex: 'thread_id' cannot start with '-'.")
                 return
             codex_bin = shutil.which("codex") or "codex"
-            cmd = [codex_bin, "exec", "resume", thread_id_str, WAKE_TEXT]
+            cmd = [codex_bin, "queue", "--thread", thread_id_str, "--resume", "--message", WAKE_TEXT]
 
         elif mode == "claude":
             session_id = target_cfg.get("session_id")
@@ -576,7 +543,7 @@ class HubMessenger:
             self.logger.info(f"[LOG] Would wake participant '{target_name}': '{WAKE_TEXT}'")
             return
 
-        # N5: Never log the wake command line (thread and session IDs are handles). Log mode and target name only.
+        # Never log the wake command line (thread and session IDs are handles). Log mode and target name only.
         self.logger.info(f"Launching detached wake for '{target_name}' [mode={mode}]")
         try:
             # Launch non-blocking detached process with stdin=DEVNULL
@@ -700,19 +667,19 @@ def main():
         "--config",
         dest="config_path",
         default=str(base_dir / "config.json"),
-        help="Path to wake targets configuration file (default: %LOCALAPPDATA%\\hub-messenger\\config.json)",
+        help="Path to wake targets configuration file (default: %%LOCALAPPDATA%%\\hub-messenger\\config.json)",
     )
     parser.add_argument(
         "--state-file",
         dest="state_path",
         default=str(base_dir / "state.json"),
-        help="Path to participant wake state persistence file (default: %LOCALAPPDATA%\\hub-messenger\\state.json)",
+        help="Path to participant wake state persistence file (default: %%LOCALAPPDATA%%\\hub-messenger\\state.json)",
     )
     parser.add_argument(
         "--log-file",
         dest="log_path",
         default=str(base_dir / "hub-messenger.log"),
-        help="Path to log file (default: %LOCALAPPDATA%\\hub-messenger\\hub-messenger.log)",
+        help="Path to log file (default: %%LOCALAPPDATA%%\\hub-messenger\\hub-messenger.log)",
     )
     parser.add_argument(
         "--once",

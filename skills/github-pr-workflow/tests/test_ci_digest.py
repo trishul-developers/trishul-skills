@@ -188,6 +188,50 @@ class TestCiDigest(unittest.TestCase):
         # Verify get_token (which invokes git credential fill) was NEVER called
         self.assertFalse(mock_token.called)
 
+    @patch("gh_helper.extract_job_error_lines")
+    @patch("gh_helper.parse_tte_ci_job_log")
+    @patch("gh_helper.run_cmd")
+    def test_failed_compile_job_shows_cs_errors(self, mock_run, mock_parse_log, mock_extract_errors):
+        canned_run_info = {
+            "name": "FastCompile CI",
+            "url": "https://github.com/owner/repo/actions/runs/555",
+            "headSha": "abcdef1234567890",
+            "headBranch": "main",
+            "status": "completed",
+            "conclusion": "failure",
+            "jobs": [
+                {
+                    "id": 999,
+                    "name": "FastCompile Invariant Check",
+                    "status": "completed",
+                    "conclusion": "failure",
+                }
+            ],
+        }
+        mock_run.return_value = (0, json.dumps(canned_run_info), "")
+        mock_parse_log.return_value = None
+        mock_extract_errors.return_value = [
+            "Assets/Scripts/Game/OrderSystem.cs(42,15): error CS1002: ; expected",
+            "Assets/Scripts/Game/OrderSystem.cs(43,20): error CS0103: The name 'foo' does not exist in the current context",
+        ]
+
+        class FakeArgs:
+            repo = "owner/repo"
+            run_id = 555
+            branch = None
+            max_failures = 5
+
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            gh_helper.cmd_ci_digest(FakeArgs())
+
+        output = buf.getvalue()
+        lines = output.strip().splitlines()
+        self.assertTrue(any("- [FAILURE] FastCompile Invariant Check" in l for l in lines))
+        self.assertTrue(any("Errors:" in l for l in lines))
+        self.assertTrue(any("error CS1002" in l for l in lines))
+        self.assertTrue(any("error CS0103" in l for l in lines))
+
     def test_shared_digest_subparser(self):
         # Verify both commands share subparser options
         with patch("sys.argv", ["gh_helper.py", "ci-digest", "--run-id", "12345", "--max-failures", "5"]):
