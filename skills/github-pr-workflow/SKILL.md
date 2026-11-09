@@ -82,6 +82,11 @@ python "C:\Users\tosum\.claude\skills\github-pr-workflow\scripts\gh_helper.py" c
   --sha <sha>
 ```
 
+> [!NOTE]
+> The `--sha` flag accepts both short prefix form (7+ characters, e.g. `724ef84`) and full 40-character commit hashes. Short SHAs resolve locally via `git rev-parse` when inside the repository checkout, or dynamically against recent workflow runs.
+>
+> If waiting by `--branch`, the command automatically ignores stale runs created more than 60s before invocation (unless `--include-existing` is explicitly passed). Therefore, `--sha <sha>` or `--run-id <id>` is always preferred after a push.
+
 When the background process completes, the environment wakes the chat with the exit code and process output (the CI summary line and failure digest).
 
 ### Key Characteristics & Economics
