@@ -46,7 +46,7 @@
     },
     {
       "name": "github-pr-workflow",
-      "description": "Complete GitHub Pull Request and CI workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), CI run failure & test digestion (<=50 lines), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
+      "description": "Complete GitHub Pull Request and CI workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), CI run failure & test digestion (<=50 lines), quiet CI run waiting and wake-up notifications (ci wait), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
       "category": "platform",
       "local_path": "skills\\github-pr-workflow",
       "has_scripts": true,

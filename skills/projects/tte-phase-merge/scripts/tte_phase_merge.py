@@ -258,9 +258,11 @@ def execute_phase_merge(
         print(f"Waiting up to {wait_ci_timeout}s for GitHub Actions CI run...")
         ci_run = wait_for_ci_run(repo, phase_branch, new_sha, timeout=wait_ci_timeout, cwd=project_dir)
         if ci_run:
-            print(f"CI Run Detected: Run ID #{ci_run.get('databaseId')}")
+            run_id = ci_run.get('databaseId')
+            print(f"CI Run Detected: Run ID #{run_id}")
             print(f"URL: {ci_run.get('url')}")
             print(f"Status: {ci_run.get('status')} | Conclusion: {ci_run.get('conclusion') or 'pending'}")
+            print(f"Ready-to-run wait command: python \"C:\\Users\\tosum\\.claude\\skills\\github-pr-workflow\\scripts\\gh_helper.py\" ci wait --repo {repo} --run-id {run_id}")
         else:
             print(f"Notice: CI run was not detected within {wait_ci_timeout}s. Check https://github.com/{repo}/actions")
     else:

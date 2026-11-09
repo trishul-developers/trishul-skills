@@ -14,12 +14,14 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -400,47 +402,13 @@ def extract_job_error_lines(repo: str, run_id: int, job_id: int):
     return errors[:5]
 
 
-def cmd_ci_digest(args):
-    repo = get_repo(getattr(args, "repo", None))
-    run_id = getattr(args, "run_id", None)
-    branch = getattr(args, "branch", None)
-    max_failures = getattr(args, "max_failures", 10)
-
-    # 1. Resolve run_id via gh only
-    if not run_id:
-        if not branch:
-            code, curr_branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-            if code == 0 and curr_branch and curr_branch != "HEAD":
-                branch = curr_branch
-            else:
-                branch = "main"
-
-        code, stdout, stderr = run_cmd([
-            "gh", "run", "list",
-            "--repo", repo,
-            "--branch", branch,
-            "--limit", "1",
-            "--json", "databaseId,headSha,status,conclusion,url",
-        ])
-        if code == 0 and stdout:
-            try:
-                runs = json.loads(stdout)
-                if runs:
-                    run_id = runs[0].get("databaseId")
-            except Exception:
-                pass
-
-        if not run_id:
-            err = stderr.strip().splitlines()[0] if stderr.strip() else f"No CI workflow runs found for branch '{branch}' in {repo}."
-            print(f"ERROR: {err}", file=sys.stderr)
-            sys.exit(1)
-
-    # 2. Fetch run details & jobs via gh only
+def generate_ci_digest(repo: str, run_id: Any, max_failures: int = 10) -> Tuple[List[str], str]:
+    """Fetch jobs & details for a workflow run, format compact digest within 50 lines, and return (lines, conclusion)."""
     run_info = None
     code, stdout, stderr = run_cmd([
         "gh", "run", "view", str(run_id),
         "--repo", repo,
-        "--json", "databaseId,headSha,headBranch,status,conclusion,url,jobs,name",
+        "--json", "databaseId,headSha,headBranch,status,conclusion,url,jobs,name,workflowName",
     ])
     if code == 0 and stdout:
         try:
@@ -543,7 +511,284 @@ def cmd_ci_digest(args):
     if len(flat_lines) > 50:
         flat_lines = flat_lines[:49] + [f"... (+{len(flat_lines) - 49} lines truncated to meet 50-line cap)"]
 
+    return flat_lines, conclusion
+
+
+def cmd_ci_digest(args):
+    repo = get_repo(getattr(args, "repo", None))
+    run_id = getattr(args, "run_id", None)
+    branch = getattr(args, "branch", None)
+    max_failures = getattr(args, "max_failures", 10)
+
+    # 1. Resolve run_id via gh only
+    if not run_id:
+        if not branch:
+            code, curr_branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+            if code == 0 and curr_branch and curr_branch != "HEAD":
+                branch = curr_branch
+            else:
+                branch = "main"
+
+        code, stdout, stderr = run_cmd([
+            "gh", "run", "list",
+            "--repo", repo,
+            "--branch", branch,
+            "--limit", "1",
+            "--json", "databaseId,headSha,status,conclusion,url",
+        ])
+        if code == 0 and stdout:
+            try:
+                runs = json.loads(stdout)
+                if runs:
+                    run_id = runs[0].get("databaseId")
+            except Exception:
+                pass
+
+        if not run_id:
+            err = stderr.strip().splitlines()[0] if stderr.strip() else f"No CI workflow runs found for branch '{branch}' in {repo}."
+            print(f"ERROR: {err}", file=sys.stderr)
+            sys.exit(1)
+
+    flat_lines, _ = generate_ci_digest(repo, run_id, max_failures)
     print("\n".join(flat_lines))
+
+
+def wait_for_ci_runs(
+    repo: str,
+    run_id: Optional[Any] = None,
+    sha: Optional[str] = None,
+    branch: Optional[str] = None,
+    workflow: Optional[str] = None,
+    appear_timeout: int = 180,
+    interval: int = 60,
+    max_wait: int = 0,
+    max_failures: int = 10,
+    monotonic_fn: Callable[[], float] = time.monotonic,
+    sleep_fn: Callable[[float], None] = time.sleep,
+) -> int:
+    """Poll for workflow run(s), wait quietly for completion, and print digest.
+
+    Returns exit code (0: success, 1: failure/cancelled/timed_out, 5: not appeared, 6: max-wait).
+    """
+    interval = max(15, interval)
+    target_str = str(run_id or sha or branch or "target")
+    start_mono = monotonic_fn()
+
+    # Step 1: Find matching runs within appear_timeout
+    matched_runs: List[Dict[str, Any]] = []
+
+    while True:
+        if run_id:
+            code, stdout, stderr = run_cmd([
+                "gh", "run", "view", str(run_id),
+                "--repo", repo,
+                "--json", "databaseId,headSha,status,conclusion,url,workflowName,name",
+            ])
+            if code == 0 and stdout:
+                try:
+                    data = json.loads(stdout)
+                    matched_runs = [data]
+                    break
+                except Exception:
+                    pass
+        elif sha:
+            code, stdout, stderr = run_cmd([
+                "gh", "run", "list",
+                "--repo", repo,
+                "--commit", str(sha),
+                "--limit", "10",
+                "--json", "databaseId,headSha,status,conclusion,url,workflowName,name",
+            ])
+            if code == 0 and stdout:
+                try:
+                    runs = json.loads(stdout)
+                    matched = [
+                        r for r in runs
+                        if workflow is None or r.get("workflowName") == workflow or r.get("name") == workflow
+                    ]
+                    if matched:
+                        matched_runs = matched
+                        break
+                except Exception:
+                    pass
+        elif branch:
+            code, stdout, stderr = run_cmd([
+                "gh", "run", "list",
+                "--repo", repo,
+                "--branch", str(branch),
+                "--limit", "10",
+                "--json", "databaseId,headSha,status,conclusion,url,workflowName,name",
+            ])
+            if code == 0 and stdout:
+                try:
+                    runs = json.loads(stdout)
+                    matched = [
+                        r for r in runs
+                        if workflow is None or r.get("workflowName") == workflow or r.get("name") == workflow
+                    ]
+                    if matched:
+                        matched_runs = [matched[0]]  # newest run on branch
+                        break
+                except Exception:
+                    pass
+
+        elapsed = monotonic_fn() - start_mono
+        if elapsed >= appear_timeout:
+            print(f"ci wait: no run found for {target_str} after {int(elapsed)} s.")
+            return 5
+
+        remaining = appear_timeout - elapsed
+        sleep_sec = min(15, remaining)
+        sleep_fn(sleep_sec)
+
+    # Step 2: Wait quietly for all matched_runs to complete
+    target_ids = [r.get("databaseId") or r.get("id") for r in matched_runs]
+    runs_status: Dict[Any, Dict[str, Any]] = {rid: r for rid, r in zip(target_ids, matched_runs)}
+    outage_start: Optional[float] = None
+    warning_printed = False
+    current_backoff = interval
+
+    while True:
+        elapsed_total = monotonic_fn() - start_mono
+
+        # Check max-wait
+        if max_wait > 0 and elapsed_total >= max_wait:
+            uncompleted_id = None
+            uncompleted_status = "in_progress"
+            for rid in target_ids:
+                st = runs_status.get(rid, {}).get("status", "")
+                if st != "completed":
+                    uncompleted_id = rid
+                    uncompleted_status = st or "in_progress"
+                    break
+            print(f"ci wait: run {uncompleted_id or target_ids[0]} still {uncompleted_status} after {int(elapsed_total)} s. Start ci wait again.")
+            return 6
+
+        # Check if all completed
+        if all(runs_status.get(rid, {}).get("status") == "completed" for rid in target_ids):
+            break
+
+        # Poll uncompleted runs
+        poll_err = False
+        err_msg = ""
+        for rid in target_ids:
+            if runs_status.get(rid, {}).get("status") == "completed":
+                continue
+            code, stdout, stderr = run_cmd([
+                "gh", "run", "view", str(rid),
+                "--repo", repo,
+                "--json", "databaseId,headSha,status,conclusion,url,workflowName,name",
+            ])
+            if code == 0 and stdout:
+                try:
+                    runs_status[rid] = json.loads(stdout)
+                except Exception as e:
+                    poll_err = True
+                    err_msg = type(e).__name__
+            else:
+                poll_err = True
+                err_msg = stderr.strip().splitlines()[0] if stderr.strip() else "gh error"
+
+        now_m = monotonic_fn()
+        if poll_err:
+            if outage_start is None:
+                outage_start = now_m
+            outage_dur = now_m - outage_start
+            if outage_dur >= 600.0 and not warning_printed:
+                print(
+                    f"ci wait: warning: persistent failure connecting to GitHub for {int(outage_dur // 60)} minutes ({err_msg}). Continuing to wait...",
+                    file=sys.stderr,
+                )
+                warning_printed = True
+            sleep_sec = current_backoff
+            if max_wait > 0:
+                rem = max_wait - (now_m - start_mono)
+                if rem <= 0:
+                    sleep_sec = 0
+                else:
+                    sleep_sec = min(sleep_sec, rem)
+            if sleep_sec > 0:
+                sleep_fn(sleep_sec)
+            current_backoff = min(current_backoff * 2, 300)
+            continue
+
+        outage_start = None
+        warning_printed = False
+        current_backoff = interval
+
+        if all(runs_status.get(rid, {}).get("status") == "completed" for rid in target_ids):
+            break
+
+        sleep_sec = interval
+        now_m = monotonic_fn()
+        if max_wait > 0:
+            rem = max_wait - (now_m - start_mono)
+            if rem <= 0:
+                sleep_sec = 0
+            else:
+                sleep_sec = min(sleep_sec, rem)
+        if sleep_sec > 0:
+            sleep_fn(sleep_sec)
+
+    # Step 3: Report on completion
+    has_non_success = False
+    for rid in target_ids:
+        r_info = runs_status.get(rid, {})
+        concl = (r_info.get("conclusion") or "unknown").lower()
+        if concl != "success":
+            has_non_success = True
+        sha7 = (r_info.get("headSha") or "")[:7]
+        workflow_name = r_info.get("workflowName") or r_info.get("name") or "CI"
+        run_url = r_info.get("url") or f"https://github.com/{repo}/actions/runs/{rid}"
+
+        print(f"ci wait: run {rid} {concl} ({sha7}, {workflow_name}) {run_url}")
+        digest_lines, _ = generate_ci_digest(repo, rid, max_failures=max_failures)
+        print("\n".join(digest_lines))
+
+    return 1 if has_non_success else 0
+
+
+def cmd_ci_wait(args):
+    gh_bin = shutil.which("gh")
+    if not gh_bin:
+        print("ERROR: 'gh' CLI tool is required but not installed or not in PATH.", file=sys.stderr)
+        sys.exit(2)
+
+    run_id = getattr(args, "run_id", None)
+    sha = getattr(args, "sha", None)
+    branch = getattr(args, "branch", None)
+
+    targets = [t for t in (run_id, sha, branch) if t is not None]
+    if len(targets) == 0:
+        print("ERROR: Must specify exactly one target: --run-id, --sha, or --branch.", file=sys.stderr)
+        sys.exit(2)
+    if len(targets) > 1:
+        print("ERROR: Specify only one target: --run-id, --sha, or --branch.", file=sys.stderr)
+        sys.exit(2)
+
+    repo = get_repo(getattr(args, "repo", None))
+    if not repo:
+        print("ERROR: Could not determine GitHub repository. Specify --repo owner/repo.", file=sys.stderr)
+        sys.exit(2)
+
+    workflow = getattr(args, "workflow", None)
+    appear_timeout = getattr(args, "appear_timeout", 180)
+    interval = max(15, getattr(args, "interval", 60))
+    max_wait = getattr(args, "max_wait", 0)
+    max_failures = getattr(args, "max_failures", 10)
+
+    code = wait_for_ci_runs(
+        repo=repo,
+        run_id=run_id,
+        sha=sha,
+        branch=branch,
+        workflow=workflow,
+        appear_timeout=appear_timeout,
+        interval=interval,
+        max_wait=max_wait,
+        max_failures=max_failures,
+    )
+    sys.exit(code)
 
 
 # ----------------------------------------------------------------------
@@ -634,6 +879,47 @@ def main():
     # ci-digest (convenience alias for 'ci digest')
     p_cid = subparsers.add_parser("ci-digest", help="Alias for 'ci digest'", parents=[repo_parent, p_digest_opts])
     p_cid.set_defaults(func=cmd_ci_digest)
+
+    # Shared parser for ci wait and ci-wait
+    p_wait_opts = argparse.ArgumentParser(add_help=False)
+    p_wait_opts.add_argument("--run-id", help="Database ID of the GitHub Actions workflow run to wait for")
+    p_wait_opts.add_argument("--sha", help="Commit SHA to wait for matching workflow run(s)")
+    p_wait_opts.add_argument("--branch", help="Branch name to wait for newest workflow run")
+    p_wait_opts.add_argument("--workflow", help="Optional workflow name filter")
+    p_wait_opts.add_argument("--appear-timeout", type=int, default=180, help="Maximum seconds to wait for run to appear (default: 180)")
+    p_wait_opts.add_argument("--interval", type=int, default=60, help="Poll interval in seconds (default: 60, minimum: 15)")
+    p_wait_opts.add_argument("--max-wait", type=int, default=0, help="Maximum seconds to wait for completion (default: 0 = no limit)")
+    p_wait_opts.add_argument("--max-failures", type=int, default=10, help="Max failure lines to show in digest (default: 10)")
+
+    wait_desc = (
+        "Wait quietly for GitHub Actions CI workflow run(s) to complete and print digest.\n\n"
+        "Exit codes:\n"
+        "  0: All matching runs completed with success\n"
+        "  1: One or more runs completed with failure, cancelled, or timed_out\n"
+        "  5: No matching run appeared within --appear-timeout\n"
+        "  6: Maximum wait time (--max-wait) reached before run completed\n"
+        "  2: Usage error or 'gh' CLI missing"
+    )
+
+    # ci wait
+    c_wait = ci_sub.add_parser(
+        "wait",
+        help="Wait quietly for CI workflow run to complete and print digest",
+        description=wait_desc,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[repo_parent, p_wait_opts],
+    )
+    c_wait.set_defaults(func=cmd_ci_wait)
+
+    # ci-wait (convenience alias for 'ci wait')
+    p_ciw = subparsers.add_parser(
+        "ci-wait",
+        help="Alias for 'ci wait'",
+        description=wait_desc,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[repo_parent, p_wait_opts],
+    )
+    p_ciw.set_defaults(func=cmd_ci_wait)
 
     args = parser.parse_args()
     if not hasattr(args, "repo"):

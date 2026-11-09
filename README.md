@@ -30,7 +30,7 @@ trishul-skills/
   │     ├── claude-headless/                   # Universal runner & SKILL.md for `claude -p`
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
   │     ├── engineering-orchestrator/          # Canonical roles & compute governance
-  │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest & git ops
+  │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest, ci wait & git ops
   │     ├── hub-messenger/                     # Zero-model Agent Hub poller, wakeup daemon & self-waiter (hub_wait)
   │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
   │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
@@ -104,9 +104,13 @@ python skills/unity-pipeline/scripts/unity_pipeline.py all --pre-check --suite F
 *Docs*: [`skills/unity-pipeline/SKILL.md`](./skills/unity-pipeline/SKILL.md)
 
 ### B. Unified GitHub PR Workflow (`github-pr-workflow`)
-Combines zero-dependency pure-Python GitHub REST API interactions, state-tracking watcher daemons, and git verification:
+Combines zero-dependency pure-Python GitHub REST API interactions, state-tracking watcher daemons, compact CI failure digests, quiet CI run waiting, and git verification:
 ```powershell
+# Safe PR comment posting:
 python skills/github-pr-workflow/scripts/gh_helper.py comments post --pr 28 --file scratch/handoff.md
+
+# Quiet CI wait with wake-up report:
+python skills/github-pr-workflow/scripts/gh_helper.py ci wait --repo tosumitdhaka/trishul-tactical-engine --sha <sha>
 ```
 *Docs*: [`skills/github-pr-workflow/SKILL.md`](./skills/github-pr-workflow/SKILL.md)
 

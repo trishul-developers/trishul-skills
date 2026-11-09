@@ -87,6 +87,19 @@ def validate() -> int:
                             f"CLI script --help failure in {file_path} (exit code {help_res.returncode}):\n"
                             f"{help_res.stderr.strip() or help_res.stdout.strip()}"
                         )
+                    if f == "gh_helper.py":
+                        for subcmd in [["ci", "wait", "--help"], ["ci", "digest", "--help"], ["ci-wait", "--help"], ["ci-digest", "--help"]]:
+                            checked_cli_helps += 1
+                            help_sub = subprocess.run(
+                                [sys.executable, str(file_path)] + subcmd,
+                                capture_output=True,
+                                text=True,
+                            )
+                            if help_sub.returncode != 0:
+                                errors.append(
+                                    f"CLI script {' '.join(subcmd)} failure in {file_path} (exit code {help_sub.returncode}):\n"
+                                    f"{help_sub.stderr.strip() or help_sub.stdout.strip()}"
+                                )
 
                 if f.startswith("test_") and "tests" in file_path.parts:
                     test_files_run += 1

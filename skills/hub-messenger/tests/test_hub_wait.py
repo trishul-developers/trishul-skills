@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -88,6 +89,26 @@ class TestHubWait(unittest.TestCase):
 
         self.assertEqual(code, 3)
         self.assertIn("hub_wait: participant 'worker-missing' not found in project 'trishul-tactical-engine'.", out.getvalue())
+
+    def test_case_sensitive_participant_match(self):
+        """Participant matching is strictly case-sensitive, matching the hub's behavior."""
+        def mock_query(hub_url, project, token, timeout=15):
+            return [{"name": "Worker-A", "pending": 2}], project, None
+
+        out = io.StringIO()
+        with patch("hub_wait.query_participants", side_effect=mock_query), patch("sys.stdout", out):
+            code = hub_wait.run_hub_wait(
+                participant="worker-a",  # Lowercase, listing has 'Worker-A'
+                project="trishul-tactical-engine",
+                hub_url="http://127.0.0.1:8765",
+                token_file=self.token_file,
+                interval=5,
+                lock_dir=self.lock_dir,
+                sleep_fn=lambda _: None,
+            )
+
+        self.assertEqual(code, 3)
+        self.assertIn("participant 'worker-a' not found in project 'trishul-tactical-engine'.", out.getvalue())
 
     def test_max_wait_reached_exits_0(self):
         """When max-wait is reached -> exits 0 with re-arm line."""
@@ -256,6 +277,105 @@ class TestHubWait(unittest.TestCase):
 
         self.assertEqual(code, 0)
         self.assertIn("worker-dead has 3 pending message(s)", out.getvalue())
+
+    def test_max_wait_capped_sleep_no_overshoot_during_backoff(self):
+        """Sleep duration is capped to remaining time, preventing max-wait overshoot during backoff."""
+        clock = [100.0]
+        sleep_durations = []
+
+        def fake_mono():
+            return clock[0]
+
+        def fake_sleep(sec):
+            sleep_durations.append(sec)
+            clock[0] += sec
+
+        # Continual error so backoff triggers (starts at 30s)
+        def mock_query(hub_url, project, token, timeout=15):
+            return None, project, urllib.error.URLError("Connection refused")
+
+        out = io.StringIO()
+        with patch("hub_wait.query_participants", side_effect=mock_query), patch("sys.stdout", out):
+            code = hub_wait.run_hub_wait(
+                participant="worker-1",
+                project="trishul-tactical-engine",
+                hub_url="http://127.0.0.1:8765",
+                token_file=self.token_file,
+                interval=30,
+                max_wait=45,  # 45s total: first sleep 30s, second sleep capped at 15s!
+                lock_dir=self.lock_dir,
+                monotonic_fn=fake_mono,
+                sleep_fn=fake_sleep,
+            )
+
+        self.assertEqual(code, 0)
+        # Total elapsed time must be exactly 45s (no overshoot to 60s or 90s)
+        self.assertEqual(clock[0] - 100.0, 45.0)
+        self.assertEqual(sleep_durations, [30, 15.0])
+        self.assertIn("hub_wait: no mail after 45 s. Start hub_wait again.", out.getvalue())
+
+    def test_killed_real_lock_holder_process_allows_immediate_acquire(self):
+        """A killed real lock-holder process drops OS lock and allows a new process to acquire immediately."""
+        import subprocess
+        lock_file = self.lock_dir / "hub_wait.worker-real.lock"
+        ready_file = self.base_dir / "worker_real.ready"
+
+        code = (
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            f"sys.path.insert(0, {str(SCRIPT_DIR)!r})\n"
+            "import hub_messenger\n"
+            f"lock = hub_messenger.OSLock(Path({str(lock_file)!r}))\n"
+            "assert lock.try_acquire()\n"
+            "lock.write_diagnostics({'pid': 98765, 'participant': 'worker-real'})\n"
+            f"Path({str(ready_file)!r}).write_text('READY', encoding='utf-8')\n"
+            "while True:\n"
+            "    time.sleep(0.1)\n"
+        )
+
+        proc = subprocess.Popen([sys.executable, "-c", code])
+        try:
+            t0 = time.time()
+            while not ready_file.exists() and time.time() - t0 < 10:
+                time.sleep(0.05)
+            self.assertTrue(ready_file.exists(), "Holder process did not start in time")
+
+            # While child holds lock, waiter exits 4
+            out = io.StringIO()
+            with patch("sys.stdout", out):
+                code_wait = hub_wait.run_hub_wait(
+                    participant="worker-real",
+                    project="trishul-tactical-engine",
+                    hub_url="http://127.0.0.1:8765",
+                    token_file=self.token_file,
+                    lock_dir=self.lock_dir,
+                )
+            self.assertEqual(code_wait, 4)
+            self.assertIn("already waiting for worker-real", out.getvalue())
+
+            # Kill the holder process
+            proc.terminate()
+            proc.wait(timeout=5)
+
+            # Now a new waiter acquires the lock at once and succeeds
+            def mock_query(hub_url, project, token, timeout=15):
+                return [{"name": "worker-real", "pending": 1}], project, None
+
+            out2 = io.StringIO()
+            with patch("hub_wait.query_participants", side_effect=mock_query), patch("sys.stdout", out2):
+                code_after_kill = hub_wait.run_hub_wait(
+                    participant="worker-real",
+                    project="trishul-tactical-engine",
+                    hub_url="http://127.0.0.1:8765",
+                    token_file=self.token_file,
+                    lock_dir=self.lock_dir,
+                )
+            self.assertEqual(code_after_kill, 0)
+            self.assertIn("worker-real has 1 pending message(s)", out2.getvalue())
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
 
     def test_token_string_never_appears_in_output_or_files(self):
         """Bearer token secret must never appear in stdout, stderr, or any lock/diagnostic file."""

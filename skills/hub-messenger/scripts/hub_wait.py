@@ -124,7 +124,14 @@ def run_hub_wait(
                     )
                     warning_printed = True
 
-                sleep_fn(current_interval)
+                sleep_duration = current_interval
+                if max_wait > 0:
+                    remaining = max_wait - (now_mono - start_mono)
+                    if remaining <= 0:
+                        print(f"hub_wait: no mail after {int(now_mono - start_mono)} s. Start hub_wait again.")
+                        return 0
+                    sleep_duration = min(sleep_duration, remaining)
+                sleep_fn(sleep_duration)
                 current_interval = min(current_interval * 2, int(MAX_BACKOFF_SEC))
                 continue
 
@@ -133,11 +140,10 @@ def run_hub_wait(
             warning_printed = False
             current_interval = interval
 
-            # 3. Locate participant in listing
+            # 3. Locate participant in listing (exact case-sensitive match)
             found_p = None
             for p in participants:
-                p_name = str(p.get("name", ""))
-                if p_name == participant or p_name.lower() == participant.lower():
+                if str(p.get("name", "")) == participant:
                     found_p = p
                     break
 
@@ -152,7 +158,14 @@ def run_hub_wait(
                 )
                 return 0
 
-            sleep_fn(interval)
+            sleep_duration = interval
+            if max_wait > 0:
+                remaining = max_wait - (now_mono - start_mono)
+                if remaining <= 0:
+                    print(f"hub_wait: no mail after {int(now_mono - start_mono)} s. Start hub_wait again.")
+                    return 0
+                sleep_duration = min(sleep_duration, remaining)
+            sleep_fn(sleep_duration)
     finally:
         os_lock.release()
 

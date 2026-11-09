@@ -10,7 +10,7 @@ tags: [tte, git, merge, phase, orchestrator, ci]
 This skill provides an authoritative, safe merge tool for integrating side branches into the active phase branch (`g02-presentation-orders-ux`).
 
 > [!IMPORTANT]
-> **Authority Invariant**: Only the main orchestrator (`orchestrator-codex` at present, or its designated fallback orchestrator) merges code into the phase branch. Individual implementors, executors, and subagents must never merge directly to the phase branch.
+> **Authority Invariant**: Only the main orchestrator named in `docs/implementation/workflow.md` section 2 (`orchestrator-claude` at present), or its fallback, merges into the phase branch. Individual implementors, executors, and subagents must never merge directly to the phase branch.
 
 ## Safety & Governance Rules
 1. **Never touch `main`**: Merging into or from `main` is strictly prohibited. `main` advances only upon complete whole-phase architect acceptance and owner sign-off.
