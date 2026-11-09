@@ -359,7 +359,7 @@ class TestHubMessenger(unittest.TestCase):
         )
         self.assertEqual(res.returncode, 0)
         self.assertIn("Zero-model Trishul Agent Hub messenger daemon", res.stdout)
-        self.assertIn("%LOCALAPPDATA%", res.stdout)
+        self.assertIn("~/.hub-messenger", res.stdout)
 
     def test_missing_or_locked_token_file_does_not_crash_and_logs_once(self):
         missing_token = self.base_dir / "nonexistent.token"

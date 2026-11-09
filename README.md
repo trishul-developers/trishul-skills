@@ -31,7 +31,7 @@ trishul-skills/
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
   │     ├── engineering-orchestrator/          # Canonical roles & compute governance
   │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest & git ops
-  │     ├── hub-messenger/                     # Zero-model Agent Hub poller & wakeup daemon
+  │     ├── hub-messenger/                     # Zero-model Agent Hub poller, wakeup daemon & self-waiter (hub_wait)
   │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
   │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
   │     └── projects/                          # Project-specific custom skills
@@ -138,10 +138,14 @@ python skills/projects/tte-phase-merge/scripts/tte_phase_merge.py -C "E:/Project
 ```
 *Docs*: [`skills/projects/tte-phase-merge/SKILL.md`](./skills/projects/tte-phase-merge/SKILL.md)
 
-### G. Trishul Agent Hub Messenger Daemon (`hub-messenger`)
-Zero-model poller and waking harness for Agent Hub participants with unread inbox messages:
+### G. Trishul Agent Hub Messenger & Self-Wake Waiter (`hub-messenger`)
+Zero-model standby poller (`hub_messenger.py`) and in-session self-wake waiter (`hub_wait.py`) for Agent Hub participants:
 ```powershell
-python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\owner.token" --target log
+# Standby daemon:
+python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
+
+# Claude desktop chat self-wake waiter:
+python skills/hub-messenger/scripts/hub_wait.py --participant reviewer-1a --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
 ```
 *Docs*: [`skills/hub-messenger/SKILL.md`](./skills/hub-messenger/SKILL.md)
 

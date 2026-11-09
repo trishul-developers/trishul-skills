@@ -45,9 +45,6 @@ THIRTY_MINUTES_SEC = 1800.0
 
 
 def get_default_base_dir() -> Path:
-    local_appdata = os.environ.get("LOCALAPPDATA")
-    if local_appdata:
-        return Path(local_appdata) / "hub-messenger"
     return Path.home() / ".hub-messenger"
 
 
@@ -121,11 +118,20 @@ def validate_target_config(target_name: str, target_cfg: Any) -> Tuple[bool, Opt
     return True, None
 
 
-def load_config(config_file: Path) -> Dict[str, Any]:
-    if not config_file.exists():
+def load_config(config_file: Path, on_fallback: Optional[Any] = None) -> Dict[str, Any]:
+    target_file = config_file
+    if not target_file.exists():
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            fallback = Path(local_appdata) / "hub-messenger" / "config.json"
+            if fallback.exists():
+                if on_fallback:
+                    on_fallback(str(fallback))
+                target_file = fallback
+    if not target_file.exists():
         return {"targets": {}}
     try:
-        content = config_file.read_text(encoding="utf-8")
+        content = target_file.read_text(encoding="utf-8")
         data = json.loads(content)
         return data if isinstance(data, dict) else {"targets": {}}
     except Exception:
@@ -351,6 +357,53 @@ class MessengerPidLock:
                 pass
 
 
+def query_participants(
+    hub_url: str,
+    project: str,
+    token: Optional[str] = None,
+    timeout: int = 15,
+) -> Tuple[Optional[List[Dict[str, Any]]], str, Optional[Exception]]:
+    """Query participants endpoint from Trishul Agent Hub.
+
+    Tries endpoints /v1/participants and /participants, and resolves project aliases.
+    Returns (participants_list, resolved_project, error).
+    """
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "Hub-Messenger/1.0",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    base = hub_url.rstrip("/")
+    path_candidates = ["/v1/participants", "/participants"]
+    projects_to_try = [project]
+    if project == "tte":
+        projects_to_try.append("trishul-tactical-engine")
+    elif project == "trishul-tactical-engine":
+        projects_to_try.append("tte")
+
+    last_error: Optional[Exception] = None
+    for path_prefix in path_candidates:
+        for proj in projects_to_try:
+            url = f"{base}{path_prefix}?project={urllib.parse.quote(proj)}"
+            req = urllib.request.Request(url, headers=headers, method="GET")
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if isinstance(data, list):
+                        return data, proj, None
+            except urllib.error.HTTPError as e:
+                last_error = e
+                if e.code == 404:
+                    continue
+                return None, project, e
+            except Exception as e:
+                last_error = e
+
+    return None, project, last_error
+
+
 class HubMessenger:
     def __init__(
         self,
@@ -383,6 +436,7 @@ class HubMessenger:
         self.backoff_delay = interval
         self.token_error_logged = False
         self.auth_failed = False
+        self.fallback_config_logged = False
 
     def fetch_participants(self) -> Optional[List[Dict[str, Any]]]:
         token = ""
@@ -401,50 +455,29 @@ class HubMessenger:
                 self.hub_down = True
                 return None
 
-        headers = {
-            "Accept": "application/json",
-            "User-Agent": "Hub-Messenger/1.0",
-        }
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
+        data, resolved_proj, last_error = query_participants(
+            self.hub_url,
+            self.resolved_project,
+            token=token,
+            timeout=15,
+        )
 
-        # Endpoints to try: /v1/participants (mounted prefix in app.py) then /participants
-        path_candidates = ["/v1/participants", "/participants"]
-        projects_to_try = [self.resolved_project]
-        if self.resolved_project == "tte":
-            projects_to_try.append("trishul-tactical-engine")
-        elif self.resolved_project == "trishul-tactical-engine":
-            projects_to_try.append("tte")
+        if data is not None:
+            if resolved_proj != self.resolved_project:
+                self.logger.info(f"Resolved project '{self.resolved_project}' to '{resolved_proj}'")
+                self.resolved_project = resolved_proj
+            if self.auth_failed:
+                self.auth_failed = False
+            return data
 
-        last_error = None
-        for path_prefix in path_candidates:
-            for proj in projects_to_try:
-                url = f"{self.hub_url}{path_prefix}?project={urllib.parse.quote(proj)}"
-                req = urllib.request.Request(url, headers=headers, method="GET")
-                try:
-                    with urllib.request.urlopen(req, timeout=15) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
-                        if isinstance(data, list):
-                            if proj != self.resolved_project:
-                                self.logger.info(f"Resolved project '{self.resolved_project}' to '{proj}'")
-                                self.resolved_project = proj
-                            if self.auth_failed:
-                                self.auth_failed = False
-                            return data
-                except urllib.error.HTTPError as e:
-                    last_error = e
-                    if e.code == 404:
-                        continue
-                    if e.code == 401:
-                        if not self.auth_failed:
-                            self.logger.error(
-                                f"Authentication failed (HTTP 401) using token file '{self.token_file}'. Backing off..."
-                            )
-                            self.auth_failed = True
-                        self.hub_down = True
-                        return None
-                except Exception as e:
-                    last_error = e
+        if isinstance(last_error, urllib.error.HTTPError) and last_error.code == 401:
+            if not self.auth_failed:
+                self.logger.error(
+                    f"Authentication failed (HTTP 401) using token file '{self.token_file}'. Backing off..."
+                )
+                self.auth_failed = True
+            self.hub_down = True
+            return None
 
         if last_error:
             if not self.hub_down:
@@ -578,7 +611,14 @@ class HubMessenger:
             self.hub_down = False
             self.backoff_delay = self.interval
 
-        config = load_config(self.config_path)
+        def _on_fallback(fb_path: str):
+            if not self.fallback_config_logged:
+                self.logger.info(
+                    f"Using fallback config from '{fb_path}' (primary '{self.config_path}' not found)"
+                )
+                self.fallback_config_logged = True
+
+        config = load_config(self.config_path, on_fallback=_on_fallback)
         targets_config = config.get("targets", {})
 
         state = load_state(self.state_path)
@@ -667,19 +707,19 @@ def main():
         "--config",
         dest="config_path",
         default=str(base_dir / "config.json"),
-        help="Path to wake targets configuration file (default: %%LOCALAPPDATA%%\\hub-messenger\\config.json)",
+        help="Path to wake targets configuration file (default: ~/.hub-messenger/config.json)",
     )
     parser.add_argument(
         "--state-file",
         dest="state_path",
         default=str(base_dir / "state.json"),
-        help="Path to participant wake state persistence file (default: %%LOCALAPPDATA%%\\hub-messenger\\state.json)",
+        help="Path to participant wake state persistence file (default: ~/.hub-messenger/state.json)",
     )
     parser.add_argument(
         "--log-file",
         dest="log_path",
         default=str(base_dir / "hub-messenger.log"),
-        help="Path to log file (default: %%LOCALAPPDATA%%\\hub-messenger\\hub-messenger.log)",
+        help="Path to log file (default: ~/.hub-messenger/hub-messenger.log)",
     )
     parser.add_argument(
         "--once",
