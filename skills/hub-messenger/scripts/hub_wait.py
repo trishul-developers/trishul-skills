@@ -37,6 +37,14 @@ TEN_MINUTES_SEC = 600.0
 MAX_BACKOFF_SEC = 300.0
 
 
+def format_pending_message(participant: str, pending: int) -> str:
+    """Format single-line pending mail notification."""
+    return (
+        f"hub_wait: {participant} has {pending} pending message(s). "
+        "Read your hub inbox, then start hub_wait again."
+    )
+
+
 def run_hub_wait(
     participant: str,
     project: str,
@@ -48,6 +56,11 @@ def run_hub_wait(
     time_fn: Callable[[], float] = time.time,
     monotonic_fn: Callable[[], float] = time.monotonic,
     sleep_fn: Callable[[float], None] = time.sleep,
+    on_lock_busy: Optional[Callable[[Dict[str, Any]], Optional[int]]] = None,
+    on_participant_missing: Optional[Callable[[str, str], Optional[int]]] = None,
+    on_pending_status: Optional[Callable[[str, int], Optional[int]]] = None,
+    on_max_wait: Optional[Callable[[str, float], Optional[int]]] = None,
+    outage_logger: Optional[Callable[[str], None]] = None,
 ) -> int:
     """Core wait loop for a participant. Returns exit code."""
     if interval < 5:
@@ -62,6 +75,10 @@ def run_hub_wait(
     os_lock = OSLock(lock_file)
     if not os_lock.try_acquire():
         diag = os_lock.read_diagnostics()
+        if on_lock_busy is not None:
+            ret = on_lock_busy(diag)
+            if ret is not None:
+                return ret
         pid = diag.get("pid", "unknown")
         print(f"hub_wait: already waiting for {participant} (pid {pid})")
         return 4
@@ -86,6 +103,10 @@ def run_hub_wait(
             elapsed_total = now_mono - start_mono
 
             if max_wait > 0 and elapsed_total >= max_wait:
+                if on_max_wait is not None:
+                    ret = on_max_wait(participant, elapsed_total)
+                    if ret is not None:
+                        return ret
                 print(f"hub_wait: no mail after {int(elapsed_total)} s. Start hub_wait again.")
                 return 0
 
@@ -118,16 +139,24 @@ def run_hub_wait(
                 outage_duration = now_mono - outage_start
                 if outage_duration >= TEN_MINUTES_SEC and not warning_printed:
                     err_name = type(err).__name__ if err else "ConnectionError"
-                    print(
-                        f"hub_wait: warning: persistent hub/token failure for {int(outage_duration // 60)} minutes ({err_name}). Continuing to wait...",
-                        file=sys.stderr,
+                    warning_msg = (
+                        f"hub_wait: warning: persistent hub/token failure for "
+                        f"{int(outage_duration // 60)} minutes ({err_name}). Continuing to wait..."
                     )
+                    if outage_logger is not None:
+                        outage_logger(warning_msg)
+                    else:
+                        print(warning_msg, file=sys.stderr)
                     warning_printed = True
 
                 sleep_duration = current_interval
                 if max_wait > 0:
                     remaining = max_wait - (now_mono - start_mono)
                     if remaining <= 0:
+                        if on_max_wait is not None:
+                            ret = on_max_wait(participant, now_mono - start_mono)
+                            if ret is not None:
+                                return ret
                         print(f"hub_wait: no mail after {int(now_mono - start_mono)} s. Start hub_wait again.")
                         return 0
                     sleep_duration = min(sleep_duration, remaining)
@@ -148,20 +177,30 @@ def run_hub_wait(
                     break
 
             if found_p is None:
+                if on_participant_missing is not None:
+                    ret = on_participant_missing(participant, resolved_project)
+                    if ret is not None:
+                        return ret
                 print(f"hub_wait: participant '{participant}' not found in project '{resolved_project}'.")
                 return 3
 
             pending = int(found_p.get("pending", 0))
-            if pending > 0:
-                print(
-                    f"hub_wait: {participant} has {pending} pending message(s). Read your hub inbox, then start hub_wait again."
-                )
+            if on_pending_status is not None:
+                ret = on_pending_status(participant, pending)
+                if ret is not None:
+                    return ret
+            elif pending > 0:
+                print(format_pending_message(participant, pending))
                 return 0
 
             sleep_duration = interval
             if max_wait > 0:
                 remaining = max_wait - (now_mono - start_mono)
                 if remaining <= 0:
+                    if on_max_wait is not None:
+                        ret = on_max_wait(participant, now_mono - start_mono)
+                        if ret is not None:
+                            return ret
                     print(f"hub_wait: no mail after {int(now_mono - start_mono)} s. Start hub_wait again.")
                     return 0
                 sleep_duration = min(sleep_duration, remaining)

@@ -31,7 +31,7 @@ trishul-skills/
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
   │     ├── engineering-orchestrator/          # Canonical roles & compute governance
   │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest, ci wait & git ops
-  │     ├── hub-messenger/                     # Zero-model Agent Hub poller, wakeup daemon & self-waiter (hub_wait)
+  │     ├── hub-messenger/                     # Zero-model Agent Hub poller, wakeup daemon, self-waiter (hub_wait) & wake hook (hub_wake_hook)
   │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
   │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
   │     └── projects/                          # Project-specific custom skills
@@ -142,14 +142,17 @@ python skills/projects/tte-phase-merge/scripts/tte_phase_merge.py -C "E:/Project
 ```
 *Docs*: [`skills/projects/tte-phase-merge/SKILL.md`](./skills/projects/tte-phase-merge/SKILL.md)
 
-### G. Trishul Agent Hub Messenger & Self-Wake Waiter (`hub-messenger`)
-Zero-model standby poller (`hub_messenger.py`) and in-session self-wake waiter (`hub_wait.py`) for Agent Hub participants:
+### G. Trishul Agent Hub Messenger, Self-Wake Waiter & Wake Hook (`hub-messenger`)
+Zero-model standby poller (`hub_messenger.py`), in-session self-wake waiter (`hub_wait.py`), and automatic `asyncRewake` hook (`hub_wake_hook.py`) for Agent Hub participants:
 ```powershell
 # Standby daemon:
 python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
 
-# Claude desktop chat self-wake waiter:
+# Claude desktop chat self-wake waiter (manual):
 python skills/hub-messenger/scripts/hub_wait.py --participant reviewer-1a --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
+
+# Claude desktop chat automatic wake hook registration:
+python skills/hub-messenger/scripts/hub_wake_hook.py register --participant manager
 ```
 *Docs*: [`skills/hub-messenger/SKILL.md`](./skills/hub-messenger/SKILL.md)
 

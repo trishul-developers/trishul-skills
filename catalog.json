@@ -55,7 +55,7 @@
     },
     {
       "name": "hub-messenger",
-      "description": "Zero-model messenger daemon and self-wake waiter for Trishul Agent Hub. Periodically polls participant inboxes and wakes idle workers with unread mail via detached CLI resumption, in-session self-wait (hub_wait), or logging, eliminating expensive model-turn polling chats.",
+      "description": "Zero-model messenger daemon and self-wake waiter for Trishul Agent Hub. Periodically polls participant inboxes and wakes idle workers with unread mail via detached CLI resumption, automatic wake hooks (hub_wake_hook), in-session self-wait (hub_wait), or logging, eliminating expensive model-turn polling chats.",
       "category": "platform",
       "local_path": "skills\\hub-messenger",
       "has_scripts": true,

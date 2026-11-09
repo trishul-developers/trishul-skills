@@ -100,6 +100,19 @@ def validate() -> int:
                                     f"CLI script {' '.join(subcmd)} failure in {file_path} (exit code {help_sub.returncode}):\n"
                                     f"{help_sub.stderr.strip() or help_sub.stdout.strip()}"
                                 )
+                    elif f == "hub_wake_hook.py":
+                        for subcmd in [["register", "--help"], ["unregister", "--help"], ["list", "--help"]]:
+                            checked_cli_helps += 1
+                            help_sub = subprocess.run(
+                                [sys.executable, str(file_path)] + subcmd,
+                                capture_output=True,
+                                text=True,
+                            )
+                            if help_sub.returncode != 0:
+                                errors.append(
+                                    f"CLI script {' '.join(subcmd)} failure in {file_path} (exit code {help_sub.returncode}):\n"
+                                    f"{help_sub.stderr.strip() or help_sub.stdout.strip()}"
+                                )
 
                 if f.startswith("test_") and "tests" in file_path.parts:
                     test_files_run += 1

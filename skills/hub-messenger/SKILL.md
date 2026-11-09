@@ -1,6 +1,6 @@
 ---
 name: hub-messenger
-description: Zero-model messenger daemon and self-wake waiter for Trishul Agent Hub. Periodically polls participant inboxes and wakes idle workers with unread mail via detached CLI resumption, in-session self-wait (hub_wait), or logging, eliminating expensive model-turn polling chats.
+description: Zero-model messenger daemon and self-wake waiter for Trishul Agent Hub. Periodically polls participant inboxes and wakes idle workers with unread mail via detached CLI resumption, automatic wake hooks (hub_wake_hook), in-session self-wait (hub_wait), or logging, eliminating expensive model-turn polling chats.
 compatibility: Windows (PowerShell, Git Bash) and POSIX. Python 3 standard library only.
 tags: [hub, messenger, daemon, standby, wake, idle, tte]
 ---
@@ -194,8 +194,98 @@ Deployed path in the global Claude skills directory:
 3. **Mid-Turn Messages**: A chat that is busy computing mid-turn is woken only after its current turn ends.
 4. **Daemon Target Mode**: In `~/.hub-messenger/config.json`, the daemon must keep any Claude desktop participant in `log` mode so that the daemon never attempts a secondary CLI wake.
 
-### Optional Future Enhancement: Stop Hook (`asyncRewake`)
-A Claude Code Stop hook (e.g. `asyncRewake`) could run `hub_wait` automatically when any turn finishes without manual tool invocation. This hook pattern is currently unverified in the Claude desktop app harness and is documented for future exploration only; do not install or configure it without testing.
+See also [Automatic Wake for Claude Chats (`hub_wake_hook`)](#automatic-wake-for-claude-chats-hub_wake_hook) below for the hands-free hook alternative that eliminates the manual background waiter step entirely.
+
+---
+
+## Automatic Wake for Claude Chats (`hub_wake_hook`)
+
+### Purpose & Background
+Today each Claude chat (`manager`, `architect`, `orchestrator-claude`) must remember to start `hub_wait` as a background command at the end of every turn, as well as after an app restart. Chats sometimes forget, and incoming mail then sits unread.
+
+`hub_wake_hook.py` provides an automatic, hands-free wake hook using Claude Code's native `asyncRewake` hook mechanism. The hook command runs in the background, consumes zero model tokens while waiting, and automatically wakes the idle chat whenever incoming mail arrives.
+
+### The Mechanism (`asyncRewake`, Exit 2)
+Verified 2026-11-09 in the Claude desktop app (Claude Code 2.1.316/317):
+- A `Stop` hook with `"asyncRewake": true` and `"timeout": 120`, which slept 20 s and exited with code 2, woke the idle chat with its stderr text.
+- The hook's stdin JSON contains `session_id` (identical to the chat's `CLAUDE_CODE_SESSION_ID` environment variable) and `hook_event_name: "Stop"`.
+- Adding the hook to `.claude/settings.local.json` took effect immediately without restarting the chat.
+- **Exit code behavior**: Only exit code `2` wakes the chat. Exit code `0` is completely silent and does not wake the chat.
+
+| Case | Exit | Output |
+|---|---|---|
+| Lock already held (a waiter is running) | `0` | Silent (no stdout or stderr) |
+| Participant missing from the hub | `0` | Logged to `~/.hub-messenger/hub_wake_hook.log` only (silent in chat) |
+| Mail arrives and passes anti-loop check | `2` | Existing `hub_wait` wake line on `stderr` |
+| Max-wait reached (default: 23 h) | `2` | `hub_wake_hook: no mail for <participant> after <h> h; re-armed at end of this turn.` on `stderr` |
+
+The participant-missing case exits `0` silently to prevent endless wake loops on unconfigured or misspelled participants.
+
+### One-Time Setup
+
+#### 1. Install the User-Level Settings Hook Block (Documentation Only)
+Add the following hook block to `~/.claude/settings.json` (or `.claude/settings.local.json`):
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python \"C:/Users/tosum/.claude/skills/hub-messenger/scripts/hub_wake_hook.py\"",
+        "asyncRewake": true,
+        "timeout": 86400
+      }
+    ],
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python \"C:/Users/tosum/.claude/skills/hub-messenger/scripts/hub_wake_hook.py\"",
+        "asyncRewake": true,
+        "timeout": 86400
+      }
+    ]
+  }
+}
+```
+
+> [!NOTE]
+> `Stop` with `asyncRewake: true` was verified in Claude Code 2.1.316/317 on 2026-11-09.
+> `SessionStart` with `asyncRewake: true` and a `timeout` of 86400 is documented above but **not yet verified**; the project manager will test both. Do not install hooks into settings without human review.
+
+#### 2. Register Each Chat Session Once
+Each Claude desktop chat runs the registration command once:
+
+```bash
+python "C:\Users\tosum\.claude\skills\hub-messenger\scripts\hub_wake_hook.py" register --participant <name>
+```
+
+- Automatically captures the current chat session via `$CLAUDE_CODE_SESSION_ID` (or `--session-id <id>`).
+- Replaces any previous session mapping for the same participant and project in `~/.hub-messenger/claude_sessions.json` so replacement chats take over cleanly.
+- Writes state atomically.
+- Subcommands available:
+  - `register --participant <name> [--project <proj>] [--session-id <id>]`
+  - `unregister [--session-id <id>] [--participant <name>]`
+  - `list`
+
+### Replacement & Fallback Policy
+`hub_wake_hook` replaces the requirement for Claude chats to manually invoke `hub_wait` at the end of every turn. However, manual `hub_wait` remains fully functional and serves as an authoritative fallback whenever hooks are disabled or unavailable.
+
+### Anti-Loop Rule
+When a chat is woken by mail, the chat might finish its subsequent turn without reading its hub inbox (for example, if the human owner chats with it mid-task). The next `Stop` hook would immediately see `pending > 0` again, which could cause a continuous re-wake loop burning tokens.
+
+`hub_wake_hook` enforces anti-loop safeguards via per-participant state stored in `~/.hub-messenger/hub_wake_hook.<participant>.json`:
+1. It records `last_woken_pending` and `last_woken_at`.
+2. A wake is triggered if and only if:
+   - `pending > last_woken_pending` (new mail has arrived), OR
+   - At least **15 minutes** (`--remind-after`, default 900 s) have elapsed since `last_woken_at`.
+3. If pending mail is unchanged and under 15 minutes have passed, `hub_wake_hook` continues polling silently without waking the chat.
+4. When `pending` drops to 0 (the participant has read its inbox), the state resets so future incoming mail wakes immediately.
+
+### Known Limits
+1. **Turn Cost**: Each wake costs one model turn in the Claude desktop app.
+2. **Mid-Turn Messages**: A chat busy computing mid-turn is woken after its turn ends.
+3. **Daemon Target Mode**: The background daemon (`hub_messenger.py`) must keep all Claude desktop participants in `log` mode so it never attempts concurrent CLI resumption.
 
 ---
 
