@@ -814,5 +814,50 @@ class TestCiWait(unittest.TestCase):
         self.assertNotIn("still in_progress after", out.getvalue())
 
 
+    def test_appear_phase_max_wait_exhausted_exits_6_without_busy_loop(self):
+        """When --max-wait runs out during the appear phase, exit 6 immediately with bounded gh calls."""
+        gh_calls = [0]
+
+        def mock_run_cmd(cmd, input_text=None, cwd=None):
+            if "git" in cmd:
+                return 1, "", ""
+            if "run" in cmd and "list" in cmd:
+                gh_calls[0] += 1
+                return 0, json.dumps([]), ""  # run never appears
+            return 0, "", ""
+
+        clock = [0.0]
+
+        def fake_mono():
+            return clock[0]
+
+        def fake_sleep(sec):
+            # Enforce minimum sleep of 1s (what the fix guarantees)
+            self.assertGreaterEqual(sec, 1, f"sleep was called with {sec}s — must be >= 1s to avoid busy loop")
+            clock[0] += sec
+
+        out = io.StringIO()
+        with patch("gh_helper.run_cmd", side_effect=mock_run_cmd), \
+             patch("sys.stdout", out):
+            code = gh_helper.wait_for_ci_runs(
+                repo=self.repo,
+                sha="abcdef1",
+                appear_timeout=180,
+                interval=15,
+                max_wait=60,
+                monotonic_fn=fake_mono,
+                sleep_fn=fake_sleep,
+            )
+
+        # Should exit 6 when max-wait runs out, not spin until appear-timeout
+        self.assertEqual(code, 6)
+        # Clock should be ~60s, not 180s (not spin until appear-timeout)
+        self.assertLessEqual(clock[0], 100, f"clock overshot ({clock[0]}s): should exit at ~60s not spin until appear-timeout")
+        # gh calls should be bounded: at ~15s interval over 60s = at most ~5 calls, not hundreds
+        self.assertLessEqual(gh_calls[0], 10, f"too many gh calls ({gh_calls[0]}): indicates busy loop")
+        # Message must name the scenario
+        self.assertIn("Start ci wait again", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

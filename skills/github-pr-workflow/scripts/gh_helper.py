@@ -583,8 +583,8 @@ def resolve_commit_sha_from_git(repo: str, sha_prefix: str, repo_dir: Optional[s
     m = re.search(r"github\.com[/:]([^/]+/[^/]+?)(?:\.git)?$", origin_url, re.IGNORECASE)
     if not m:
         return None
-    local_repo = m.group(1).lower().rstrip(".git")
-    if local_repo != repo.lower().rstrip(".git"):
+    local_repo = m.group(1).lower().removesuffix(".git")
+    if local_repo != repo.lower().removesuffix(".git"):
         return None
 
     code, stdout, _ = run_cmd(["git", "rev-parse", "--verify", f"{sha_prefix}^{{commit}}"], cwd=repo_dir)
@@ -748,7 +748,8 @@ def wait_for_ci_runs(
                                 if created_ts < (start_wall_time - 60.0):
                                     continue
                             except Exception:
-                                pass
+                                # Can't parse timestamp — skip this run conservatively
+                                continue
                         matched.append(r)
                     if matched:
                         matched_runs = [matched[0]]  # newest run on branch
@@ -776,11 +777,11 @@ def wait_for_ci_runs(
             if max_wait > 0:
                 rem = max_wait - (now_m - start_mono)
                 if rem <= 0:
-                    sleep_sec = 0
-                else:
-                    sleep_sec = min(sleep_sec, rem)
-            if sleep_sec > 0:
-                sleep_fn(sleep_sec)
+                    # max-wait exhausted in appear phase — no point spinning
+                    print(f"ci wait: run {run_id or target_str} still not found after {int(now_m - start_mono)} s. Start ci wait again.")
+                    return 6
+                sleep_sec = min(sleep_sec, rem)
+            sleep_fn(max(1, sleep_sec))
             appear_backoff = min(appear_backoff * 2, 300)
             continue
 
@@ -799,15 +800,16 @@ def wait_for_ci_runs(
             return 5
 
         remaining = appear_timeout - elapsed
-        sleep_sec = min(15, remaining)
         if max_wait > 0:
             rem = max_wait - (now_m - start_mono)
             if rem <= 0:
-                sleep_sec = 0
-            else:
-                sleep_sec = min(sleep_sec, rem)
-        if sleep_sec > 0:
-            sleep_fn(sleep_sec)
+                # max-wait exhausted in appear phase — return exit 6 immediately
+                print(f"ci wait: run {run_id or target_str} still not found after {int(now_m - start_mono)} s. Start ci wait again.")
+                return 6
+            sleep_sec = min(15, remaining, rem)
+        else:
+            sleep_sec = min(15, remaining)
+        sleep_fn(max(1, sleep_sec))
 
     # Step 2: Wait quietly for all matched_runs to complete
     target_ids = [r.get("databaseId") or r.get("id") for r in matched_runs]
