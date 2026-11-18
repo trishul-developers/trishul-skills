@@ -1,0 +1,233 @@
+{
+  "project": "example",
+  "repo": "owner/name",
+  "base_branch": "main",
+  "run_dir": ".local/delivery",
+  "governing_docs": [
+    "AGENTS.md"
+  ],
+  "rules": [
+    "Tests first; report the exact test command and its counts.",
+    "Commit by explicit path; never commit secrets.",
+    "Blockers are defects a user can hit, data or state corruption, or unexplained behaviour changes; everything else is a should-fix or nit."
+  ],
+  "roles": {
+    "driver": {
+      "use": "Plans, briefs, dispatches, judges results, keeps the run log, talks to the owner and asks for merges. Does not write production code.",
+      "primary": {
+        "provider": "claude-native",
+        "model": "claude-opus-5-5",
+        "effort": "high"
+      }
+    },
+    "architect": {
+      "use": "Specs, rulings on open questions, ACCEPTED records. Fresh context per ruling; output lands as a docs PR or an issue comment.",
+      "primary": {
+        "provider": "claude-native",
+        "model": "claude-opus-5-5",
+        "effort": "high"
+      },
+      "fallbacks": [
+        {
+          "provider": "codex",
+          "model": "gpt-6.2-sol",
+          "effort": "high",
+          "sandbox": "read-only"
+        },
+        {
+          "provider": "agy",
+          "model": "gemini-4-hydrogen-xhigh",
+          "effort": "xhigh",
+          "mode": "plan"
+        }
+      ]
+    },
+    "implementor": {
+      "use": "Code and tests for one task, in its own worktree.",
+      "primary": {
+        "provider": "claude-native",
+        "model": "claude-sonnet-5-5",
+        "effort": "high"
+      },
+      "fallbacks": [
+        {
+          "provider": "agy",
+          "model": "gemini-4-argon-high",
+          "effort": "high",
+          "mode": "accept-edits"
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6.1-terra",
+          "effort": "high",
+          "sandbox": "workspace-write"
+        }
+      ]
+    },
+    "maths-implementor": {
+      "use": "Steps flagged maths (a formula or numeric model).",
+      "primary": {
+        "provider": "codex",
+        "model": "gpt-6.2-sol",
+        "effort": "high",
+        "sandbox": "workspace-write"
+      },
+      "fallbacks": [
+        {
+          "provider": "agy",
+          "model": "gemini-4-hydrogen-xhigh",
+          "effort": "xhigh",
+          "mode": "accept-edits"
+        },
+        {
+          "provider": "claude-native",
+          "model": "claude-sonnet-5-5",
+          "effort": "high"
+        }
+      ]
+    },
+    "reviewer": {
+      "use": "Review of high-risk work. Always a different model family from the implementor.",
+      "cross_provider": true,
+      "primary": {
+        "provider": "codex",
+        "model": "gpt-6.2-sol",
+        "effort": "high",
+        "sandbox": "read-only"
+      },
+      "fallbacks": [
+        {
+          "provider": "agy",
+          "model": "gemini-4-hydrogen-high",
+          "effort": "high",
+          "mode": "plan"
+        },
+        {
+          "provider": "claude-native",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      ]
+    },
+    "reviewer-light": {
+      "use": "Review of lower-risk work. Different model family from the implementor.",
+      "cross_provider": true,
+      "primary": {
+        "provider": "codex",
+        "model": "gpt-6.2-sol",
+        "effort": "medium",
+        "sandbox": "read-only"
+      },
+      "fallbacks": [
+        {
+          "provider": "agy",
+          "model": "gemini-4-argon-medium",
+          "effort": "medium",
+          "mode": "plan"
+        },
+        {
+          "provider": "claude-native",
+          "model": "claude-sonnet-5-5",
+          "effort": "medium"
+        }
+      ]
+    },
+    "phase-reviewer": {
+      "use": "Whole-milestone review from the base tag to the head.",
+      "cross_provider": true,
+      "primary": {
+        "provider": "codex",
+        "model": "gpt-6.2-astra",
+        "effort": "high",
+        "sandbox": "read-only"
+      },
+      "fallbacks": [
+        {
+          "provider": "agy",
+          "model": "gemini-4-hydrogen-xhigh",
+          "effort": "xhigh",
+          "mode": "plan"
+        },
+        {
+          "provider": "claude-native",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        }
+      ]
+    },
+    "light-worker": {
+      "use": "Docs, player builds, mechanical edits, CI chores.",
+      "primary": {
+        "provider": "claude-native",
+        "model": "claude-haiku-5-5",
+        "effort": "medium"
+      },
+      "fallbacks": [
+        {
+          "provider": "agy",
+          "model": "gemini-3.8-flash-medium",
+          "effort": "medium",
+          "mode": "accept-edits"
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6-luna",
+          "effort": "medium",
+          "sandbox": "workspace-write"
+        }
+      ]
+    },
+    "scout": {
+      "use": "Shortlists and research; sources verified afterwards by a stronger model.",
+      "primary": {
+        "provider": "agy",
+        "model": "gemini-4-argon-medium",
+        "effort": "medium",
+        "mode": "plan"
+      },
+      "fallbacks": [
+        {
+          "provider": "claude-native",
+          "model": "claude-sonnet-5-5",
+          "effort": "medium"
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6.1-terra",
+          "effort": "medium",
+          "sandbox": "read-only"
+        }
+      ]
+    },
+    "advisor": {
+      "use": "Highest-difficulty questions only, asked by the driver or the architect: a contract conflict nobody can settle, a design fork with large cost either way, or a failure after 2 fix rounds. Advice only; never edits.",
+      "callers": [
+        "driver",
+        "architect"
+      ],
+      "primary": {
+        "provider": "claude-advisor",
+        "model": "builtin",
+        "effort": "max",
+        "note": "builtin = the agent's own advisor tool, which picks a model stronger than the driver."
+      },
+      "fallbacks": [
+        {
+          "provider": "codex",
+          "model": "gpt-6.2-sol",
+          "effort": "ultra",
+          "sandbox": "read-only"
+        },
+        {
+          "provider": "agy",
+          "model": "gemini-4-hydrogen-xhigh",
+          "effort": "xhigh",
+          "mode": "plan"
+        }
+      ]
+    }
+  },
+  "notes": [
+    "Copy this file to <repo>/.agent-delivery.json and edit models, rules and roles for the project. Model ids must match what each CLI lists (agy models, codex, claude)."
+  ]
+}
