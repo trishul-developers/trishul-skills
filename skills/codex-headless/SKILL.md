@@ -1,6 +1,6 @@
 ---
 name: codex-headless
-description: Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.1-sol, gpt-6.1-terra, gpt-6-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.
+description: Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.2-sol, gpt-6.1-terra, gpt-6.2-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.
 compatibility: Requires codex CLI on PATH and signed in. Tested on Windows with codex-cli 0.166.0+.
 tags: [codex, headless, cli, execution, multi-agent, automation]
 ---
@@ -10,7 +10,7 @@ tags: [codex, headless, cli, execution, multi-agent, automation]
 This skill provides a programmatic, non-interactive execution harness for OpenAI Codex using `codex exec`. It solves command-line quoting, stdin streaming, process lifecycle supervision, timeout management, structured output schemas, and multi-agent thread resumption.
 
 ## Core Capabilities
-- **Model Selection**: Run any tier-1 or lightweight Codex model (`gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-6-luna`).
+- **Model Selection**: Run any tier-1 or lightweight Codex model (`gpt-6.2-sol`, `gpt-6.1-terra`, `gpt-6.2-astra`, `gpt-6-luna`).
 - **Reasoning Effort Control**: Fine-tune depth (`low`, `medium`, `high`, `xhigh`, `max`, `ultra`).
 - **Sandbox Isolation**:
   - `read-only`: Code reviews, queries, and static inspections without file modifications.
@@ -29,7 +29,7 @@ This skill provides a programmatic, non-interactive execution harness for OpenAI
 ### 1. Basic Read-Only Query / Code Review
 ```bash
 python "scripts/codex_headless.py" \
-  -m gpt-6.1-sol \
+  -m gpt-6.2-sol \
   -e high \
   -s read-only \
   -C "<repo_dir>" \
@@ -39,7 +39,7 @@ python "scripts/codex_headless.py" \
 ### 2. Large Implementation Brief via Prompt File
 ```bash
 python "scripts/codex_headless.py" \
-  -m gpt-6.1-sol \
+  -m gpt-6.2-sol \
   -e high \
   -s workspace-write \
   -C "<repo_dir>" \
@@ -67,7 +67,7 @@ python "scripts/codex_headless.py" \
 ### 5. Dry-Run Verification (0 Quota Spent)
 ```bash
 python "scripts/codex_headless.py" \
-  -m gpt-6.1-sol -e ultra --worktree --dry-run "Test prompt"
+  -m gpt-6.2-sol -e ultra --worktree --dry-run "Test prompt"
 ```
 
 ## Telemetry and Artifacts

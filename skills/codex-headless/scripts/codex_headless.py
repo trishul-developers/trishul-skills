@@ -29,7 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-DEFAULT_MODEL = "gpt-6.1-sol"
+DEFAULT_MODEL = "gpt-6.2-sol"
 DEFAULT_EFFORT = "high"
 DEFAULT_SANDBOX = "workspace-write"
 DEFAULT_TIMEOUT = 1800  # 30 minutes
