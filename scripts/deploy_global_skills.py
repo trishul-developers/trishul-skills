@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Deploy the 7 universal/platform skills globally to Claude, Codex, Antigravity, and OpenCode,
+r"""Deploy universal/platform skills globally to Claude, Codex, Antigravity, and OpenCode,
 and clean up duplicate/superseded skills across global and project scopes.
 """
 
@@ -7,25 +7,36 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Tuple
 
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 
-# The 8 universal / platform skills (strictly skills/*, not skills/projects/*)
-GLOBAL_SKILL_NAMES = [
+# Active universal / platform skills per provider (strictly skills/*, not skills/projects/*)
+DEFAULT_PROVIDER_SKILLS = [
+    "agent-delivery",
     "agy-headless",
-    "claude-headless",
     "codex-headless",
-    "engineering-orchestrator",
     "github-pr-workflow",
-    "hub-messenger",
-    "pr-handoff-lifecycle",
     "unity-pipeline",
 ]
 
-# Obsolete / superseded skill names that should be removed from global provider scopes
+PROVIDER_SKILLS = {
+    "claude": DEFAULT_PROVIDER_SKILLS,
+    "codex": ["unity-pipeline"],
+    "antigravity": DEFAULT_PROVIDER_SKILLS,
+    "opencode": DEFAULT_PROVIDER_SKILLS,
+}
+
+# Explicit allow-list of active TTE project skills (deployed to both .claude/skills and .agents/skills)
+TTE_PROJECT_SKILLS = [
+    "tte-content-pipeline",
+    "tte-golden-recapture",
+    "tte-phase-evidence",
+]
+
+# Obsolete / superseded / retired skill names that should be removed from global provider scopes
 OBSOLETE_GLOBAL_SKILLS = {
     "agy-cli",
     "codex-cli",
@@ -36,16 +47,15 @@ OBSOLETE_GLOBAL_SKILLS = {
     "snapshot-replay-verifier",
     "unity-log-inspector",
     "unity-testing-workflow",
-    "handoff",  # project-specific to trishul-agent-hub, should not be in global provider scopes
+    "handoff",  # project-specific to trishul-agent-hub, retired with hub
+    "hub-messenger",
+    "pr-handoff-lifecycle",
+    "engineering-orchestrator",
+    "claude-headless",
+    "opencode-headless",
 }
 
-# Provider global skill directories
-PROVIDER_GLOBAL_DIRS = {
-    "claude": Path(r"C:\Users\tosum\.claude\skills"),
-    "codex": Path(r"C:\Users\tosum\.codex\skills"),
-    "antigravity": Path(r"C:\Users\tosum\.gemini\config\skills"),
-    "opencode": Path(r"C:\Users\tosum\.config\opencode\skills"),
-}
+ALL_MANAGED_GLOBAL_SKILLS = set(DEFAULT_PROVIDER_SKILLS) | OBSOLETE_GLOBAL_SKILLS
 
 # Directories inside provider roots that must NEVER be deleted
 PROTECTED_ITEMS = {
@@ -59,6 +69,36 @@ PROTECTED_ITEMS = {
 EXCLUDE_COPY_PATTERNS = {
     "__pycache__", ".pytest_cache", ".git", ".venv"
 }
+
+
+def to_platform_path(p: Path) -> Path:
+    """Translate Windows-style drive paths to WSL /mnt/<drive> paths if running under Linux."""
+    if sys.platform != "win32":
+        s = str(p)
+        if len(s) >= 2 and s[1] == ":":
+            drive = s[0].lower()
+            rest = s[2:].replace("\\", "/")
+            return Path(f"/mnt/{drive}{rest}")
+    return p
+
+
+def get_provider_targets() -> List[Tuple[str, Path]]:
+    """Return all target provider global skill directories across Windows and Linux."""
+    targets = [
+        ("claude", to_platform_path(Path(r"C:\Users\tosum\.claude\skills"))),
+        ("codex", to_platform_path(Path(r"C:\Users\tosum\.codex\skills"))),
+        ("antigravity", to_platform_path(Path(r"C:\Users\tosum\.gemini\config\skills"))),
+        ("opencode", to_platform_path(Path(r"C:\Users\tosum\.config\opencode\skills"))),
+    ]
+    if sys.platform != "win32":
+        linux_scopes = [
+            ("antigravity (linux)", Path.home() / ".gemini" / "config" / "skills"),
+            ("codex (linux)", Path.home() / ".codex" / "skills"),
+            ("opencode (linux)", Path.home() / ".config" / "opencode" / "skills"),
+        ]
+        for name, p in linux_scopes:
+            targets.append((name, p))
+    return targets
 
 
 def copy_skill(src_dir: Path, dest_dir: Path) -> None:
@@ -87,22 +127,25 @@ def deploy_to_provider(provider_name: str, target_dir: Path) -> None:
     print(f"==========================================")
 
     target_dir.mkdir(parents=True, exist_ok=True)
+    provider_key = provider_name.split()[0].lower()
+    allowed_skills = PROVIDER_SKILLS.get(provider_key, DEFAULT_PROVIDER_SKILLS)
+    skills_to_remove = OBSOLETE_GLOBAL_SKILLS | (ALL_MANAGED_GLOBAL_SKILLS - set(allowed_skills))
 
-    # 1. Clean obsolete / duplicate skills
+    # 1. Clean obsolete / retired / disallowed skills
     for item in target_dir.iterdir():
         if item.name in PROTECTED_ITEMS:
             print(f"  [KEEP PROTECTED] {item.name}")
             continue
 
-        if item.name in OBSOLETE_GLOBAL_SKILLS:
+        if item.name in skills_to_remove:
             print(f"  [REMOVE OBSOLETE] {item.name}")
             if item.is_dir():
                 shutil.rmtree(item, ignore_errors=True)
             else:
                 item.unlink(missing_ok=True)
 
-    # 2. Deploy the 7 skills
-    for skill_name in GLOBAL_SKILL_NAMES:
+    # 2. Deploy the allowed global skills for this provider
+    for skill_name in allowed_skills:
         src = SKILLS_DIR / skill_name
         dest = target_dir / skill_name
         if not src.exists():
@@ -119,15 +162,12 @@ def check_and_clean_projects() -> None:
     print(f"==========================================")
 
     project_roots = [
-        Path(r"E:\Projects\agent-control-plane"),
-        Path(r"E:\Projects\trishul-agent-hub"),
-        Path(r"E:\Projects\trishul-tactical-engine"),
-        Path(r"E:\Projects\trishul-p6g-stage"),
-        Path(r"E:\Projects\tte-docs-followup"),
+        to_platform_path(Path(r"E:\Projects\agent-control-plane")),
+        to_platform_path(Path(r"E:\Projects\trishul-tactical-engine")),
+        to_platform_path(Path(r"E:\Projects\tte-docs-followup")),
     ]
 
-    # Global skills or obsolete tools that should not be duplicated in project scopes
-    all_to_remove_from_projects = (set(GLOBAL_SKILL_NAMES) | OBSOLETE_GLOBAL_SKILLS) - {"handoff", "cloud-role-bridge"}
+    all_to_remove_from_projects = ALL_MANAGED_GLOBAL_SKILLS - {"cloud-role-bridge"}
 
     for proj in project_roots:
         if not proj.exists():
@@ -161,19 +201,22 @@ def deploy_project_skills() -> None:
     print(f"Deploying Project Skills to Dedicated Projects")
     print(f"==========================================")
 
-    # 1. TTE project skills (skills/projects/tte-*)
-    tte_root = Path(r"E:\Projects\trishul-tactical-engine")
-    tte_claude_skills = tte_root / ".claude" / "skills"
+    # 1. TTE project skills (explicit allow-list deployed to both .claude/skills and .agents/skills)
+    tte_root = to_platform_path(Path(r"E:\Projects\trishul-tactical-engine"))
     if tte_root.exists() and PROJECTS_DIR.exists():
-        tte_claude_skills.mkdir(parents=True, exist_ok=True)
-        for item in sorted(PROJECTS_DIR.iterdir()):
-            if item.is_dir() and item.name.startswith("tte-"):
-                dest = tte_claude_skills / item.name
-                print(f"  [DEPLOY TTE SKILL] {item.name} -> {dest}")
-                copy_skill(item, dest)
+        for target_root in [tte_root / ".claude" / "skills", tte_root / ".agents" / "skills"]:
+            target_root.mkdir(parents=True, exist_ok=True)
+            for skill_name in TTE_PROJECT_SKILLS:
+                src = PROJECTS_DIR / skill_name
+                if not src.exists():
+                    print(f"  [ERROR] Source TTE skill {src} not found!", file=sys.stderr)
+                    continue
+                dest = target_root / skill_name
+                print(f"  [DEPLOY TTE SKILL] {skill_name} -> {dest}")
+                copy_skill(src, dest)
 
     # 2. agent-control-plane (chatgpt-role-bridge)
-    acp_root = Path(r"E:\Projects\agent-control-plane")
+    acp_root = to_platform_path(Path(r"E:\Projects\agent-control-plane"))
     if acp_root.exists() and (PROJECTS_DIR / "chatgpt-role-bridge").exists():
         for d in [acp_root / ".agents" / "skills", acp_root / ".claude" / "skills"]:
             if d.parent.exists():
@@ -182,24 +225,14 @@ def deploy_project_skills() -> None:
                 print(f"  [DEPLOY ACP SKILL] chatgpt-role-bridge -> {dest}")
                 copy_skill(PROJECTS_DIR / "chatgpt-role-bridge", dest)
 
-    # 3. trishul-agent-hub (handoff)
-    hub_root = Path(r"E:\Projects\trishul-agent-hub")
-    if hub_root.exists() and (PROJECTS_DIR / "handoff").exists():
-        for d in [hub_root / ".claude" / "skills", hub_root / ".agents" / "skills"]:
-            if d.parent.exists():
-                d.mkdir(parents=True, exist_ok=True)
-                dest = d / "handoff"
-                print(f"  [DEPLOY HUB SKILL] handoff -> {dest}")
-                copy_skill(PROJECTS_DIR / "handoff", dest)
-
 
 def main():
-    print(f"Deploying {len(GLOBAL_SKILL_NAMES)} Global Skills from {SKILLS_DIR}...")
-    for name in GLOBAL_SKILL_NAMES:
-        print(f"  - {name}")
+    print(f"Deploying global skills from {SKILLS_DIR}...")
+    for provider, skills in PROVIDER_SKILLS.items():
+        print(f"  - {provider}: {', '.join(skills)}")
 
-    # Deploy to all 4 providers
-    for provider, target_path in PROVIDER_GLOBAL_DIRS.items():
+    # Deploy to all provider targets
+    for provider, target_path in get_provider_targets():
         deploy_to_provider(provider, target_path)
 
     # Clean duplicates from project scopes

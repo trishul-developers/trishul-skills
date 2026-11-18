@@ -19,7 +19,7 @@ SKILLS_DIR = WORKSPACE_ROOT / "skills"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 CATALOG_FILE = WORKSPACE_ROOT / "catalog.json"
 
-HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless", "claude-headless"}
+HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless"}
 
 
 def parse_frontmatter(content: str) -> Dict[str, str]:
@@ -76,7 +76,7 @@ def index_skill_dir(skill_dir: Path, category: str) -> Dict[str, Any] | None:
         "name": name,
         "description": description[:500],
         "category": category,
-        "local_path": str(skill_dir.relative_to(WORKSPACE_ROOT)),
+        "local_path": skill_dir.relative_to(WORKSPACE_ROOT).as_posix(),
         "has_scripts": (skill_dir / "scripts").is_dir(),
         "has_references": (skill_dir / "references").is_dir() or (skill_dir / "resources").is_dir(),
         "has_tests": (skill_dir / "tests").is_dir(),
@@ -89,7 +89,7 @@ def build_catalog() -> List[Dict[str, Any]]:
 
     # 1. Skills directly under skills/
     for item in sorted(SKILLS_DIR.iterdir()):
-        if not item.is_dir() or item.name in {"projects", "headless", "collected", ".git", "__pycache__"}:
+        if not item.is_dir() or item.name in {"projects", "archive", "headless", "collected", ".git", "__pycache__"}:
             continue
         category = "headless" if item.name in HEADLESS_SKILL_NAMES or item.name.endswith("-headless") else "platform"
         entry = index_skill_dir(item, category)

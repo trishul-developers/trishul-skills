@@ -1,81 +1,54 @@
 {
   "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 17,
+  "total_skills": 9,
   "categories": {
-    "headless": 3,
-    "platform": 5,
-    "projects": 9
+    "headless": 2,
+    "platform": 3,
+    "projects": 4
   },
   "skills": [
     {
       "name": "agy-headless",
       "description": "Execute Google Antigravity (agy) non-interactively via print mode (`agy -p`) with granular control over models (gemini-3.8-flash, claude-sonnet-4-6, claude-opus-4-6-thinking, gpt-oss-120b-medium), reasoning effort (low, medium, high, xhigh, max), execution modes (auto, accept-edits, plan), permission auto-approval, output formatting (json, text, stream-json), structured schema validation, Windows command line length safety, and conversation resumption.",
       "category": "headless",
-      "local_path": "skills\\agy-headless",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "claude-headless",
-      "description": "Execute Anthropic Claude Code non-interactively via print mode (`claude -p`) with fine-grained control over models (claude-3-7-sonnet, claude-3-5-haiku, claude-3-opus), tool whitelisting (--allowed-tools), permission skipping, system prompt overrides, output formatting (json, text), minimal execution mode (--bare), and session continuity.",
-      "category": "headless",
-      "local_path": "skills\\claude-headless",
+      "local_path": "skills/agy-headless",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
     },
     {
       "name": "codex-headless",
-      "description": "Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.1-sol, gpt-6.1-terra, gpt-6-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.",
+      "description": "Execute OpenAI Codex non-interactively via `codex exec` with precise control over model (gpt-6.2-sol, gpt-6.1-terra, gpt-6.2-astra, gpt-6-luna), reasoning effort (low, medium, high, xhigh, max, ultra), sandbox permissions (read-only, workspace-write, danger-full-access), structured JSON output schemas, directory context, git worktrees, image inputs, and thread resumption.",
       "category": "headless",
-      "local_path": "skills\\codex-headless",
+      "local_path": "skills/codex-headless",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
     },
     {
-      "name": "engineering-orchestrator",
-      "description": "Use this skill whenever orchestrating software engineering projects, managing multi-agent workflows,\ndefining canonical roles (Architect, Implementor, Reviewer, Executor), inventing novel specialized roles on demand,\nenforcing dual-gate review/execution verification, or governing subagent lifecycle and compute costs.",
+      "name": "agent-delivery",
+      "description": "One-driver delivery workflow for multi-model software work. A single driver session plans, briefs, dispatches and judges; every other role (architect, implementor, maths implementor, reviewers, phase reviewer, light worker, scout, advisor) is a fresh worker started from a brief file, either as a native subagent or as a headless Codex, Antigravity or Claude run. Roles map to configurable provider/model/effort slots with a fallback chain spread across Claude, Codex and Antigravity, reviews are for",
       "category": "platform",
-      "local_path": "skills\\engineering-orchestrator",
-      "has_scripts": false,
+      "local_path": "skills/agent-delivery",
+      "has_scripts": true,
       "has_references": false,
-      "has_tests": false
+      "has_tests": true
     },
     {
       "name": "github-pr-workflow",
       "description": "Complete GitHub Pull Request and CI workflow automation: zero-dependency GitHub API interactions (via pure Python urllib), safe multi-line comment publishing from file (preventing shell quoting corruption), CI run failure & test digestion (<=50 lines), quiet CI run waiting and wake-up notifications (ci wait), PR comment polling and role watching, HEAD SHA matching, and local git clean status verification.",
       "category": "platform",
-      "local_path": "skills\\github-pr-workflow",
+      "local_path": "skills/github-pr-workflow",
       "has_scripts": true,
       "has_references": true,
       "has_tests": true
     },
     {
-      "name": "hub-messenger",
-      "description": "Zero-model messenger daemon and self-wake waiter for Trishul Agent Hub. Periodically polls participant inboxes and wakes idle workers with unread mail via detached CLI resumption, automatic wake hooks (hub_wake_hook), in-session self-wait (hub_wait), or logging, eliminating expensive model-turn polling chats.",
-      "category": "platform",
-      "local_path": "skills\\hub-messenger",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": true
-    },
-    {
-      "name": "pr-handoff-lifecycle",
-      "description": "Use this skill to draft, validate, and verify PR role handoffs ([IMPLEMENTOR-1], [COORDINATOR], [REVIEWER-1A/B]) directly from git history, diffs, and NUnit test report XMLs.",
-      "category": "platform",
-      "local_path": "skills\\pr-handoff-lifecycle",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
       "name": "unity-pipeline",
       "description": "Unified Unity C# engineering, verification, and testing pipeline. Integrates machine-wide Unity execution locking, exact ProjectVersion editor resolution, mandatory fast-fail static contract audits (<1s), fast C# compilation pre-checks, targeted batchmode test execution (EditMode/PlayMode), NUnit 3 XML report parsing, automated Editor.log failure diagnostics extraction, and composite phase gates into a single authoritative tool.",
       "category": "platform",
-      "local_path": "skills\\unity-pipeline",
+      "local_path": "skills/unity-pipeline",
       "has_scripts": true,
       "has_references": false,
       "has_tests": true
@@ -84,43 +57,16 @@
       "name": "chatgpt-role-bridge",
       "description": "Temporary project-local bridge enabling ORCHESTRATOR-LOCAL to communicate with persistent\ncloud ChatGPT roles (such as DESIGN_OWNER and REVIEWER) via the proven PoC-001 Session Host.\nUse when coordinating Phase 2 architecture freeze, Gate 1 design approval, or exact-SHA code\nreviews with cloud roles without manual copy-pasting.",
       "category": "projects",
-      "local_path": "skills\\projects\\chatgpt-role-bridge",
+      "local_path": "skills/projects/chatgpt-role-bridge",
       "has_scripts": true,
       "has_references": true,
       "has_tests": true
     },
     {
-      "name": "handoff",
-      "description": "Check and act on file handoffs in trishul-agent-hub. Use when asked to check handoffs, or on the 15-minute cron check, to pick up any package whose next_owner is antigravity.",
-      "category": "projects",
-      "local_path": "skills\\projects\\handoff",
-      "has_scripts": false,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "tte-batch-brief",
-      "description": "Concise template and guidelines used by the project manager to brief an orchestrator for a 2-4 step work batch. Defines base branch & SHA, step table with risk tier and model, governing rules, carried-forward phase-list items, reporting requirements, and wait/idle boundaries.",
-      "category": "projects",
-      "local_path": "skills\\projects\\tte-batch-brief",
-      "has_scripts": false,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
-      "name": "tte-batch-review",
-      "description": "Lean batch-review procedure for TTE reviewers and orchestrators. Enforces one joint review of tests and code together, a single recheck of changed items only by the same reviewer, strict blocker criteria (player-facing, replay/save-state breakage, or unexplained outcome pin moves), differential note validation, and standardized verdict reporting.",
-      "category": "projects",
-      "local_path": "skills\\projects\\tte-batch-review",
-      "has_scripts": false,
-      "has_references": false,
-      "has_tests": false
-    },
-    {
       "name": "tte-content-pipeline",
       "description": "Create, validate, and bake game content definition assets and register entries in the correct content-pack paths using scripts/validate_content_asset.py. Use when adding or changing units, weapons, sensors, factions, missions, or register values. Implementor or executor role.",
       "category": "projects",
-      "local_path": "skills\\projects\\tte-content-pipeline",
+      "local_path": "skills/projects/tte-content-pipeline",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
@@ -129,7 +75,7 @@
       "name": "tte-golden-recapture",
       "description": "Recapture and re-baseline golden simulation pins once per batch under the accepted G02 lean process using TTE_GOLDEN_ACTUAL_DIR and ci/golden-recapture.py with a differential note table. Implementor role.",
       "category": "projects",
-      "local_path": "skills\\projects\\tte-golden-recapture",
+      "local_path": "skills/projects/tte-golden-recapture",
       "has_scripts": false,
       "has_references": false,
       "has_tests": false
@@ -138,28 +84,10 @@
       "name": "tte-phase-evidence",
       "description": "Assemble and verify the phase-end acceptance review package for the architect (preconditions, step commit table, CI run status, state-inventory diff, deviations) using scripts/assemble_phase_evidence.py. Use when all steps of a phase are complete. Orchestrator role.",
       "category": "projects",
-      "local_path": "skills\\projects\\tte-phase-evidence",
+      "local_path": "skills/projects/tte-phase-evidence",
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
-    },
-    {
-      "name": "tte-phase-merge",
-      "description": "Safely merge side/task branches into the active TTE phase branch with a non-fast-forward merge commit (--no-ff). Enforces clean working tree, blocks unapproved ProjectSettings/Packages changes, shows merge-base and diff preview, pushes only on demand with --push, and polls for GitHub Actions CI run ID. Strictly prohibits force-pushes and touching main.",
-      "category": "projects",
-      "local_path": "skills\\projects\\tte-phase-merge",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": true
-    },
-    {
-      "name": "tte-status",
-      "description": "Authoritative TTE project status reporter. Outputs complete waking state in <=60 lines (phase branch head SHA, CI run & job conclusions, open PRs, top 8 remote branches by recency, ahead/behind main divergence, last 3 comments on phase PR and question issue cut to ~200 chars, and local worktrees). Uses only git and gh.",
-      "category": "projects",
-      "local_path": "skills\\projects\\tte-status",
-      "has_scripts": true,
-      "has_references": false,
-      "has_tests": true
     }
   ]
 }

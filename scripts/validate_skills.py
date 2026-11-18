@@ -8,9 +8,11 @@ Checks:
   - Unit tests via node --test (if test suites present)
 """
 
+import json
 import os
 import py_compile
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -33,6 +35,54 @@ def parse_frontmatter(content: str) -> dict:
     return meta
 
 
+def check_model_consistency(errors: list) -> None:
+    """Verify Codex model names match across codex-headless and agent-delivery."""
+    stale_codex = ("gpt-6.1-sol", "gpt-6-astra")
+    codex_script = SKILLS_DIR / "codex-headless" / "scripts" / "codex_headless.py"
+    codex_skill = SKILLS_DIR / "codex-headless" / "SKILL.md"
+    example_profile = SKILLS_DIR / "agent-delivery" / "profiles" / "example.json"
+
+    default_model = None
+    if codex_script.is_file():
+        text = codex_script.read_text(encoding="utf-8", errors="replace")
+        m = re.search(r'^DEFAULT_MODEL\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        if not m:
+            errors.append(f"{codex_script}: Missing DEFAULT_MODEL definition")
+        else:
+            default_model = m.group(1)
+            if default_model in stale_codex:
+                errors.append(f"{codex_script}: DEFAULT_MODEL '{default_model}' is stale")
+
+    if codex_skill.is_file():
+        text = codex_skill.read_text(encoding="utf-8", errors="replace")
+        for stale in stale_codex:
+            if stale in text:
+                errors.append(f"{codex_skill}: Contains stale model name '{stale}'")
+        if default_model and default_model not in text:
+            errors.append(f"{codex_skill}: Does not mention codex_headless DEFAULT_MODEL '{default_model}'")
+
+    if example_profile.is_file():
+        raw = example_profile.read_text(encoding="utf-8", errors="replace")
+        for stale in stale_codex:
+            if stale in raw:
+                errors.append(f"{example_profile}: Contains stale model name '{stale}'")
+        try:
+            prof = json.loads(raw)
+        except json.JSONDecodeError as e:
+            errors.append(f"{example_profile}: Invalid JSON: {e}")
+            return
+        codex_models = set()
+        for role in prof.get("roles", {}).values():
+            slots = [role.get("primary")] + list(role.get("fallbacks") or [])
+            for slot in slots:
+                if isinstance(slot, dict) and slot.get("provider") == "codex" and slot.get("model"):
+                    codex_models.add(slot["model"])
+        if default_model and codex_models and default_model not in codex_models:
+            errors.append(
+                f"{example_profile}: codex_headless DEFAULT_MODEL '{default_model}' not found in profile codex slots {sorted(codex_models)}"
+            )
+
+
 def validate() -> int:
     print(f"Validating skills under {SKILLS_DIR}...")
     errors = []
@@ -44,8 +94,8 @@ def validate() -> int:
     test_files_run = 0
 
     for root, dirs, files in os.walk(SKILLS_DIR):
-        # Skip node_modules, cache dirs
-        dirs[:] = [d for d in dirs if d not in {".git", "node_modules", "__pycache__", ".venv"}]
+        # Skip archive, node_modules, cache dirs
+        dirs[:] = [d for d in dirs if d not in {"archive", ".git", "node_modules", "__pycache__", ".venv"}]
 
         for f in files:
             file_path = Path(root) / f
@@ -100,20 +150,6 @@ def validate() -> int:
                                     f"CLI script {' '.join(subcmd)} failure in {file_path} (exit code {help_sub.returncode}):\n"
                                     f"{help_sub.stderr.strip() or help_sub.stdout.strip()}"
                                 )
-                    elif f == "hub_wake_hook.py":
-                        for subcmd in [["register", "--help"], ["unregister", "--help"], ["list", "--help"]]:
-                            checked_cli_helps += 1
-                            help_sub = subprocess.run(
-                                [sys.executable, str(file_path)] + subcmd,
-                                capture_output=True,
-                                text=True,
-                            )
-                            if help_sub.returncode != 0:
-                                errors.append(
-                                    f"CLI script {' '.join(subcmd)} failure in {file_path} (exit code {help_sub.returncode}):\n"
-                                    f"{help_sub.stderr.strip() or help_sub.stdout.strip()}"
-                                )
-
                 if f.startswith("test_") and "tests" in file_path.parts:
                     test_files_run += 1
                     test_res = subprocess.run(
@@ -126,23 +162,33 @@ def validate() -> int:
 
             elif f.endswith((".js", ".mjs")):
                 checked_js_scripts += 1
-                res = subprocess.run(
-                    ["node", "--check", str(file_path)],
-                    capture_output=True,
-                    text=True,
-                )
-                if res.returncode != 0:
-                    errors.append(f"JavaScript/ESM syntax error in {file_path}:\n{res.stderr.strip()}")
+                node_bin = shutil.which("node") or shutil.which("node.exe")
+                if node_bin:
+                    res = subprocess.run(
+                        [node_bin, "--check", str(file_path)],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if res.returncode != 0:
+                        errors.append(f"JavaScript/ESM syntax error in {file_path}:\n{res.stderr.strip()}")
+                else:
+                    warnings.append(f"Node binary not found on PATH; skipped check for {file_path}")
 
             if f.endswith(".test.mjs"):
                 test_files_run += 1
-                test_res = subprocess.run(
-                    ["node", "--test", str(file_path)],
-                    capture_output=True,
-                    text=True,
-                )
-                if test_res.returncode != 0:
-                    errors.append(f"Test failure in {file_path}:\n{test_res.stderr.strip() or test_res.stdout.strip()}")
+                node_bin = shutil.which("node") or shutil.which("node.exe")
+                if node_bin:
+                    test_res = subprocess.run(
+                        [node_bin, "--test", str(file_path)],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if test_res.returncode != 0:
+                        errors.append(f"Test failure in {file_path}:\n{test_res.stderr.strip() or test_res.stdout.strip()}")
+                else:
+                    warnings.append(f"Node binary not found on PATH; skipped test for {file_path}")
+
+    check_model_consistency(errors)
 
     print(f"Validation complete:")
     print(f"  - Skills checked: {checked_skills}")
