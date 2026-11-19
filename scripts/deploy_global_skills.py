@@ -24,8 +24,8 @@ DEFAULT_PROVIDER_SKILLS = [
 
 PROVIDER_SKILLS = {
     "claude": DEFAULT_PROVIDER_SKILLS,
-    "codex": ["unity-pipeline"],
-    "antigravity": DEFAULT_PROVIDER_SKILLS,
+    "codex": ["unity-pipeline", "claude-headless"],
+    "antigravity": DEFAULT_PROVIDER_SKILLS + ["claude-headless"],
     "opencode": DEFAULT_PROVIDER_SKILLS,
 }
 
@@ -51,11 +51,10 @@ OBSOLETE_GLOBAL_SKILLS = {
     "hub-messenger",
     "pr-handoff-lifecycle",
     "engineering-orchestrator",
-    "claude-headless",
     "opencode-headless",
 }
 
-ALL_MANAGED_GLOBAL_SKILLS = set(DEFAULT_PROVIDER_SKILLS) | OBSOLETE_GLOBAL_SKILLS
+ALL_MANAGED_GLOBAL_SKILLS = set(DEFAULT_PROVIDER_SKILLS) | {"claude-headless"} | OBSOLETE_GLOBAL_SKILLS
 
 # Directories inside provider roots that must NEVER be deleted
 PROTECTED_ITEMS = {

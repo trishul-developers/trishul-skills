@@ -19,7 +19,7 @@ SKILLS_DIR = WORKSPACE_ROOT / "skills"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 CATALOG_FILE = WORKSPACE_ROOT / "catalog.json"
 
-HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless"}
+HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless", "claude-headless"}
 
 
 def parse_frontmatter(content: str) -> Dict[str, str]:
