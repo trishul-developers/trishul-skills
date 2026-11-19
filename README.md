@@ -2,16 +2,17 @@
 
 Welcome to the central **AIAgent Skill Hub** (`trishul-skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
 
-All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository strictly contains **17 high-leverage custom skills and script-backed harnesses** created by agents on this machine, engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
+All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository currently maintains **10 active custom skills and script-backed harnesses** (plus **9 retired skills** preserved under `skills/archive/`), engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Custom Skills Registered**: **17 skills** in [`catalog.json`](./catalog.json)
-- **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](./skills)
-- **Consolidated Platform Skills**: 5 skills directly in [`skills/`](./skills)
-- **Project-Specific Skills**: 9 custom skills residing in project repositories in [`skills/projects/`](./skills/projects)
+- **Total Active Skills Registered**: **10 skills** in [`catalog.json`](./catalog.json)
+- **Universal Headless CLI Runners**: 3 execution harnesses directly in [`skills/`](./skills) (`agy-headless`, `claude-headless`, `codex-headless`)
+- **Consolidated Platform Skills**: 3 skills directly in [`skills/`](./skills) (`agent-delivery`, `github-pr-workflow`, `unity-pipeline`)
+- **Project-Specific Skills**: 4 custom skills in [`skills/projects/`](./skills/projects) (`chatgpt-role-bridge`, `tte-content-pipeline`, `tte-golden-recapture`, `tte-phase-evidence`)
+- **Archived Skills**: 9 retired hub/legacy skills in `skills/archive/` (excluded from `catalog.json` and `validate_skills.py`)
 
 ---
 
@@ -19,48 +20,46 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 ```
 trishul-skills/
-  ├── catalog.json                             # Machine-readable registry of all 17 custom skills
+  ├── catalog.json                             # Machine-readable registry of all 10 active skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
-  │     ├── validate_skills.py                 # Lint & verify SKILL.md, Python, and Node scripts
-  │     └── deploy_global_skills.py            # Global synchronization across all providers
+  │     ├── validate_skills.py                 # Lint & verify SKILL.md, Python/JS scripts, model consistency & tests
+  │     ├── deploy_global_skills.py            # On-demand project-local or global deployment CLI
+  │     └── tests/
+  │           └── test_deploy_global_skills.py # Unit tests for deployment & cross-agent rules
   ├── skills/
+  │     ├── agent-delivery/                    # One-driver multi-model delivery workflow, brief templates & runlog
   │     ├── agy-headless/                      # Universal runner & SKILL.md for `agy -p`
   │     ├── claude-headless/                   # Universal runner & SKILL.md for `claude -p`
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
-  │     ├── engineering-orchestrator/          # Canonical roles & compute governance
   │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest, ci wait & git ops
-  │     ├── hub-messenger/                     # Zero-model Agent Hub poller, wakeup daemon, self-waiter (hub_wait) & wake hook (hub_wake_hook)
-  │     ├── pr-handoff-lifecycle/              # Automated PR role handoffs & verification
   │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
-  │     └── projects/                          # Project-specific custom skills
-  │           ├── chatgpt-role-bridge/         # Persistent cloud role bridge (agent-control-plane)
-  │           ├── handoff/                     # Agent Hub handoff worker (trishul-agent-hub)
-  │           ├── tte-batch-brief/             # Standard manager-to-orchestrator batch brief template (TTE)
-  │           ├── tte-batch-review/            # Lean batch-review procedure and blocker rules (TTE)
-  │           ├── tte-content-pipeline/        # Register validation, key hashing & asset baking (TTE)
-  │           ├── tte-golden-recapture/        # Simulation replay golden re-baseliner (TTE)
-  │           ├── tte-phase-evidence/          # Automated phase acceptance evidence block generator (TTE)
-  │           ├── tte-phase-merge/             # Safe --no-ff phase branch merge with CI run detection (TTE)
-  │           └── tte-status/                  # Wake-up project status snapshot in <=60 lines (TTE)
+  │     ├── projects/                          # Project-specific custom skills
+  │     │     ├── chatgpt-role-bridge/         # Persistent cloud role bridge (agent-control-plane)
+  │     │     ├── tte-content-pipeline/        # Register validation, key hashing & asset baking (TTE)
+  │     │     ├── tte-golden-recapture/        # Simulation replay golden re-baseliner (TTE)
+  │     │     └── tte-phase-evidence/          # Automated phase acceptance evidence block generator (TTE)
+  │     └── archive/                           # Retired hub & legacy skills (not indexed or deployed)
   └── docs/
         ├── SKILL_ARCHITECTURE.md              # Comparative skill architecture across platforms
         ├── HEADLESS_CLI_GUIDE.md              # Comprehensive headless CLI execution manual
         ├── MEMORY_AND_PROCESS_ANALYSIS.md     # Deep dive into project memories & rationale
-        └── TAXONOMY.md                        # Master classification matrix of all 12 custom skills
+        └── TAXONOMY.md                        # Master classification matrix
 ```
 
 ---
 
 ## 3. Universal Headless CLI Runners
 
-The repository includes three production-ready Python runners (`stdlib`-only) directly in `skills/` that handle Windows command-line limits (>16k chars file-pointer fallback), stdin streaming, process tree cleanup (`taskkill /T /F`), and execution telemetry:
+The repository includes three production-ready Python runners (`stdlib`-only) directly in `skills/` that handle Windows command-line limits (>16k chars file-pointer fallback), stdin streaming, process tree cleanup (`taskkill /T /F`), and execution telemetry.
+
+> **Cross-agent rule:** Headless runners are deployed *across* agents, never on the same agent (`claude` gets `agy-headless` + `codex-headless`; `codex` gets `agy-headless` + `claude-headless`; `antigravity` gets `claude-headless` + `codex-headless`).
 
 ### A. OpenAI Codex (`codex-headless`)
 ```bash
 python "skills/codex-headless/scripts/codex_headless.py" \
-  -m gpt-6.1-sol \
+  -m gpt-6.2-sol \
   -e high \
   -s workspace-write \
   -C "E:/Projects/trishul-tactical-engine" \
@@ -95,7 +94,15 @@ python "skills/claude-headless/scripts/claude_headless.py" \
 
 ## 4. Consolidated High-Leverage Skills
 
-### A. Unified Unity Pipeline (`unity-pipeline`)
+### A. One-Driver Multi-Model Delivery (`agent-delivery`)
+Plans, briefs, dispatches (native subagents or headless runners), enforces cross-provider reviews, and records events in `.local/delivery/runlog.jsonl`:
+```powershell
+python skills/agent-delivery/scripts/delivery.py -C "E:/Projects/trishul-tactical-engine" roles
+python skills/agent-delivery/scripts/delivery.py -C "E:/Projects/trishul-tactical-engine" status
+```
+*Docs*: [`skills/agent-delivery/SKILL.md`](./skills/agent-delivery/SKILL.md)
+
+### B. Unified Unity Pipeline (`unity-pipeline`)
 Consolidates fast compile checks, determinism audits, batchmode testing, NUnit XML parsing, failure log extraction, and composite Pair Gates into a single tool:
 ```powershell
 # Mandatory <1s pre-check (aborts before launching Unity if invariant violations exist)
@@ -103,7 +110,7 @@ python skills/unity-pipeline/scripts/unity_pipeline.py all --pre-check --suite F
 ```
 *Docs*: [`skills/unity-pipeline/SKILL.md`](./skills/unity-pipeline/SKILL.md)
 
-### B. Unified GitHub PR Workflow (`github-pr-workflow`)
+### C. Unified GitHub PR Workflow (`github-pr-workflow`)
 Combines zero-dependency pure-Python GitHub REST API interactions, state-tracking watcher daemons, compact CI failure digests, quiet CI run waiting, and git verification:
 ```powershell
 # Safe PR comment posting:
@@ -114,51 +121,25 @@ python skills/github-pr-workflow/scripts/gh_helper.py ci wait --repo tosumitdhak
 ```
 *Docs*: [`skills/github-pr-workflow/SKILL.md`](./skills/github-pr-workflow/SKILL.md)
 
-### C. Automated TTE Phase Evidence (`tte-phase-evidence`)
+### D. Automated TTE Phase Evidence (`tte-phase-evidence`)
 Audits repository preconditions (`HOLD(Qn)`, red list, CI head status) and automatically generates the complete 9-part acceptance evidence package:
 ```powershell
 python skills/projects/tte-phase-evidence/scripts/assemble_phase_evidence.py --phase G01 --output scratch/evidence.md
 ```
 *Docs*: [`skills/projects/tte-phase-evidence/SKILL.md`](./skills/projects/tte-phase-evidence/SKILL.md)
 
-### D. TTE Content Pipeline & Register Validator (`tte-content-pipeline`)
+### E. TTE Content Pipeline & Register Validator (`tte-content-pipeline`)
 Fast offline validation of register JSON, unit vocabulary, and 32-bit FNV-1a `DefinitionId` collision checks:
 ```powershell
 python skills/projects/tte-content-pipeline/scripts/validate_content_asset.py --key plc.mbt.a
 ```
 *Docs*: [`skills/projects/tte-content-pipeline/SKILL.md`](./skills/projects/tte-content-pipeline/SKILL.md)
 
-### E. TTE Project Wakeup Status (`tte-status`)
-One command that prints the full project status required on waking in <= 60 lines:
-```powershell
-python skills/projects/tte-status/scripts/tte_status.py -C "E:/Projects/trishul-tactical-engine"
-```
-*Docs*: [`skills/projects/tte-status/SKILL.md`](./skills/projects/tte-status/SKILL.md)
-
-### F. Safe TTE Phase Branch Merge (`tte-phase-merge`)
-Merges side branch into phase branch (`--no-ff`), enforces clean tree, protects project settings, and polls CI run:
-```powershell
-python skills/projects/tte-phase-merge/scripts/tte_phase_merge.py -C "E:/Projects/trishul-tactical-engine" --push "g02-q36-stale-target"
-```
-*Docs*: [`skills/projects/tte-phase-merge/SKILL.md`](./skills/projects/tte-phase-merge/SKILL.md)
-
-### G. Trishul Agent Hub Messenger, Self-Wake Waiter & Wake Hook (`hub-messenger`)
-Zero-model standby poller (`hub_messenger.py`), in-session self-wake waiter (`hub_wait.py`), and automatic `asyncRewake` hook (`hub_wake_hook.py`) for Agent Hub participants:
-```powershell
-# Standby daemon:
-python skills/hub-messenger/scripts/hub_messenger.py --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
-
-# Claude desktop chat self-wake waiter (manual):
-python skills/hub-messenger/scripts/hub_wait.py --participant reviewer-1a --token-file "C:\Users\tosum\TrishulAgentHub\tokens\runtime.token"
-
-# Claude desktop chat automatic wake hook registration:
-python skills/hub-messenger/scripts/hub_wake_hook.py register --participant manager
-```
-*Docs*: [`skills/hub-messenger/SKILL.md`](./skills/hub-messenger/SKILL.md)
-
 ---
 
-## 5. Maintenance & Tooling
+## 5. Maintenance & On-Demand Deployment
+
+> **Deployment policy:** Skills are **never deployed automatically** when created or edited. Install skills only on explicit user request, either project-locally or globally.
 
 ### Re-sync and Rebuild Custom Catalog
 ```powershell
@@ -168,11 +149,22 @@ python scripts/sync_skills.py
 ### Validate, Lint, and Test All Skills
 ```powershell
 python scripts/validate_skills.py
+python -m unittest scripts/tests/test_deploy_global_skills.py
 ```
 
-### Deploy Skills Globally across Providers (Claude, Codex, Antigravity, OpenCode)
+### Deploy Skills On Demand (Project-Local or Global)
 ```powershell
-python scripts/deploy_global_skills.py
+# List active skills and per-agent cross-agent defaults
+python scripts/deploy_global_skills.py --list
+
+# Install specific skills into a project for Claude (.claude/skills)
+python scripts/deploy_global_skills.py --project E:\Projects\MyProj --agent claude --skill unity-pipeline --skill github-pr-workflow
+
+# Install into a project's shared .agents/skills (Codex & Antigravity)
+python scripts/deploy_global_skills.py --project E:\Projects\MyProj --agent agents --skill unity-pipeline --skill github-pr-workflow
+
+# Preview or run a global install for a specific agent (cross-agent headless rules enforced)
+python scripts/deploy_global_skills.py --scope global --agent codex --dry-run
 ```
 
 ---

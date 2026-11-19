@@ -8,9 +8,11 @@ This guide details how to programmatically invoke OpenAI Codex, Google Antigravi
 
 | Provider | Headless CLI Subcommand | Runner Script Path | Default Model | Primary Strengths |
 |---|---|---|---|---|
-| **OpenAI Codex** | `codex exec` | `skills/codex-headless/scripts/codex_headless.py` | `gpt-6.1-sol` | Complex algorithms, deterministic simulation, deep math |
+| **OpenAI Codex** | `codex exec` | `skills/codex-headless/scripts/codex_headless.py` | `gpt-6.2-sol` | Complex algorithms, deterministic simulation, deep math |
 | **Google Antigravity** | `agy -p` | `skills/agy-headless/scripts/agy_headless.py` | `gemini-3.8-flash` | High-speed execution, low quota cost, Unity automation |
 | **Anthropic Claude** | `claude -p` | `skills/claude-headless/scripts/claude_headless.py` | `claude-3-7-sonnet` | Architecture design, PR reviews, project management |
+
+> **Cross-agent rule:** Deploy headless runners only to *other* agents (e.g. Claude receives `agy-headless` + `codex-headless`, Codex receives `agy-headless` + `claude-headless`, Antigravity receives `claude-headless` + `codex-headless`).
 
 ---
 
@@ -40,7 +42,7 @@ On Windows, standard `proc.kill()` terminates only the parent shell, leaving com
 python skills/codex-headless/scripts/codex_headless.py [OPTIONS] [PROMPT]
 ```
 
-- `-m, --model`: `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-6-luna`.
+- `-m, --model`: `gpt-6.2-sol`, `gpt-6.1-terra`, `gpt-6.2-astra`, `gpt-6-luna`.
 - `-e, --effort`: `low`, `medium`, `high`, `xhigh`, `max`, `ultra`.
 - `-s, --sandbox`:
   - `read-only`: Queries, inspections, reviews (no file changes).
@@ -57,7 +59,7 @@ python skills/codex-headless/scripts/codex_headless.py [OPTIONS] [PROMPT]
 ### Example: Running a Hard C# Architecture Refactor
 ```bash
 python "skills/codex-headless/scripts/codex_headless.py" \
-  -m gpt-6.1-sol \
+  -m gpt-6.2-sol \
   -e high \
   -s workspace-write \
   -C "E:/Projects/trishul-tactical-engine" \
@@ -132,7 +134,7 @@ All three runners produce a standardized `result.json` in their run directory:
 {
   "status": "success",
   "exit_code": 0,
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "effort": "high",
   "duration_seconds": 14.2,
   "thread_id": "01a1a10e-d6b3-7673-aa39-442645d464eb",
