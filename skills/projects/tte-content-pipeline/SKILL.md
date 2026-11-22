@@ -34,7 +34,7 @@ Assets/Content/Core/
                           VehicleVariant, UnitArchetype, Faction, ForceSet
   Missions/<MissionId>/   MissionDefinition and its world asset
   Register/*.json         register entries (D3 section 5 format); each pack has its own register
-  Licenses/*.json         asset-licence register (may be empty)
+Data/AssetLicenses/<pack>.json   asset-licence register (one file per pack; may be empty)
 ```
 
 - Content keys (`m_Key`) are **independent of folders**: moving a pack never changes a `DefinitionId`. Never reuse a key for a different item.

@@ -64,6 +64,7 @@ PROVIDER_SKILLS: Dict[str, List[str]] = {
 
 # Explicit allow-list of active TTE project skills (deployed to both .claude/skills and .agents/skills)
 TTE_PROJECT_SKILLS = [
+    "tte-asset-pipeline",
     "tte-content-pipeline",
     "tte-golden-recapture",
     "tte-phase-evidence",

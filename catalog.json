@@ -1,11 +1,11 @@
 {
   "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 10,
+  "total_skills": 11,
   "categories": {
     "headless": 3,
     "platform": 3,
-    "projects": 4
+    "projects": 5
   },
   "skills": [
     {
@@ -70,6 +70,15 @@
       "has_scripts": true,
       "has_references": true,
       "has_tests": true
+    },
+    {
+      "name": "tte-asset-pipeline",
+      "description": "Take an external art asset (vehicle model or map heightmap) from TTE requirements through the staged-delivery check to a bound, tested TTE import. Covers publishing requirement copies to tte-art-staging, the per-family I1-I13 vehicle check and map probe check with verdict files, the import brief (Git LFS gate, importers, URP materials, LODGroup prefab via VehicleViewPrefabBuilder, ViewBinding, licence record, tests, screenshots), the playable checklist, and known pitfalls. Designer role for requ",
+      "category": "projects",
+      "local_path": "skills/projects/tte-asset-pipeline",
+      "has_scripts": false,
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-content-pipeline",
