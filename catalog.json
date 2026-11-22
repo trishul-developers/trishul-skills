@@ -1,11 +1,11 @@
 {
   "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 11,
+  "total_skills": 12,
   "categories": {
     "headless": 3,
     "platform": 3,
-    "projects": 5
+    "projects": 6
   },
   "skills": [
     {
@@ -70,6 +70,15 @@
       "has_scripts": true,
       "has_references": true,
       "has_tests": true
+    },
+    {
+      "name": "ingest-staging-zips",
+      "description": "Auto-process *_TTE_Staging.zip asset packages from E:\\Projects\\military_assets\\zips\\\n(or an inbox folder) into the spec-compliant split between E:\\Projects\\tte-art-staging\\\n(Unity FBX/PNG objects, handoff docs, and review renders) and E:\\Projects\\military_assets\\\n(full source .blend files, build/QA scripts, exports, previews, and master zips).\nUse when new zipped 3D assets arrive or when asked to sync/extract packages from zips/.",
+      "category": "projects",
+      "local_path": "skills/projects/ingest-staging-zips",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "tte-asset-pipeline",
