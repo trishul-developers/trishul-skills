@@ -1,9 +1,9 @@
 {
   "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 12,
+  "total_skills": 13,
   "categories": {
-    "headless": 3,
+    "headless": 4,
     "platform": 3,
     "projects": 6
   },
@@ -16,6 +16,15 @@
       "has_scripts": true,
       "has_references": false,
       "has_tests": false
+    },
+    {
+      "name": "agy-wsl-headless",
+      "description": "Execute Google Antigravity (`agy -p`) inside WSL (Ubuntu) non-interactively from Windows or WSL, with built-in support for native `swarm` orchestration (`swarm`, `post_message`, `read_board`, `swarm_wait`), Windows-to-WSL path translation, quote-safe `bash -l -s` stdin dispatch, `--print-timeout`, `--dangerously-skip-permissions`, and telemetry (`result.json`).",
+      "category": "headless",
+      "local_path": "skills/agy-wsl-headless",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": true
     },
     {
       "name": "claude-headless",

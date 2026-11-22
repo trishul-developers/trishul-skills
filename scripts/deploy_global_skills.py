@@ -34,6 +34,7 @@ PROJECTS_DIR = SKILLS_DIR / "projects"
 PLATFORM_SKILL_NAMES = [
     "agent-delivery",
     "agy-headless",
+    "agy-wsl-headless",
     "claude-headless",
     "codex-headless",
     "github-pr-workflow",
@@ -41,17 +42,17 @@ PLATFORM_SKILL_NAMES = [
 ]
 
 # An agent does not need its own headless runner
-SELF_HEADLESS_SKILL = {
-    "claude": "claude-headless",
-    "codex": "codex-headless",
-    "antigravity": "agy-headless",
+SELF_HEADLESS_SKILLS = {
+    "claude": {"claude-headless"},
+    "codex": {"codex-headless"},
+    "antigravity": {"agy-headless", "agy-wsl-headless"},
 }
 
 
 def skills_for_agent(agent: str) -> List[str]:
-    """Return the default platform skill list for an agent, excluding its own headless skill."""
-    excluded = SELF_HEADLESS_SKILL.get(agent)
-    return [s for s in PLATFORM_SKILL_NAMES if s != excluded]
+    """Return the default platform skill list for an agent, excluding its own headless skill(s)."""
+    excluded = SELF_HEADLESS_SKILLS.get(agent, set())
+    return [s for s in PLATFORM_SKILL_NAMES if s not in excluded]
 
 
 PROVIDER_SKILLS: Dict[str, List[str]] = {
