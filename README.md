@@ -2,15 +2,15 @@
 
 Welcome to the central **AIAgent Skill Hub** (`trishul-skills`). This repository serves as the authoritative catalog, cross-platform bridge, and production skill library across **Anthropic Claude Code**, **OpenAI Codex**, **Google Antigravity (AGY)**, and **OpenCode**.
 
-All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository currently maintains **13 active custom skills and script-backed harnesses** (plus **9 retired skills** preserved under `skills/archive/`), engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
+All generic vendor-bundled, official marketplace, and duplicate speculative skills have been purged or consolidated. This repository currently maintains **15 active custom skills and script-backed harnesses** (plus **9 retired skills** preserved under `skills/archive/`), engineered to reduce agent turns and repetitive work while maintaining high engineering quality.
 
 ---
 
 ## 1. Quick Overview
 
-- **Total Active Skills Registered**: **13 skills** in [`catalog.json`](./catalog.json)
+- **Total Active Skills Registered**: **15 skills** in [`catalog.json`](./catalog.json)
 - **Universal Headless CLI Runners**: 4 execution harnesses directly in [`skills/`](./skills) (`agy-headless`, `agy-wsl-headless`, `claude-headless`, `codex-headless`)
-- **Consolidated Platform Skills**: 3 skills directly in [`skills/`](./skills) (`agent-delivery`, `github-pr-workflow`, `unity-pipeline`)
+- **Consolidated Platform Skills**: 5 skills directly in [`skills/`](./skills) (`agent-delivery`, `agy-quota`, `codex-quota`, `github-pr-workflow`, `unity-pipeline`)
 - **Project-Specific Skills**: 6 custom skills in [`skills/projects/`](./skills/projects) (`chatgpt-role-bridge`, `ingest-staging-zips`, `tte-asset-pipeline`, `tte-content-pipeline`, `tte-golden-recapture`, `tte-phase-evidence`)
 - **Archived Skills**: 9 retired hub/legacy skills in `skills/archive/` (excluded from `catalog.json` and `validate_skills.py`)
 
@@ -20,7 +20,7 @@ All generic vendor-bundled, official marketplace, and duplicate speculative skil
 
 ```
 trishul-skills/
-  ├── catalog.json                             # Machine-readable registry of all 13 active skills
+  ├── catalog.json                             # Machine-readable registry of all 15 active skills
   ├── README.md                                # Master repository documentation
   ├── scripts/
   │     ├── sync_skills.py                     # Synchronize & rebuild catalog from skills/
@@ -31,9 +31,11 @@ trishul-skills/
   ├── skills/
   │     ├── agent-delivery/                    # One-driver multi-model delivery workflow, brief templates & runlog
   │     ├── agy-headless/                      # Universal runner & SKILL.md for `agy -p`
+  │     ├── agy-quota/                         # Antigravity quota, credits & model availability checker
   │     ├── agy-wsl-headless/                  # WSL runner & SKILL.md for `agy -p` with native `swarm` support
   │     ├── claude-headless/                   # Universal runner & SKILL.md for `claude -p`
   │     ├── codex-headless/                    # Universal runner & SKILL.md for `codex exec`
+  │     ├── codex-quota/                       # Non-interactive Codex rate limit & quota checker (`codex app-server`)
   │     ├── github-pr-workflow/                # Unified PR comment watcher, safe posting, CI digest, ci wait & git ops
   │     ├── unity-pipeline/                    # Unified lock, compile, contract audit, test & gate pipeline
   │     ├── projects/                          # Project-specific custom skills

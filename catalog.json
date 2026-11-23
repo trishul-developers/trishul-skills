@@ -1,10 +1,10 @@
 {
   "version": "4.3.0",
   "description": "Consolidated catalog of high-leverage agent skills across platform workflows, headless runners, and project bridges.",
-  "total_skills": 13,
+  "total_skills": 15,
   "categories": {
     "headless": 4,
-    "platform": 3,
+    "platform": 5,
     "projects": 6
   },
   "skills": [
@@ -52,6 +52,24 @@
       "has_scripts": true,
       "has_references": false,
       "has_tests": true
+    },
+    {
+      "name": "agy-quota",
+      "description": "Inspect and monitor real-time Antigravity rate limit quotas, credit pools (prompt/flow credits), account plan tier, and per-model availability via the local language server (127.0.0.1). Supports querying all models or filtering by specific model ID/substring (e.g. gemini-3.8-flash, claude-sonnet-4-6, claude-opus-4-6-thinking, gpt-oss-120b-medium).",
+      "category": "platform",
+      "local_path": "skills/agy-quota",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": false
+    },
+    {
+      "name": "codex-quota",
+      "description": "Inspect and monitor real-time OpenAI Codex rate limits, rolling quota windows (5-hour and 7-day windows), account plan tiers (Plus, Pro, Team, Enterprise), reset countdowns, and model availability non-interactively without opening the interactive TUI, desktop app, or browser. Supports querying overall quota or targeting specific models (e.g. gpt-6.2-sol, gpt-6.1-terra, gpt-6.2-astra, gpt-6-luna).",
+      "category": "platform",
+      "local_path": "skills/codex-quota",
+      "has_scripts": true,
+      "has_references": false,
+      "has_tests": false
     },
     {
       "name": "github-pr-workflow",
