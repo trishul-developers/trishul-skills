@@ -66,6 +66,22 @@ def windows_to_wsl_path(raw_path: str) -> str:
     return resolved
 
 
+WSL_ENV_NOTE = """## Environment note (WSL runner)
+
+You run inside WSL on a Windows-hosted checkout under /mnt. Native WSL `git` cannot read
+Windows worktrees (their gitdir paths are Windows paths) and WSL has no git-lfs or dotnet.
+- Run every git command as `git.exe` (for example `git.exe status`, `git.exe add -A`, `git.exe commit`).
+- If you need dotnet, use `"/mnt/c/Program Files/dotnet/dotnet.exe"`.
+- ALWAYS redirect stdin of every Windows executable: `git.exe status </dev/null`, `"/mnt/c/Program Files/dotnet/dotnet.exe" --version </dev/null`. Without it they wait for stdin to close and hang your shell (minutes) when stdin is a pipe.
+- Edit files in place and keep each file's existing line endings; do not reformat unrelated files.
+- Do not change WSL configuration.
+"""
+
+
+def cwd_is_windows_mount(cwd_wsl: str) -> bool:
+    return cwd_wsl.startswith("/mnt/") and len(cwd_wsl) > 5 and cwd_wsl[5].isalpha()
+
+
 def read_prompt(args: argparse.Namespace) -> str:
     """Read prompt from --prompt-file, inline argument, or stdin ('-')."""
     if args.prompt_file:
@@ -174,6 +190,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap.add_argument("--agy-bin", help="Override agy binary path inside WSL (default: agy on PATH).")
     ap.add_argument("--timeout", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT, help="Outer subprocess timeout in seconds.")
     ap.add_argument("--out-dir", help="Artifact output directory.")
+    ap.add_argument("--no-env-note", action="store_true", help="Do not append the WSL/git.exe environment note to the prompt.")
     ap.add_argument("--dry-run", action="store_true", help="Write dispatch.sh and print command without executing.")
     return ap.parse_args(argv)
 
@@ -188,7 +205,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     prompt_file = out_dir / "prompt.md"
-    prompt_file.write_text(prompt_text, encoding="utf-8")
+    if not args.no_env_note and args.cwd and cwd_is_windows_mount(windows_to_wsl_path(args.cwd)):
+        prompt_text = prompt_text.rstrip("\n") + "\n\n" + WSL_ENV_NOTE
+    prompt_file.write_text(prompt_text, encoding="utf-8", newline="\n")
 
     prompt_file_wsl = windows_to_wsl_path(str(prompt_file))
     cwd_wsl = windows_to_wsl_path(args.cwd) if args.cwd else None
@@ -208,17 +227,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     started = time.monotonic()
     timed_out = False
     try:
+        # Bytes in, bytes out: text mode would turn LF into CRLF on Windows and bash
+        # would fail on `set -o pipefail`.
         proc = subprocess.run(
             outer_cmd,
-            input=dispatch_script,
+            input=dispatch_script.encode("utf-8"),
             capture_output=True,
-            text=True,
-            encoding="utf-8",
             timeout=args.timeout,
         )
         rc = proc.returncode
-        stdout_text = proc.stdout or ""
-        stderr_text = proc.stderr or ""
+        stdout_text = (proc.stdout or b"").decode("utf-8", errors="replace")
+        stderr_text = (proc.stderr or b"").decode("utf-8", errors="replace")
     except subprocess.TimeoutExpired as exc:
         timed_out = True
         rc = EXIT_TIMEOUT
@@ -226,22 +245,46 @@ def main(argv: Optional[List[str]] = None) -> int:
         stderr_text = (exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr) or ""
 
     duration = round(time.monotonic() - started, 3)
+    payload: dict = {}
+    response_body = stdout_text
+    conversation_id = args.resume
+    if args.output_format == "json" and stdout_text.strip():
+        try:
+            parsed = json.loads(stdout_text)
+            if isinstance(parsed, dict):
+                payload = parsed
+                response_body = str(payload.get("response") or "")
+                conversation_id = payload.get("conversation_id", conversation_id)
+        except json.JSONDecodeError:
+            pass
+    (out_dir / "response.md").write_text(response_body, encoding="utf-8")
+    (out_dir / "last_message.md").write_text(response_body, encoding="utf-8")
     (out_dir / "stdout.txt").write_text(stdout_text, encoding="utf-8")
     (out_dir / "stderr.log").write_text(stderr_text, encoding="utf-8")
 
+    # Same rule as agy_headless.py: exit 0 and, for json output, agy_status SUCCESS or a non-empty response.
+    succeeded = (not timed_out and rc == 0 and
+                 (args.output_format != "json" or payload.get("status") == "SUCCESS" or bool(response_body.strip())))
+    if not timed_out and rc == 0 and not succeeded:
+        rc = EXIT_FAILED
     result = {
-        "status": "timeout" if timed_out else ("ok" if rc == 0 else "failed"),
+        "status": "timeout" if timed_out else ("ok" if succeeded else "failed"),
         "exit_code": rc,
         "duration_seconds": duration,
         "cwd_wsl": cwd_wsl,
         "swarm": bool(args.swarm),
+        "model": args.model,
+        "effort": args.effort,
+        "conversation_id": conversation_id,
+        "agy_status": payload.get("status"),
+        "usage": payload.get("usage"),
         "print_timeout": args.print_timeout or (DEFAULT_SWARM_PRINT_TIMEOUT if args.swarm else None),
         "out_dir": str(out_dir),
     }
     (out_dir / "result.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
 
-    if stdout_text:
-        print(stdout_text, end="" if stdout_text.endswith("\n") else "\n")
+    if response_body:
+        print(response_body, end="" if response_body.endswith("\n") else "\n")
     if stderr_text:
         print(stderr_text, file=sys.stderr, end="" if stderr_text.endswith("\n") else "\n")
 

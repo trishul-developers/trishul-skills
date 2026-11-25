@@ -1,7 +1,7 @@
 ---
 name: agent-delivery
 description: One-driver delivery workflow for multi-model software work. A single driver session plans, briefs, dispatches and judges; every other role (architect, implementor, maths implementor, reviewers, phase reviewer, light worker, scout, advisor) is a fresh worker started from a brief file, either as a native subagent or as a headless Codex, Antigravity or Claude run. Roles map to configurable provider/model/effort slots with a fallback chain spread across Claude, Codex and Antigravity, reviews are forced onto a different model family, and a run log in the repository lets any session resume. Use when driving phased implementation, reviews and rulings without standing agent chats or a message hub.
-compatibility: Python 3 standard library. Headless providers need the sibling codex-headless, agy-headless and claude-headless skills installed next to this one.
+compatibility: Python 3 standard library. Headless providers need the sibling codex-headless, agy-headless, claude-headless and (for WSL Antigravity) agy-wsl-headless skills installed next to this one.
 tags: [orchestration, delivery, roles, headless, codex, antigravity, claude, review]
 ---
 
@@ -40,6 +40,7 @@ Providers:
 | `claude-native` | The driver starts a fresh subagent on the slot's model with the brief as its prompt. With `--headless`, runs `claude -p` instead (for a non-Claude driver). |
 | `codex` | `codex-headless`, with the slot's model, effort and sandbox. |
 | `agy` | `agy-headless`, with the slot's model, effort and mode. |
+| `agy-wsl` | `agy-wsl-headless`: the same Antigravity CLI run inside WSL, which has its own quota. Same slot syntax as `agy` (`agy-wsl:gemini-4-hydrogen-high:high`). Needs `wsl.exe` and a signed-in `agy` in WSL. The runner tells the worker to use `git.exe` (and `"/mnt/c/Program Files/dotnet/dotnet.exe"` if needed), always with `</dev/null`, because native WSL git cannot read Windows worktrees and WSL has no git-lfs or dotnet. It runs with `--output-format json`, so the thread id is the Antigravity conversation id; its `ok`/`failed` status is logged as `success`/`error`. |
 | `claude-advisor` | The driver's built-in advisor tool if it has one; otherwise `claude -p` with `--headless`. |
 
 ## Commands
@@ -60,6 +61,7 @@ python "<skill>/scripts/delivery.py" -C "<repo>" log verdict --set step=G03a.04 
 
 - `brief` writes a `.meta.json` beside the brief (step, worktree, branch, head, round). `run` takes `--step` and `--cwd` from it when they aren't passed, so writers and reviewers run in the worktree, not the main checkout. It warns when a worktree role would run in the main checkout.
 - `done` logs the completion of a native subagent job (status, tokens, minutes, report, round), which the script can't observe itself. The native `run` output prints the exact `done` command to use. After a SendMessage follow-up to the same subagent, log it again with `done ... --followup`.
+- `run --auto-approve` (agy and agy-wsl only) passes `--dangerously-skip-permissions` so a headless implementor can run tests and commit. It is never a slot default: use it only with the owner's OK, and keep the worker in its worktree. The run event records `auto_approve: true`. Child runs get `PYTHONIOENCODING=utf-8`. For long implementor runs, raise `--timeout` (seconds; default 3600).
 - A recheck uses the `recheck` template on the same thread (`--resume`). It reads only `prev_head..head`, because the thread already holds the first review. The log records `resume=same-thread`.
 
 - `brief` refuses to write a brief with unfilled `{{fields}}`. Rules and governing docs from the profile are filled in for you. Use `--set-file key=path` for long text.

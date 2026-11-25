@@ -17,6 +17,8 @@ Executes Google Antigravity (`agy -p`) inside WSL (Ubuntu) from Windows PowerShe
 ## Practical Rules for Headless & Swarm Runs
 - Always pass `--auto-approve` (`--dangerously-skip-permissions`) or `--swarm` so the coordinator and workers do not stall on interactive approval prompts.
 - Set `--print-timeout` high enough for multi-turn worker coordination (e.g. `120s`, `600s`, or `0s` to wait until the turn finishes).
+- Worktrees on Windows drives (`-C E:\...` or `/mnt/...`): the runner appends an environment note to the prompt (disable with `--no-env-note`). Native WSL `git` cannot read Windows worktrees (their gitdir paths are Windows paths), and WSL has no git-lfs or dotnet, so the worker is told to run `git.exe` and, if needed, `"/mnt/c/Program Files/dotnet/dotnet.exe"`, each with stdin redirected (`</dev/null`): Windows executables started from WSL wait for stdin EOF when it is an open pipe, and agy runs shell commands that way, so they hang for minutes otherwise. WSL configuration is never changed.
+- Pass `--output-format json` to get `conversation_id` and `usage` in `result.json` (agent-delivery does this). The dispatch script and output are exchanged as UTF-8 bytes with LF line endings.
 - On-disk swarm artifacts (`board.jsonl`, `members.json`, `swarm.json`) are written under `~/.gemini/antigravity-cli/brain/<conversation_id>/.system_generated/swarm/` inside WSL.
 
 ## Quickstart Recipes
@@ -52,4 +54,8 @@ Every run records artifacts under `%TEMP%/agy-wsl-headless-runs/<stamp>-<id>/` (
 - `prompt.md`: Exact prompt submitted.
 - `dispatch.sh`: Exact bash script streamed to `wsl -e bash -l -s`.
 - `stdout.txt` / `stderr.log`: Raw CLI output and errors.
-- `result.json`: Execution metadata (`status`, `exit_code`, `duration_seconds`, `cwd_wsl`, `swarm`).
+- `result.json`: Execution metadata (`status` ok, failed or timeout; `exit_code`, `duration_seconds`, `cwd_wsl`, `swarm`, `model`, `effort`, and with `--output-format json` `conversation_id`, `agy_status`, `usage`).
+- `response.md` and `last_message.md`: the response text (the `response` field when the output is JSON).
+
+## Use from agent-delivery
+Slots with provider `agy-wsl` (for example `agy-wsl:gemini-4-hydrogen-high:high`) run this runner. Install it beside `agent-delivery`. Tests: `python -m unittest discover -s tests`.

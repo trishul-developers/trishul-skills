@@ -163,6 +163,31 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(events[0]["cwd"], str(wt))
         self.assertEqual(events[0]["round"], "2")
 
+    def test_agy_wsl_provider_family_and_command(self):
+        self.profile["roles"]["reviewer"]["fallbacks"] = [
+            {"provider": "agy-wsl", "model": "gemini-4-hydrogen-high", "effort": "high"}]
+        self.profile_path.write_text(json.dumps(self.profile), encoding="utf-8")
+        pick = run_delivery(["pick", "reviewer", "--implemented-by", "claude"], self.repo, self.models_path)
+        self.assertEqual(pick.returncode, 0, pick.stderr)
+        self.assertEqual(json.loads(pick.stdout)["provider"], "agy-wsl")
+        # a Gemini model on agy-wsl is the gemini family, so it is not independent of a gemini implementor
+        same = run_delivery(["pick", "reviewer", "--implemented-by", "gemini"], self.repo, self.models_path)
+        self.assertEqual(same.returncode, 0, same.stderr)
+        self.assertNotEqual(json.loads(same.stdout)["provider"], "agy-wsl")
+
+        brief = self.root / "brief.md"
+        brief.write_text("hello", encoding="utf-8")
+        res = run_delivery(["run", "reviewer", "--brief", str(brief), "--fallback", "--cwd", str(self.root),
+                            "--auto-approve", "--dry-run"], self.repo, self.models_path)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertIn("agy_wsl_headless.py", res.stderr)
+        for token in ("gemini-4-hydrogen-high", "--output-format json", "--auto-approve", "--dry-run"):
+            self.assertIn(token, res.stderr)
+        # --auto-approve stays refused for other providers
+        bad = run_delivery(["run", "implementor", "--brief", str(brief), "--fallback", "--auto-approve", "--dry-run"],
+                           self.repo, self.models_path)
+        self.assertNotEqual(bad.returncode, 0)
+
     def test_done_followup_and_status(self):
         res1 = run_delivery(
             [

@@ -32,6 +32,7 @@ SKILLS_ROOT = SKILL_DIR.parent
 RUNNERS = {
     "codex": ("codex-headless", "codex_headless.py"),
     "agy": ("agy-headless", "agy_headless.py"),
+    "agy-wsl": ("agy-wsl-headless", "agy_wsl_headless.py"),
     "claude-headless": ("claude-headless", "claude_headless.py"),
 }
 PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
@@ -111,7 +112,7 @@ def parse_slot(text: str) -> dict:
         slot["effort"] = parts[2]
     if len(parts) > 3 and parts[3]:
         slot["sandbox" if parts[0] == "codex" else "mode"] = parts[3]
-    if slot["provider"] not in ("claude-native", "claude-headless", "claude-advisor", "codex", "agy"):
+    if slot["provider"] not in ("claude-native", "claude-headless", "claude-advisor", "codex", "agy", "agy-wsl"):
         die(f"unknown provider '{slot['provider']}'")
     return slot
 
@@ -162,7 +163,7 @@ def family(slot: dict) -> str:
         return "claude"
     if prov == "codex":
         return "codex"
-    if prov == "agy":
+    if prov in ("agy", "agy-wsl"):
         if model.startswith("claude"):
             return "claude"
         if model.startswith("gpt"):
@@ -304,6 +305,10 @@ def cmd_run(a, prof, repo_dir):
                   "brief": str(brief), "cwd": cwd}
     if rnd:
         base_event["round"] = str(rnd)
+    if a.auto_approve:
+        if provider not in ("agy", "agy-wsl"):
+            die("--auto-approve applies only to agy and agy-wsl slots")
+        base_event["auto_approve"] = True
     log = (lambda ev: None) if a.dry_run else (lambda ev: append_log(prof, repo_dir, ev))
 
     if provider == "claude-native" and not a.headless:
@@ -342,6 +347,17 @@ def cmd_run(a, prof, repo_dir):
         cmd += ["-e", slot.get("effort", "medium")]
         if slot.get("mode"):
             cmd += ["--mode", slot["mode"]]
+        if a.auto_approve:
+            cmd.append("--auto-approve")  # agy --dangerously-skip-permissions; explicit per run, needs owner OK
+        if a.resume:
+            cmd += ["--resume", a.resume]
+    elif provider == "agy-wsl":
+        # Antigravity inside WSL; json output makes the runner report conversation_id and usage
+        cmd += ["-e", slot.get("effort", "medium"), "--output-format", "json"]
+        if slot.get("mode"):
+            cmd += ["--mode", slot["mode"]]
+        if a.auto_approve:
+            cmd.append("--auto-approve")
         if a.resume:
             cmd += ["--resume", a.resume]
     elif provider == "claude-headless":
@@ -352,7 +368,7 @@ def cmd_run(a, prof, repo_dir):
         cmd.append("--dry-run")
 
     print("running: " + " ".join(f'"{c}"' if " " in c else c for c in cmd), file=sys.stderr)
-    proc = subprocess.run(cmd)
+    proc = subprocess.run(cmd, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     result = {}
     rf = out_dir / "result.json"
     if rf.is_file():
@@ -360,6 +376,8 @@ def cmd_run(a, prof, repo_dir):
             result = json.loads(rf.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             result = {}
+    if provider == "agy-wsl":  # the WSL runner reports ok/failed/timeout; agy reports success/error
+        result["status"] = {"ok": "success", "failed": "error"}.get(result.get("status"), result.get("status"))
     thread = result.get("thread_id") or result.get("session_id") or result.get("conversation_id")
     ev = {**base_event, "provider": provider, "status": result.get("status") or ("ok" if proc.returncode == 0 else "failed"),
           "exit_code": proc.returncode, "thread": thread, "usage": result.get("usage"), "run_dir": str(out_dir)}
@@ -436,6 +454,7 @@ def main() -> int:
     p.add_argument("--resume", metavar="THREAD_ID"); p.add_argument("--timeout", type=int, default=3600)
     p.add_argument("--headless", action="store_true", help="run claude-native roles through claude -p")
     p.add_argument("--round", help="fix/recheck round number (default: from the brief)")
+    p.add_argument("--auto-approve", action="store_true", help="agy only: skip tool permission prompts (needs the owner's OK; logged)")
     p.add_argument("--dry-run", action="store_true", help="check the command; nothing is logged")
     p = sub.add_parser("done", help="log the completion of a native subagent job")
     p.add_argument("role"); p.add_argument("--step", required=True)
