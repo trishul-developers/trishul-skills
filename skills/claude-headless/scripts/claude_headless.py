@@ -30,9 +30,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-DEFAULT_MODEL = "claude-3-7-sonnet"
+DEFAULT_MODEL = "claude-sonnet-5-5"
 DEFAULT_TIMEOUT = 1800  # 30 minutes
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
 FORMATS = ("text", "json", "stream-json")
+MAX_INLINE_CHARS = 16000
 
 EXIT_OK = 0
 EXIT_TIMEOUT = 124
@@ -79,11 +81,15 @@ def build_command(
     args: argparse.Namespace,
     claude_bin: str,
     prompt_text: str,
+    use_stdin: bool = False,
 ) -> List[str]:
     cmd = [claude_bin, "-p"]
 
     if args.model:
         cmd.extend(["--model", args.model])
+
+    if args.effort:
+        cmd.extend(["--effort", args.effort])
 
     if args.output_format:
         cmd.extend(["--output-format", args.output_format])
@@ -122,18 +128,24 @@ def build_command(
     if args.json_schema:
         cmd.extend(["--json-schema", args.json_schema])
 
-    # Pass prompt as trailing argument
-    cmd.append(prompt_text)
+    # Pass prompt via stdin if > MAX_INLINE_CHARS, otherwise after '--' so
+    # variadic flags (--allowed-tools, --tools, --add-dir) never swallow it.
+    if not use_stdin:
+        cmd.extend(["--", prompt_text])
     return cmd
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Universal Headless Claude Runner with context passing, tools, and telemetry.",
     )
     parser.add_argument("prompt", nargs="?", help="Task text or '-' for stdin.")
     parser.add_argument("--prompt-file", help="File containing task brief / prompt.")
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL, help=f"Model identifier (default: {DEFAULT_MODEL}).")
+    parser.add_argument("-e", "--effort", choices=EFFORTS, help="Reasoning effort level.")
     parser.add_argument(
         "--output-format", default="json", choices=FORMATS,
         help="Output format: text, json, stream-json (default: json).",
@@ -180,34 +192,43 @@ def main() -> int:
     stderr_file = run_dir / "stderr.log"
     result_file = run_dir / "result.json"
 
-    cmd = build_command(args, claude_bin, prompt_text)
+    use_stdin = len(prompt_text) > MAX_INLINE_CHARS
+    cmd = build_command(args, claude_bin, prompt_text, use_stdin=use_stdin)
 
     if args.dry_run:
         cmd_str = " ".join(f'"{c}"' if " " in c or "\n" in c else c for c in cmd)
         print(f"DRY RUN COMMAND:\n{cmd_str}\n")
         print(f"CWD: {cwd}")
-        print(f"Prompt length: {len(prompt_text)} characters (saved to {prompt_file})")
+        via = "piped via stdin; " if use_stdin else ""
+        print(f"Prompt length: {len(prompt_text)} characters ({via}saved to {prompt_file})")
         return EXIT_OK
 
     start_time = time.monotonic()
     timed_out = False
 
-    # Stdin is set to DEVNULL so claude -p does not block 3s waiting for piped input
+    # Stdin is set to DEVNULL for short prompts so claude -p does not block 3s
+    # waiting for piped input; long prompts (>16k chars) are piped via stdin.
     with open(stdout_file, "wb") as out_stream, open(stderr_file, "wb") as err_stream:
         proc = subprocess.Popen(
             cmd,
             cwd=str(cwd),
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if use_stdin else subprocess.DEVNULL,
             stdout=out_stream,
             stderr=err_stream,
             start_new_session=(os.name != "nt"),
         )
         try:
-            proc.wait(timeout=args.timeout)
+            if use_stdin:
+                proc.communicate(input=prompt_text.encode("utf-8"), timeout=args.timeout)
+            else:
+                proc.wait(timeout=args.timeout)
         except subprocess.TimeoutExpired:
             timed_out = True
             kill_process_tree(proc)
-            proc.wait()
+            if use_stdin:
+                proc.communicate()
+            else:
+                proc.wait()
 
     duration = round(time.monotonic() - start_time, 2)
     raw_output = stdout_file.read_text(encoding="utf-8", errors="replace").strip()
@@ -218,21 +239,29 @@ def main() -> int:
 
     if args.output_format == "json" and raw_output:
         try:
-            payload = json.loads(raw_output)
-            response_body = payload.get("result", payload.get("text", raw_output))
-            session_id = payload.get("session_id", session_id)
+            parsed = json.loads(raw_output)
+            if isinstance(parsed, dict):
+                payload = parsed
+                if payload.get("result") is not None:
+                    response_body = payload["result"]
+                elif payload.get("text") is not None:
+                    response_body = payload["text"]
+                else:
+                    response_body = ""
+                session_id = payload.get("session_id", session_id)
         except json.JSONDecodeError:
             pass
 
+    is_error = bool(payload.get("is_error"))
     if timed_out:
         status = "timeout"
         exit_code = EXIT_TIMEOUT
-    elif proc.returncode == 0:
+    elif proc.returncode == 0 and not is_error:
         status = "success"
         exit_code = EXIT_OK
     else:
         status = "error"
-        exit_code = proc.returncode or EXIT_FAILED
+        exit_code = proc.returncode if proc.returncode != 0 else EXIT_FAILED
 
     resp_file = run_dir / "response.md"
     resp_file.write_text(str(response_body), encoding="utf-8")
@@ -241,6 +270,7 @@ def main() -> int:
         "status": status,
         "exit_code": exit_code,
         "model": args.model,
+        "effort": args.effort,
         "output_format": args.output_format,
         "dangerously_skip_permissions": args.dangerously_skip_permissions,
         "cwd": str(cwd),

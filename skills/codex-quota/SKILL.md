@@ -33,12 +33,12 @@ This skill inspects real-time OpenAI Codex rate limits, rolling quota consumptio
 ## Quickstart Recipes
 
 The bundled script is located at:
-`~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py`
+`<skill-dir>/scripts/check_codex_quota.py`
 
 ### 1. View Account Plan, Windows & Active Models
 
 ```bash
-python3 ~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py
+python3 <skill-dir>/scripts/check_codex_quota.py
 ```
 
 Example Output:
@@ -64,8 +64,6 @@ AVAILABLE MODELS (ACTIVE TIER):
   • GPT-6.2-Sol          (ID: gpt-6.2-sol)
   • GPT-6.2-Astra        (ID: gpt-6.2-astra)
   • GPT-6.1 Terra        (ID: gpt-6.1-terra)
-  • GPT-6.1-Sol          (ID: gpt-6.1-sol)
-  • GPT-6-Astra          (ID: gpt-6-astra)
   • GPT-6-Sol            (ID: gpt-6-sol)
   • GPT-6-Luna           (ID: gpt-6-luna)
   • GPT-5.6-Sol          (ID: gpt-5.6-sol)
@@ -80,10 +78,10 @@ AVAILABLE MODELS (ACTIVE TIER):
 
 ```bash
 # Filter by exact ID or substring
-python3 ~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py -m gpt-6.1-sol
+python3 <skill-dir>/scripts/check_codex_quota.py -m gpt-6.2-sol
 
 # Check all 'terra' models
-python3 ~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py -m terra
+python3 <skill-dir>/scripts/check_codex_quota.py -m terra
 ```
 
 ---
@@ -91,7 +89,7 @@ python3 ~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py -m terr
 ### 3. Machine-Readable JSON for Scripts & Agents
 
 ```bash
-python3 ~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py -m gpt-6.1-sol -f json
+python3 <skill-dir>/scripts/check_codex_quota.py -m gpt-6.2-sol -f json
 ```
 
 Output:
@@ -106,6 +104,7 @@ Output:
   "primaryWindow": {
     "used": "100%",
     "remaining": "0%",
+    "remainingVal": 0,
     "reset": "2026-11-23 05:31:49 UTC",
     "countdown": "in 3h 40m",
     "windowDurationMins": 300
@@ -113,11 +112,20 @@ Output:
   "secondaryWindow": {
     "used": "31%",
     "remaining": "69%",
+    "remainingVal": 69,
     "reset": "2026-11-29 14:39:27 UTC",
     "countdown": "in 6d 12h",
     "windowDurationMins": 10080
   },
-  "targetModel": "gpt-6.1-sol"
+  "credits": {
+    "balance": "0",
+    "unlimited": false
+  },
+  "rateLimitResetCredits": {
+    "availableCount": 0
+  },
+  "targetModel": "gpt-6.2-sol",
+  "matchedModels": []
 }
 ```
 
@@ -126,7 +134,7 @@ Output:
 ### 4. Fast Shell Conditionals (Quiet Mode)
 
 ```bash
-REMAINING=$(python3 ~/.gemini/config/skills/codex-quota/scripts/check_codex_quota.py -f quiet)
+REMAINING=$(python3 <skill-dir>/scripts/check_codex_quota.py -f quiet)
 echo "Primary Quota Remaining: $REMAINING"
 if [ "$REMAINING" = "0%" ]; then
     echo "Warning: Codex primary quota is exhausted."

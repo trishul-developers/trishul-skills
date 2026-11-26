@@ -281,10 +281,16 @@ describe("CloudRoleBridge - Local Operations & Role Definitions", () => {
     assert.equal(ROLE_SLOT_DEFINITIONS["phase2-reviewer"].logicalRole, "REVIEWER");
   });
 
-  it("reports NOT_ACTIVE status when no sessions are bound (zero provider interaction)", async () => {
+  it("reports NOT_ACTIVE status when ACP is available or fails explicitly with ACP_UNAVAILABLE", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "bridge-test-"));
     try {
-      const bridge = new CloudRoleBridge({ runtimeRoot: tempDir });
+      let bridge;
+      try {
+        bridge = new CloudRoleBridge({ runtimeRoot: tempDir });
+      } catch (err) {
+        assert.equal(err.code, "ACP_UNAVAILABLE");
+        return;
+      }
       const status = await bridge.getStatus();
 
       assert.equal(status["phase2-design-owner"].status, "NOT_ACTIVE");
@@ -295,10 +301,16 @@ describe("CloudRoleBridge - Local Operations & Role Definitions", () => {
     }
   });
 
-  it("ensureRole without bootstrapIfMissing returns NOT_ACTIVE without creating sessions", async () => {
+  it("ensureRole without bootstrapIfMissing returns NOT_ACTIVE or fails explicitly with ACP_UNAVAILABLE", async () => {
     const tempDir = await mkdtemp(join(tmpdir(), "bridge-test-"));
     try {
-      const bridge = new CloudRoleBridge({ runtimeRoot: tempDir });
+      let bridge;
+      try {
+        bridge = new CloudRoleBridge({ runtimeRoot: tempDir });
+      } catch (err) {
+        assert.equal(err.code, "ACP_UNAVAILABLE");
+        return;
+      }
       const result = await bridge.ensureRole("phase2-design-owner", { bootstrapIfMissing: false });
 
       assert.equal(result.role_slot, "phase2-design-owner");
@@ -363,7 +375,7 @@ describe("CloudRoleBridge - CLI Command Routing", () => {
     assert.match(res.stdout, /replace-role/);
   });
 
-  it("returns status JSON for role slots via CLI", async () => {
+  it("returns status JSON for role slots via CLI or fails explicitly with ACP_UNAVAILABLE", async () => {
     const { spawnSync } = await import("node:child_process");
     const tempDir = await mkdtemp(join(tmpdir(), "bridge-cli-"));
     try {
@@ -372,6 +384,11 @@ describe("CloudRoleBridge - CLI Command Routing", () => {
         [cliPath, "status", "--runtime-root", tempDir],
         { encoding: "utf8" }
       );
+      if (res.status === 1) {
+        const err = JSON.parse(res.stderr);
+        assert.equal(err.code, "ACP_UNAVAILABLE");
+        return;
+      }
       assert.equal(res.status, 0);
       const parsed = JSON.parse(res.stdout);
       assert.equal(parsed["phase2-design-owner"].status, "NOT_ACTIVE");
@@ -443,5 +460,44 @@ Detailed review notes.`;
     assert.equal(res.status, 1);
     const err = JSON.parse(res.stderr);
     assert.equal(err.code, "SHA_MISMATCH");
+  });
+
+  it("documents --repository on send-role in usage", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const res = spawnSync(process.execPath, [cliPath, "--help"], { encoding: "utf8" });
+    assert.equal(res.status, 0);
+    assert.match(res.stdout, /--repository OWNER\/REPO/);
+  });
+
+  it("rejects non-integer or non-positive --timeout and --expected-generation", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const tempDir = await mkdtemp(join(tmpdir(), "bridge-cli-int-"));
+    try {
+      const badTimeout = spawnSync(
+        process.execPath,
+        [cliPath, "wait-response", "--role-slot", "phase2-reviewer", "--timeout", "abc", "--runtime-root", tempDir],
+        { encoding: "utf8" }
+      );
+      assert.equal(badTimeout.status, 1);
+      assert.match(badTimeout.stderr, /Invalid --timeout/);
+
+      const zeroTimeout = spawnSync(
+        process.execPath,
+        [cliPath, "wait-response", "--role-slot", "phase2-reviewer", "--timeout", "0", "--runtime-root", tempDir],
+        { encoding: "utf8" }
+      );
+      assert.equal(zeroTimeout.status, 1);
+      assert.match(zeroTimeout.stderr, /Invalid --timeout/);
+
+      const badGen = spawnSync(
+        process.execPath,
+        [cliPath, "replace-role", "--role-slot", "phase2-reviewer", "--expected-generation", "nope", "--runtime-root", tempDir],
+        { encoding: "utf8" }
+      );
+      assert.equal(badGen.status, 1);
+      assert.match(badGen.stderr, /Invalid --expected-generation/);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
   });
 });

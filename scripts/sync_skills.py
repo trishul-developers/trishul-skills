@@ -3,7 +3,7 @@ r"""Sync and catalog custom skills and scripts created by agents on this system.
 
 Layout:
   skills/             - Consolidated platform skills & headless CLI runners
-  skills/projects/    - Project-specific skills (chatgpt-role-bridge, tte-*, handoff)
+  skills/projects/    - Project-specific skills (chatgpt-role-bridge, ingest-staging-zips, tte-*)
 """
 
 import argparse
@@ -19,11 +19,12 @@ SKILLS_DIR = WORKSPACE_ROOT / "skills"
 PROJECTS_DIR = SKILLS_DIR / "projects"
 CATALOG_FILE = WORKSPACE_ROOT / "catalog.json"
 
-HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless", "claude-headless"}
+HEADLESS_SKILL_NAMES = {"codex-headless", "agy-headless", "agy-wsl-headless", "claude-headless"}
 
 
 def parse_frontmatter(content: str) -> Dict[str, str]:
     """Parse YAML frontmatter from a SKILL.md file."""
+    content = content.lstrip("\ufeff")
     meta: Dict[str, str] = {}
     if not content.startswith("---"):
         return meta
@@ -57,13 +58,23 @@ def parse_frontmatter(content: str) -> Dict[str, str]:
     return meta
 
 
+def truncate_description(text: str, max_len: int = 500) -> str:
+    """Truncate text to at most max_len characters on a clean word boundary."""
+    if len(text) <= max_len:
+        return text
+    if text[max_len].isspace():
+        return text[:max_len].rstrip()
+    cut = text[:max_len].rsplit(None, 1)
+    return cut[0] if len(cut) > 1 else text[:max_len]
+
+
 def index_skill_dir(skill_dir: Path, category: str) -> Dict[str, Any] | None:
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
         return None
 
     try:
-        content = skill_md.read_text(encoding="utf-8", errors="replace")
+        content = skill_md.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff")
     except Exception as e:
         print(f"Error reading {skill_md}: {e}", file=sys.stderr)
         return None
@@ -74,7 +85,7 @@ def index_skill_dir(skill_dir: Path, category: str) -> Dict[str, Any] | None:
 
     return {
         "name": name,
-        "description": description[:500],
+        "description": truncate_description(description, 500),
         "category": category,
         "local_path": skill_dir.relative_to(WORKSPACE_ROOT).as_posix(),
         "has_scripts": (skill_dir / "scripts").is_dir(),

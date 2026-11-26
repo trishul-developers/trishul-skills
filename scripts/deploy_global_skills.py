@@ -34,18 +34,22 @@ PROJECTS_DIR = SKILLS_DIR / "projects"
 PLATFORM_SKILL_NAMES = [
     "agent-delivery",
     "agy-headless",
+    "agy-quota",
     "agy-wsl-headless",
     "claude-headless",
     "codex-headless",
+    "codex-quota",
     "github-pr-workflow",
     "unity-pipeline",
 ]
 
-# An agent does not need its own headless runner
+# An agent does not need its own headless runner.
+# `.agents/skills` is shared by Codex and Antigravity, so exclude their self-headless skills by default.
 SELF_HEADLESS_SKILLS = {
     "claude": {"claude-headless"},
     "codex": {"codex-headless"},
     "antigravity": {"agy-headless", "agy-wsl-headless"},
+    "agents": {"agy-headless", "agy-wsl-headless", "codex-headless"},
 }
 
 
@@ -60,7 +64,7 @@ PROVIDER_SKILLS: Dict[str, List[str]] = {
     "codex": skills_for_agent("codex"),
     "antigravity": skills_for_agent("antigravity"),
     "opencode": skills_for_agent("opencode"),
-    "agents": list(PLATFORM_SKILL_NAMES),
+    "agents": skills_for_agent("agents"),
 }
 
 # Explicit allow-list of active TTE project skills (deployed to both .claude/skills and .agents/skills)
@@ -87,6 +91,10 @@ OBSOLETE_GLOBAL_SKILLS = {
     "pr-handoff-lifecycle",
     "engineering-orchestrator",
     "opencode-headless",
+    "tte-batch-brief",
+    "tte-batch-review",
+    "tte-phase-merge",
+    "tte-status",
 }
 
 ALL_MANAGED_GLOBAL_SKILLS = set(PLATFORM_SKILL_NAMES) | OBSOLETE_GLOBAL_SKILLS
@@ -126,18 +134,21 @@ def to_platform_path(p: Path) -> Path:
 
 def get_global_provider_targets(agents: Optional[Set[str]] = None) -> List[Tuple[str, Path]]:
     """Return target provider global skill directories, optionally filtered by agent set."""
-    all_targets = [
-        ("claude", to_platform_path(Path(r"C:\Users\tosum\.claude\skills"))),
-        ("codex", to_platform_path(Path(r"C:\Users\tosum\.codex\skills"))),
-        ("antigravity", to_platform_path(Path(r"C:\Users\tosum\.gemini\config\skills"))),
-        ("opencode", to_platform_path(Path(r"C:\Users\tosum\.config\opencode\skills"))),
-    ]
-    if sys.platform != "win32":
-        all_targets.extend([
-            ("antigravity (linux)", Path.home() / ".gemini" / "config" / "skills"),
-            ("codex (linux)", Path.home() / ".codex" / "skills"),
-            ("opencode (linux)", Path.home() / ".config" / "opencode" / "skills"),
-        ])
+    home = Path.home()
+    if sys.platform == "win32":
+        all_targets = [
+            ("claude", home / ".claude" / "skills"),
+            ("codex", home / ".codex" / "skills"),
+            ("antigravity", home / ".gemini" / "config" / "skills"),
+            ("opencode", home / ".config" / "opencode" / "skills"),
+        ]
+    else:
+        all_targets = [
+            ("claude (linux)", home / ".claude" / "skills"),
+            ("codex (linux)", home / ".codex" / "skills"),
+            ("antigravity (linux)", home / ".gemini" / "config" / "skills"),
+            ("opencode (linux)", home / ".config" / "opencode" / "skills"),
+        ]
     if not agents:
         return all_targets
     return [(name, path) for name, path in all_targets if name.split()[0].lower() in agents]
@@ -180,9 +191,12 @@ def copy_skill(src_dir: Path, dest_dir: Path, dry_run: bool = False) -> None:
         rel_path = Path(root).relative_to(src_dir)
         target_root = dest_dir / rel_path
         target_root.mkdir(parents=True, exist_ok=True)
+        in_fixtures = len(rel_path.parts) >= 2 and rel_path.parts[:2] == ("tests", "fixtures")
 
         for f in files:
-            if f.endswith((".pyc", ".tmp", ".log")):
+            if f.endswith((".pyc", ".tmp")):
+                continue
+            if f.endswith(".log") and not in_fixtures:
                 continue
             shutil.copy2(Path(root) / f, target_root / f)
 
@@ -270,6 +284,7 @@ def check_and_clean_projects(dry_run: bool = False) -> None:
         to_platform_path(Path(r"E:\Projects\agent-control-plane")),
         to_platform_path(Path(r"E:\Projects\trishul-tactical-engine")),
         to_platform_path(Path(r"E:\Projects\tte-docs-followup")),
+        to_platform_path(Path(r"E:\Projects\tte-art-staging")),
     ]
 
     for proj in project_roots:
@@ -319,6 +334,17 @@ def deploy_known_project_skills(dry_run: bool = False) -> None:
                     clean=False,
                     dry_run=dry_run,
                 )
+
+    art_staging_root = to_platform_path(Path(r"E:\Projects\tte-art-staging"))
+    if art_staging_root.exists() and resolve_skill_source("ingest-staging-zips"):
+        deploy_to_target(
+            label="tte-art-staging:agents",
+            agent_key="agents",
+            target_dir=art_staging_root / PROJECT_AGENT_SUBDIRS["agents"],
+            skills=["ingest-staging-zips"],
+            clean=False,
+            dry_run=dry_run,
+        )
 
 
 def parse_multi(values: Optional[Iterable[str]]) -> List[str]:
@@ -399,6 +425,15 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     agents = parse_multi(args.agent) or ["all"]
     requested_skills = parse_multi(args.skill) or None
+
+    if requested_skills and requested_skills != ["all"]:
+        missing_skills = [s for s in requested_skills if not resolve_skill_source(s)]
+        if missing_skills:
+            print(
+                f"Error: requested skill(s) not found under {SKILLS_DIR}: {', '.join(missing_skills)}",
+                file=sys.stderr,
+            )
+            return 2
 
     if scope == "project":
         if not args.project:

@@ -20,6 +20,7 @@ import json
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -47,13 +48,20 @@ def fail(message: str, code: int = EXIT_USAGE) -> None:
 
 
 def windows_to_wsl_path(raw_path: str) -> str:
-    """Convert a Windows drive path (e.g. E:\\Projects\\Foo) to /mnt/e/Projects/Foo.
+    """Convert a Windows drive or WSL UNC path to a POSIX WSL path.
 
     POSIX paths (starting with '/') are returned unchanged.
     """
     if raw_path.startswith("/"):
         return raw_path
     p = raw_path.replace("\\", "/")
+    for prefix in ("//wsl.localhost/", "//wsl$/"):
+        if p.lower().startswith(prefix):
+            rest = p[len(prefix):]
+            if "/" in rest:
+                _, _, posix_tail = rest.partition("/")
+                return "/" + posix_tail.lstrip("/")
+            return "/"
     if len(p) >= 2 and p[1] == ":" and p[0].isalpha():
         drive = p[0].lower()
         rest = p[2:]
@@ -64,6 +72,21 @@ def windows_to_wsl_path(raw_path: str) -> str:
     if len(resolved) >= 2 and resolved[1] == ":" and resolved[0].isalpha():
         return f"/mnt/{resolved[0].lower()}{resolved[2:]}"
     return resolved
+
+
+def kill_process_tree(proc: subprocess.Popen) -> None:
+    """Recursively terminate process tree on timeout."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+        )
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, AttributeError):
+            proc.kill()
 
 
 WSL_ENV_NOTE = """## Environment note (WSL runner)
@@ -125,7 +148,9 @@ def build_dispatch_script(
     if args.output_format:
         cmd_parts.extend(["--output-format", shlex.quote(args.output_format)])
     if args.json_schema:
-        cmd_parts.extend(["--json-schema", shlex.quote(windows_to_wsl_path(args.json_schema))])
+        schema_arg = args.json_schema.strip()
+        schema_val = args.json_schema if schema_arg.startswith("{") else windows_to_wsl_path(args.json_schema)
+        cmd_parts.extend(["--json-schema", shlex.quote(schema_val)])
 
     auto_approve = bool(args.auto_approve or args.swarm)
     if auto_approve:
@@ -143,7 +168,10 @@ def build_dispatch_script(
     elif args.continue_last:
         cmd_parts.append("--continue")
 
-    lines.append(" ".join(cmd_parts))
+    if getattr(args, "timeout", None) and args.timeout > 0:
+        lines.append(f"timeout -k 10s {int(args.timeout)}s " + " ".join(cmd_parts))
+    else:
+        lines.append(" ".join(cmd_parts))
     return "\n".join(lines) + "\n"
 
 
@@ -196,7 +224,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     args = parse_args(argv)
+    if args.cwd:
+        cwd_norm = args.cwd.replace("\\", "/").lower()
+        if os.name == "nt" and not args.cwd.startswith("/") and not cwd_norm.startswith(("//wsl.localhost/", "//wsl$/")):
+            if not Path(args.cwd).is_dir():
+                fail(f"Working directory does not exist: {args.cwd}", EXIT_USAGE)
+
     prompt_text = read_prompt(args)
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -226,23 +263,31 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     started = time.monotonic()
     timed_out = False
+    # Bytes in, bytes out: text mode would turn LF into CRLF on Windows and bash
+    # would fail on `set -o pipefail`.
+    proc = subprocess.Popen(
+        outer_cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=(os.name != "nt"),
+    )
     try:
-        # Bytes in, bytes out: text mode would turn LF into CRLF on Windows and bash
-        # would fail on `set -o pipefail`.
-        proc = subprocess.run(
-            outer_cmd,
+        stdout_bytes, stderr_bytes = proc.communicate(
             input=dispatch_script.encode("utf-8"),
-            capture_output=True,
             timeout=args.timeout,
         )
         rc = proc.returncode
-        stdout_text = (proc.stdout or b"").decode("utf-8", errors="replace")
-        stderr_text = (proc.stderr or b"").decode("utf-8", errors="replace")
-    except subprocess.TimeoutExpired as exc:
+        if rc == EXIT_TIMEOUT:
+            timed_out = True
+    except subprocess.TimeoutExpired:
         timed_out = True
         rc = EXIT_TIMEOUT
-        stdout_text = (exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout) or ""
-        stderr_text = (exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr) or ""
+        kill_process_tree(proc)
+        stdout_bytes, stderr_bytes = proc.communicate()
+
+    stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+    stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")
 
     duration = round(time.monotonic() - started, 3)
     payload: dict = {}

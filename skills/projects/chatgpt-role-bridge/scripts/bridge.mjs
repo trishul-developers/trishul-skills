@@ -37,6 +37,17 @@ function required(values, key) {
   return val;
 }
 
+function parseIntFlag(val, name, min = 1) {
+  if (!/^-?\d+$/.test(val)) {
+    throw new Error(`Invalid --${name}: "${val}" must be an integer.`);
+  }
+  const parsed = Number.parseInt(val, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < min) {
+    throw new Error(`Invalid --${name}: "${val}" must be an integer >= ${min}.`);
+  }
+  return parsed;
+}
+
 async function readMessage(values, inlineKey, fileKey) {
   const inline = values.get(inlineKey);
   const file = values.get(fileKey);
@@ -56,7 +67,7 @@ function usage() {
     `  create-chat    --session ID --project URL (--bootstrap TEXT | --bootstrap-file FILE) [--profile ID] --cdp-endpoint URL\n` +
     `  rename-chat    --session ID --locator URL --title TITLE --cdp-endpoint URL\n` +
     `  delete-chat    --session bridge-validation-ID --locator URL --title TITLE --cdp-endpoint URL\n` +
-    `  send-role      --role-slot ID --sha FULL_SHA (--prompt TEXT | --prompt-file FILE) [--purpose PURPOSE] [--issue N] [--pr N] [--request-id ID] --cdp-endpoint URL\n` +
+    `  send-role      --role-slot ID --sha FULL_SHA (--prompt TEXT | --prompt-file FILE) [--purpose PURPOSE] [--repository OWNER/REPO] [--issue N] [--pr N] [--request-id ID] --cdp-endpoint URL\n` +
     `  wait-response  --role-slot ID [--request-id ID] [--sha FULL_SHA] [--timeout SECONDS] --cdp-endpoint URL\n` +
     `  replace-role   --role-slot ID --expected-generation N [--session ID] [--project URL] [--bootstrap TEXT | --bootstrap-file FILE] --cdp-endpoint URL\n` +
     `  parse-result   (--file FILE | --text TEXT) [--request-id ID] [--role ROLE] [--sha SHA]\n`;
@@ -64,16 +75,17 @@ function usage() {
 
 async function main() {
   const parsed = parseArgs(argv.slice(2));
-  const bridge = new CloudRoleBridge({
-    browserRuntime: parsed.values.get("browser"),
-    cdpEndpoint: parsed.values.get("cdp-endpoint"),
-    runtimeRoot: parsed.values.get("runtime-root"),
-  });
+  const getBridge = () =>
+    new CloudRoleBridge({
+      browserRuntime: parsed.values.get("browser"),
+      cdpEndpoint: parsed.values.get("cdp-endpoint"),
+      runtimeRoot: parsed.values.get("runtime-root"),
+    });
 
   switch (parsed.command) {
     case "status": {
       const roleSlot = parsed.values.get("role-slot");
-      const result = await bridge.getStatus(roleSlot);
+      const result = await getBridge().getStatus(roleSlot);
       stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return;
     }
@@ -82,7 +94,7 @@ async function main() {
       const roleSlot = required(parsed.values, "role-slot");
       const bootstrapIfMissing = parsed.flags.has("bootstrap-if-missing");
       const profileId = parsed.values.get("profile") ?? "default";
-      const result = await bridge.ensureRole(roleSlot, {
+      const result = await getBridge().ensureRole(roleSlot, {
         bootstrapIfMissing,
         profileId,
         projectLocator: parsed.values.get("project"),
@@ -93,7 +105,7 @@ async function main() {
 
     case "create-chat": {
       const bootstrapMessage = await readMessage(parsed.values, "bootstrap", "bootstrap-file");
-      const result = await bridge.createChat({
+      const result = await getBridge().createChat({
         sessionId: required(parsed.values, "session"),
         projectLocator: required(parsed.values, "project"),
         bootstrapMessage,
@@ -104,7 +116,7 @@ async function main() {
     }
 
     case "rename-chat": {
-      const result = await bridge.renameChat({
+      const result = await getBridge().renameChat({
         sessionId: required(parsed.values, "session"),
         expectedLocator: required(parsed.values, "locator"),
         title: required(parsed.values, "title"),
@@ -114,7 +126,7 @@ async function main() {
     }
 
     case "delete-chat": {
-      const result = await bridge.deleteChat({
+      const result = await getBridge().deleteChat({
         sessionId: required(parsed.values, "session"),
         expectedLocator: required(parsed.values, "locator"),
         title: required(parsed.values, "title"),
@@ -128,15 +140,17 @@ async function main() {
       const prompt = await readMessage(parsed.values, "prompt", "prompt-file");
       const candidateSha = required(parsed.values, "sha");
       const purpose = parsed.values.get("purpose") ?? "GENERAL_TASK";
+      const repository = parsed.values.get("repository");
       const issue = parsed.values.get("issue") ?? "3";
       const pr = parsed.values.get("pr") ?? "4";
       const requestId = parsed.values.get("request-id");
 
-      const result = await bridge.sendRole({
+      const result = await getBridge().sendRole({
         roleSlot,
         taskPrompt: prompt,
         candidateSha,
         purpose,
+        ...(repository ? { repository } : {}),
         issue,
         pr,
         requestId,
@@ -150,9 +164,9 @@ async function main() {
       const requestId = parsed.values.get("request-id");
       const expectedSha = parsed.values.get("sha");
       const timeoutSec = parsed.values.get("timeout");
-      const timeoutMs = timeoutSec ? Number.parseInt(timeoutSec, 10) * 1000 : 120_000;
+      const timeoutMs = timeoutSec ? parseIntFlag(timeoutSec, "timeout", 1) * 1000 : 120_000;
 
-      const result = await bridge.waitRoleResponse({
+      const result = await getBridge().waitRoleResponse({
         roleSlot,
         requestId,
         expectedSha,
@@ -165,14 +179,14 @@ async function main() {
     case "replace-role": {
       const roleSlot = required(parsed.values, "role-slot");
       const expectedGenStr = required(parsed.values, "expected-generation");
-      const expectedGen = Number.parseInt(expectedGenStr, 10);
+      const expectedGen = parseIntFlag(expectedGenStr, "expected-generation", 1);
       const newSessionId = parsed.values.get("session");
       const bootstrap = parsed.values.get("bootstrap");
       const bootstrapFile = parsed.values.get("bootstrap-file");
       const profileId = parsed.values.get("profile") ?? "default";
       const projectLocator = parsed.values.get("project");
 
-      const result = await bridge.replaceRole({
+      const result = await getBridge().replaceRole({
         roleSlot,
         expectedGeneration: expectedGen,
         newSessionId,

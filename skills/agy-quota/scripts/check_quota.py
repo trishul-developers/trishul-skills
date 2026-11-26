@@ -49,7 +49,10 @@ def run_via_agy(args: argparse.Namespace) -> int:
         forward_args.append("--models-only")
     if args.all:
         forward_args.append("--all")
-    shell_cmd = " ".join(shlex.quote(a) for a in forward_args)
+    if os.name == "nt":
+        shell_cmd = subprocess.list2cmdline(forward_args)
+    else:
+        shell_cmd = " ".join(shlex.quote(a) for a in forward_args)
     prompt = f"Run this exact command and print ONLY its raw stdout with no extra commentary: {shell_cmd}"
     proc = subprocess.run(
         [
@@ -71,7 +74,8 @@ def run_via_agy(args: argparse.Namespace) -> int:
 
 
 def fetch_user_status(addr: str, csrf: str, timeout: float = 5.0) -> Dict[str, Any]:
-    url = f"http://{addr}/exa.language_server_pb.LanguageServerService/GetUserStatus"
+    base = addr if addr.startswith(("http://", "https://")) else f"http://{addr}"
+    url = f"{base.rstrip('/')}/exa.language_server_pb.LanguageServerService/GetUserStatus"
     headers = {
         "Content-Type": "application/json",
         "x-codeium-csrf-token": csrf,
@@ -96,13 +100,12 @@ def fetch_user_status(addr: str, csrf: str, timeout: float = 5.0) -> Dict[str, A
 def parse_models(
     raw_status: Dict[str, Any], include_all: bool = False
 ) -> List[Dict[str, Any]]:
-    user_status = raw_status.get("userStatus", {})
-    configs = (
-        user_status.get("cascadeModelConfigData", {}).get("clientModelConfigs", [])
-    )
+    user_status = (raw_status or {}).get("userStatus") or {}
+    cascade_data = user_status.get("cascadeModelConfigData") or {}
+    configs = cascade_data.get("clientModelConfigs") or []
     models = []
     for c in configs:
-        quota = c.get("quotaInfo", {})
+        quota = c.get("quotaInfo") or {}
         rem = quota.get("remainingFraction")
         reset = quota.get("resetTime")
         has_quota = rem is not None or reset is not None
@@ -158,14 +161,16 @@ def format_table(
         lines.append("=" * 60)
         lines.append("ANTIGRAVITY ACCOUNT & PLAN STATUS")
         lines.append("=" * 60)
-        plan_name = plan_info.get("planInfo", {}).get("planName", "N/A")
-        tier = plan_info.get("planInfo", {}).get("teamsTier", "N/A")
+        plan_info = plan_info or {}
+        plan_details = plan_info.get("planInfo") or {}
+        plan_name = plan_details.get("planName", "N/A")
+        tier = plan_details.get("teamsTier", "N/A")
         lines.append(f"Plan:                 {plan_name} ({tier})")
 
         avail_prompt = plan_info.get("availablePromptCredits")
-        monthly_prompt = plan_info.get("planInfo", {}).get("monthlyPromptCredits")
+        monthly_prompt = plan_details.get("monthlyPromptCredits")
         avail_flow = plan_info.get("availableFlowCredits")
-        monthly_flow = plan_info.get("planInfo", {}).get("monthlyFlowCredits")
+        monthly_flow = plan_details.get("monthlyFlowCredits")
 
         prompt_str = f"{avail_prompt:,}" if isinstance(avail_prompt, (int, float)) else str(avail_prompt)
         monthly_prompt_str = f"{monthly_prompt:,}" if isinstance(monthly_prompt, (int, float)) else str(monthly_prompt)
@@ -204,6 +209,11 @@ def format_table(
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Query Antigravity local language server for quota usage and plan status."
     )
@@ -271,8 +281,8 @@ def main():
         print(json.dumps(raw, indent=2))
         return
 
-    user_status = raw.get("userStatus", {})
-    plan_info = user_status.get("planStatus", {})
+    user_status = (raw or {}).get("userStatus") or {}
+    plan_info = user_status.get("planStatus") or {}
     models = parse_models(raw, include_all=args.all)
 
     # Filter by model if requested
@@ -287,7 +297,7 @@ def main():
         models = matched
 
     if args.format == "json":
-        result = {
+        result: Any = {
             "address": addr,
             "planStatus": plan_info,
             "models": models,
@@ -295,24 +305,27 @@ def main():
         if args.credits_only:
             result = plan_info
         elif args.models_only or args.model:
-            result = models if len(models) > 1 else models[0]
+            result = models[0] if len(models) == 1 else models
         print(json.dumps(result, indent=2))
         return
 
     if args.format == "quiet":
-        if args.model:
-            for m in models:
-                rem = m.get("remainingFraction")
-                if rem is not None:
-                    print(f"{rem * 100:.2f}%")
-                else:
-                    print("N/A")
-            return
-        elif args.credits_only:
+        if args.credits_only:
             prompt = plan_info.get("availablePromptCredits", 0)
             flow = plan_info.get("availableFlowCredits", 0)
             print(f"prompt={prompt} flow={flow}")
             return
+        if not models:
+            print("N/A")
+            return
+        for m in models:
+            rem = m.get("remainingFraction")
+            rem_str = f"{rem * 100:.2f}%" if rem is not None else "N/A"
+            if args.model:
+                print(rem_str)
+            else:
+                print(f"{m['modelId']}: {rem_str}")
+        return
 
     # Table format
     show_plan = not args.models_only and not args.model

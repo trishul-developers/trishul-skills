@@ -111,7 +111,7 @@ python skills/agent-delivery/scripts/delivery.py -C "E:/Projects/trishul-tactica
 Consolidates fast compile checks, determinism audits, batchmode testing, NUnit XML parsing, failure log extraction, and composite Pair Gates into a single tool:
 ```powershell
 # Mandatory <1s pre-check (aborts before launching Unity if invariant violations exist)
-python skills/unity-pipeline/scripts/unity_pipeline.py all --pre-check --suite FastCompile,EditMode
+python skills/unity-pipeline/scripts/unity_pipeline.py test --platform EditMode
 ```
 *Docs*: [`skills/unity-pipeline/SKILL.md`](./skills/unity-pipeline/SKILL.md)
 

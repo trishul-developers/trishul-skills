@@ -244,7 +244,7 @@ class UnityMachineLock:
 CONTRACT_RULES = [
     (
         re.compile(r"\bUnityEngine\.Random\b"),
-        "BLOCKING",
+        "BLOCKING_IN_RUNTIME",
         "Banned UnityEngine.Random in Runtime. Use deterministic context PRNG (e.g. SimulationContext.Rng).",
     ),
     (
@@ -300,16 +300,34 @@ def run_contract_audit(project_path: Path, diff_only: bool = False) -> Tuple[boo
 
     cs_files: List[Path] = []
     if diff_only:
-        code, stdout, _ = run_cmd(["git", "-C", str(project_path), "diff", "--name-only", "HEAD"], cwd=project_path)
-        if code == 0 and stdout:
-            for line in stdout.splitlines():
-                if line.endswith(".cs") and os.path.exists(project_path / line):
-                    cs_files.append(project_path / line)
-    if not cs_files:
+        seen: set = set()
+        git_ok = False
+        for git_cmd in (
+            ["git", "-C", str(project_path), "diff", "--name-only", "HEAD"],
+            ["git", "-C", str(project_path), "ls-files", "--others", "--exclude-standard"],
+        ):
+            code, stdout, _ = run_cmd(git_cmd, cwd=project_path)
+            if code == 0:
+                git_ok = True
+                for line in stdout.splitlines():
+                    line = line.strip()
+                    if line.endswith(".cs"):
+                        candidate = project_path / line
+                        if candidate.is_file() and candidate not in seen:
+                            seen.add(candidate)
+                            cs_files.append(candidate)
+        if not git_ok:
+            cs_files = [p for p in runtime_dir.rglob("*.cs") if not p.name.endswith("Tests.cs")]
+    else:
         cs_files = [p for p in runtime_dir.rglob("*.cs") if not p.name.endswith("Tests.cs")]
 
     for cs_file in cs_files:
-        is_runtime = "Runtime" in cs_file.parts
+        is_runtime = (
+            "Runtime" in cs_file.parts
+            and "Tests" not in cs_file.parts
+            and "Editor" not in cs_file.parts
+            and "Presentation" not in cs_file.parts
+        )
         try:
             lines = cs_file.read_text(encoding="utf-8", errors="replace").splitlines()
         except Exception:
@@ -343,7 +361,7 @@ def run_fast_compile(project_path: Path) -> Tuple[bool, str]:
         cmd = ["dotnet", "build", "--no-incremental", "-c", "Release", "-v", "quiet", "-nologo"]
 
     code, out, err = run_cmd(cmd, cwd=project_path)
-    output = out or err
+    output = "\n".join(part for part in (out, err) if part)
     if code != 0:
         err_lines = [l for l in output.splitlines() if ": error" in l.lower() or "error cs" in l.lower()]
         return False, "\n".join(err_lines[:10]) if err_lines else output[:500]
@@ -365,6 +383,8 @@ def parse_nunit_xml(xml_path: Path) -> Dict:
         passed = int(root.attrib.get("passed", 0))
         failed = int(root.attrib.get("failed", 0))
         skipped = int(root.attrib.get("skipped", 0))
+        inconclusive = int(root.attrib.get("inconclusive", 0))
+        root_result = (root.attrib.get("result") or "").strip()
         duration = float(root.attrib.get("duration", 0.0))
 
         # Enforce zero-test / skipped-only failure (a zero-test run is a failure in TTE / NUnit)
@@ -372,22 +392,25 @@ def parse_nunit_xml(xml_path: Path) -> Dict:
             return {
                 "passed": False,
                 "error": "ZERO_TESTS_SELECTED: No tests were selected or executed (zero-test run is a failure).",
-                "total": 0, "passed_count": 0, "failed_count": 0, "skipped_count": 0, "duration": 0, "failures": []
+                "total": 0, "passed_count": 0, "failed_count": 0, "skipped_count": 0, "inconclusive_count": 0, "duration": 0, "failures": []
             }
         if passed == 0 and failed == 0:
             return {
                 "passed": False,
                 "error": f"NO_TESTS_PASSED: All {total} test(s) were skipped or inconclusive.",
-                "total": total, "passed_count": 0, "failed_count": 0, "skipped_count": skipped, "duration": round(duration, 2), "failures": []
+                "total": total, "passed_count": 0, "failed_count": 0, "skipped_count": skipped, "inconclusive_count": inconclusive, "duration": round(duration, 2), "failures": []
             }
 
         failures = []
         for tc in root.iter("test-case"):
             result = tc.attrib.get("result", "")
-            if result.lower() in ("failed", "failure"):
+            if result.lower() in ("failed", "failure", "inconclusive"):
                 name = tc.attrib.get("fullname", tc.attrib.get("name", "UnknownTest"))
                 fail_elem = tc.find("failure")
-                msg = fail_elem.findtext("message") if fail_elem is not None else ""
+                reason_elem = tc.find("reason")
+                msg = fail_elem.findtext("message") if fail_elem is not None else (
+                    reason_elem.findtext("message") if reason_elem is not None else ""
+                )
                 stack = fail_elem.findtext("stack-trace") if fail_elem is not None else ""
                 failures.append({
                     "name": name,
@@ -395,15 +418,28 @@ def parse_nunit_xml(xml_path: Path) -> Dict:
                     "stack_trace": (stack or "").strip()[:500],
                 })
 
-        return {
-            "passed": failed == 0 and passed > 0,
+        is_passed = (
+            failed == 0
+            and passed > 0
+            and inconclusive == 0
+            and root_result.lower() not in ("failed", "failure", "inconclusive")
+        )
+        result_dict: Dict[str, Any] = {
+            "passed": is_passed,
             "total": total,
             "passed_count": passed,
             "failed_count": failed,
             "skipped_count": skipped,
+            "inconclusive_count": inconclusive,
             "duration": round(duration, 2),
             "failures": failures,
         }
+        if not is_passed and failed == 0:
+            result_dict["error"] = (
+                f"NUnit test-run did not pass (result='{root_result or 'Unknown'}', "
+                f"inconclusive={inconclusive}, passed={passed}, total={total})."
+            )
+        return result_dict
     except Exception as e:
         return {"passed": False, "error": f"Failed to parse NUnit XML: {e}"}
 
@@ -750,6 +786,12 @@ def main() -> int:
                 if report.get("failures"):
                     print(f"  First failure: {report['failures'][0]['name']} - {report['failures'][0]['message']}")
                 return 1
+            if code != 0:
+                print(f"Gate Step 3 (EditMode Tests): FAILED - Unity exited with code {code} despite passing XML report.")
+                err_logs = inspect_logs(log_file)
+                if err_logs:
+                    print("\n".join(err_logs))
+                return code
 
             print(f"Gate Step 3 (EditMode Tests): PASSED ({report['passed_count']}/{report['total']})")
 
@@ -786,6 +828,12 @@ def main() -> int:
                 if report_play.get("failures"):
                     print(f"  First failure: {report_play['failures'][0]['name']} - {report_play['failures'][0]['message']}")
                 return 1
+            if code_p != 0:
+                print(f"Gate Step 4 (PlayMode Tests): FAILED - Unity exited with code {code_p} despite passing XML report.")
+                err_logs = inspect_logs(log_play)
+                if err_logs:
+                    print("\n".join(err_logs))
+                return code_p
 
             print(f"Gate Step 4 (PlayMode Tests): PASSED ({report_play['passed_count']}/{report_play['total']})")
 
@@ -794,9 +842,20 @@ def main() -> int:
 
     # --- SUBCOMMAND: logs ---
     if args.command == "logs":
-        log_target = Path(args.log_path) if args.log_path else project_path / "Editor.log"
-        if not log_target.exists():
-            log_target = Path(os.environ.get("LOCALAPPDATA", "")) / "Unity" / "Editor" / "Editor.log"
+        if args.log_path:
+            log_target = Path(args.log_path)
+        else:
+            candidates = [
+                project_path / "unity-test.log",
+                project_path / "gate-unity.log",
+                project_path / "gate-playmode-unity.log",
+                project_path / "Editor.log",
+            ]
+            existing = [p for p in candidates if p.exists()]
+            if existing:
+                log_target = max(existing, key=lambda p: p.stat().st_mtime)
+            else:
+                log_target = Path(os.environ.get("LOCALAPPDATA", "")) / "Unity" / "Editor" / "Editor.log"
         findings = inspect_logs(log_target, max_lines=args.max_lines)
         if not findings:
             print(f"Log inspection clean: no errors or unhandled exceptions found in {log_target.name}.")
@@ -811,7 +870,10 @@ def main() -> int:
         if report.get("passed"):
             print(f"PASSED: {report['passed_count']}/{report['total']} tests passed in {report['duration']}s")
             return 0
-        print(f"FAILED: {report.get('failed_count', '?')}/{report.get('total', '?')} tests failed.")
+        if report.get("error"):
+            print(f"FAILED: {report['error']}")
+        else:
+            print(f"FAILED: {report.get('failed_count', '?')}/{report.get('total', '?')} tests failed.")
         if report.get("failures"):
             print(f"First failure: {report['failures'][0]['name']}")
             print(f"Message: {report['failures'][0]['message']}")

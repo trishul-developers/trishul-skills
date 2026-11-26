@@ -15,13 +15,13 @@ Use the dedicated validator to check candidate register files or compute `Defini
 
 ```powershell
 # 1. Compute and verify a key's 32-bit FNV-1a DefinitionId
-python "skills/projects/tte-content-pipeline/scripts/validate_content_asset.py" --key plc.mbt.a
+python "<skill-dir>/scripts/validate_content_asset.py" --key plc.mbt.a
 
 # 2. Validate a candidate register JSON file against RegisterVocabulary
-python "skills/projects/tte-content-pipeline/scripts/validate_content_asset.py" --file Assets/Content/Core/Register/core_register.json
+python "<skill-dir>/scripts/validate_content_asset.py" --file Assets/Content/Core/Register/core.json
 
 # 3. Full tree audit for key syntax, unit vocabulary, and cross-pack FNV-1a collisions
-python "skills/projects/tte-content-pipeline/scripts/validate_content_asset.py" -C Assets/Content
+python "<skill-dir>/scripts/validate_content_asset.py" -C Assets/Content
 ```
 
 ---
@@ -88,8 +88,8 @@ Placeholder keys under `plc.` must have `evidence: "GameplayApproximation"` and 
 Once register JSON passes offline validation, verify the bake in Unity via the global `unity-pipeline`:
 
 ```powershell
-python "skills/unity-pipeline/scripts/unity_pipeline.py" test `
-  -C "E:/Projects/trishul-tactical-engine" `
+python "<unity-pipeline-skill-dir>/scripts/unity_pipeline.py" test `
+  -C "<repo-dir>" `
   --filter "Trishul.Tests.EditMode.Content.AllContentValidatesTests"
 ```
 Or menu *Trishul / Validate All Content* (`ContentValidationMenu`).

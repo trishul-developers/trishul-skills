@@ -9,15 +9,23 @@ and model availability without launching the interactive TUI or app.
 
 import argparse
 import json
+import queue
+import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
 def query_codex_app_server(timeout: float = 12.0) -> Dict[str, Any]:
-    cmd = ["codex", "app-server", "--stdio"]
+    codex_bin = shutil.which("codex")
+    if not codex_bin:
+        sys.stderr.write("Error: 'codex' executable not found on PATH.\n")
+        sys.exit(1)
+
+    cmd = [codex_bin, "app-server", "--stdio"]
     try:
         proc = subprocess.Popen(
             cmd,
@@ -25,16 +33,43 @@ def query_codex_app_server(timeout: float = 12.0) -> Dict[str, Any]:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
         )
     except FileNotFoundError:
         sys.stderr.write("Error: 'codex' executable not found on PATH.\n")
         sys.exit(1)
 
+    line_queue: "queue.Queue[Optional[str]]" = queue.Queue()
+
+    def _reader() -> None:
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                line_queue.put(line)
+        except Exception:
+            pass
+        finally:
+            line_queue.put(None)
+
+    threading.Thread(target=_reader, daemon=True).start()
+
+    def read_line(deadline: float) -> Optional[str]:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        try:
+            return line_queue.get(timeout=remaining)
+        except queue.Empty:
+            return None
+
     def send(msg: Dict[str, Any]):
+        assert proc.stdin is not None
         proc.stdin.write(json.dumps(msg) + "\n")
         proc.stdin.flush()
 
+    deadline = time.monotonic() + timeout
     try:
         # 1. Initialize session
         send(
@@ -50,9 +85,9 @@ def query_codex_app_server(timeout: float = 12.0) -> Dict[str, Any]:
             }
         )
 
-        init_raw = proc.stdout.readline()
+        init_raw = read_line(deadline)
         if not init_raw:
-            sys.stderr.write("Error: Codex app-server closed connection during initialize.\n")
+            sys.stderr.write("Error: Codex app-server closed connection or timed out during initialize.\n")
             sys.exit(1)
 
         send({"method": "initialized", "params": {}})
@@ -63,9 +98,8 @@ def query_codex_app_server(timeout: float = 12.0) -> Dict[str, Any]:
         send({"id": 4, "method": "model/list", "params": {}})
 
         results = {}
-        start = time.time()
-        while len(results) < 3 and time.time() - start < timeout:
-            line = proc.stdout.readline()
+        while len(results) < 3 and time.monotonic() < deadline:
+            line = read_line(deadline)
             if not line:
                 break
             try:
@@ -85,6 +119,12 @@ def query_codex_app_server(timeout: float = 12.0) -> Dict[str, Any]:
         try:
             proc.terminate()
             proc.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            try:
+                proc.wait(timeout=2.0)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -142,19 +182,23 @@ def format_table(
     lines.append("OPENAI CODEX ACCOUNT & RATE LIMIT STATUS")
     lines.append("=" * 65)
 
-    plan = account.get("planType", "unknown").upper()
-    email = account.get("email", "N/A")
+    account = account or {}
+    rate_limits = rate_limits or {}
+    models = models or []
+
+    plan = (account.get("planType") or "unknown").upper()
+    email = account.get("email") or "N/A"
     lines.append(f"Plan:                 {plan}")
     lines.append(f"Account Email:        {email}")
 
-    rl = rate_limits.get("rateLimits", {})
-    credits = rl.get("credits", {})
+    rl = rate_limits.get("rateLimits") or {}
+    credits = rl.get("credits") or {}
     balance = credits.get("balance", "0")
     unlimited = credits.get("unlimited", False)
     credits_str = "Unlimited" if unlimited else str(balance)
     lines.append(f"Credits Balance:      {credits_str}")
 
-    reset_credits = rate_limits.get("rateLimitResetCredits", {}).get("availableCount", 0)
+    reset_credits = (rate_limits.get("rateLimitResetCredits") or {}).get("availableCount", 0)
     lines.append(f"Reset Credits:        {reset_credits} available")
     lines.append("")
 
@@ -164,7 +208,11 @@ def format_table(
     lines.append("-" * 65)
     lines.append("ROLLING RATE LIMIT WINDOWS")
     lines.append("-" * 65)
-    primary_label = f"Primary ({primary['windowDurationMins']}m / {primary['windowDurationMins']//60}h)"
+    prim_mins = primary.get("windowDurationMins")
+    if prim_mins:
+        primary_label = f"Primary ({prim_mins}m / {prim_mins // 60}h)"
+    else:
+        primary_label = "Primary (N/A)"
     lines.append(f"• {primary_label:<20} : {primary['used']} used ({primary['remaining']} remaining)")
     lines.append(f"  Reset Timestamp     : {primary['reset']} ({primary['countdown']})")
 
@@ -181,34 +229,41 @@ def format_table(
         matched = [
             m
             for m in models
-            if target_model.lower() in m.get("id", "").lower()
-            or target_model.lower() in m.get("displayName", "").lower()
+            if target_model.lower() in (m.get("id") or "").lower()
+            or target_model.lower() in (m.get("displayName") or "").lower()
         ]
         if matched:
             for m in matched:
                 efforts = [
                     e.get("reasoningEffort")
-                    for e in m.get("supportedReasoningEfforts", [])
+                    for e in (m.get("supportedReasoningEfforts") or [])
                     if "reasoningEffort" in e
                 ]
                 eff_str = ", ".join(efforts) if efforts else "default"
-                lines.append(f"  Model Match         : {m.get('displayName')} (`{m.get('id')}`)")
+                display_name = m.get("displayName") or m.get("id") or "Unknown"
+                lines.append(f"  Model Match         : {display_name} (`{m.get('id')}`)")
                 lines.append(f"  Reasoning Efforts   : {eff_str}")
                 lines.append(f"  Effective Quota     : Governed by {plan} tier ({primary['remaining']} remaining in primary window)")
         else:
-            lines.append(f"  Model Match         : Not found in active catalog")
+            lines.append("  Model Match         : Not found in active catalog")
         lines.append("-" * 65)
     elif models:
         lines.append("")
         lines.append("AVAILABLE MODELS (ACTIVE TIER):")
         for m in models:
-            lines.append(f"  • {m.get('displayName'):<20} (ID: {m.get('id')})")
+            display_name = m.get("displayName") or m.get("id") or "Unknown"
+            lines.append(f"  • {display_name:<20} (ID: {m.get('id')})")
         lines.append("-" * 65)
 
     return "\n".join(lines)
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Check OpenAI Codex rate limits and quota without opening the app or interactive CLI."
     )
@@ -217,7 +272,7 @@ def main():
         "--model",
         type=str,
         default=None,
-        help="Filter by specific model ID or substring (e.g. 'gpt-6.1-sol', 'sol', 'terra').",
+        help="Filter by specific model ID or substring (e.g. 'gpt-6.2-sol', 'sol', 'terra').",
     )
     parser.add_argument(
         "-f",
@@ -234,7 +289,7 @@ def main():
         print(json.dumps(data, indent=2))
         return
 
-    rl = data.get("rateLimits", {}).get("rateLimits", {})
+    rl = (data.get("rateLimits") or {}).get("rateLimits") or {}
     primary = format_window(rl.get("primary"))
     secondary = format_window(rl.get("secondary"))
 
@@ -249,21 +304,21 @@ def main():
             "primaryWindow": primary,
             "secondaryWindow": secondary,
             "credits": rl.get("credits"),
-            "rateLimitResetCredits": data.get("rateLimits", {}).get("rateLimitResetCredits"),
+            "rateLimitResetCredits": (data.get("rateLimits") or {}).get("rateLimitResetCredits"),
         }
         if args.model:
             matched = [
                 m
-                for m in data.get("models", [])
-                if args.model.lower() in m.get("id", "").lower()
-                or args.model.lower() in m.get("displayName", "").lower()
+                for m in (data.get("models") or [])
+                if args.model.lower() in (m.get("id") or "").lower()
+                or args.model.lower() in (m.get("displayName") or "").lower()
             ]
             output["targetModel"] = args.model
             output["matchedModels"] = matched
         else:
             output["models"] = [
                 {"id": m.get("id"), "displayName": m.get("displayName")}
-                for m in data.get("models", [])
+                for m in (data.get("models") or [])
             ]
         print(json.dumps(output, indent=2))
         return

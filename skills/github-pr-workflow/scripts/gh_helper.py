@@ -58,17 +58,23 @@ def get_token():
             if line.startswith("password="):
                 return line.split("=", 1)[1].strip()
 
+    # 3. gh auth token
+    if shutil.which("gh"):
+        code, stdout, _ = run_cmd(["gh", "auth", "token"])
+        if code == 0 and stdout:
+            return stdout.splitlines()[0].strip()
+
     print(
-        "ERROR: Unable to acquire GitHub token from GITHUB_TOKEN or 'git credential fill'.",
+        "ERROR: Unable to acquire GitHub token from GITHUB_TOKEN, 'git credential fill', or 'gh auth token'.",
         file=sys.stderr,
     )
     sys.exit(1)
 
 
-def get_repo(repo_override=None):
+def get_repo(repo_override=None, cwd=None):
     if repo_override:
         return repo_override
-    code, stdout, _ = run_cmd(["git", "remote", "get-url", "origin"])
+    code, stdout, _ = run_cmd(["git", "remote", "get-url", "origin"], cwd=cwd)
     if code != 0 or not stdout:
         print(
             "ERROR: Could not determine origin remote. Specify --repo <owner/repo> manually.",
@@ -78,8 +84,9 @@ def get_repo(repo_override=None):
 
     # Examples:
     # https://github.com/owner/repo.git
+    # https://github.com/owner/my.repo.git
     # git@github.com:owner/repo.git
-    match = re.search(r"github\.com[:/]([^/]+)/([^/\.]+)(?:\.git)?", stdout)
+    match = re.search(r"github\.com[:/]([^/]+)/([^/\s]+?)(?:\.git)?/?$", stdout.strip())
     if match:
         return f"{match.group(1)}/{match.group(2)}"
 
@@ -207,7 +214,7 @@ def cmd_pr_verify(args):
     print(f"Remote Head SHA: {head_sha}")
 
     if args.sha:
-        if head_sha != args.sha:
+        if not head_sha or head_sha.lower() != args.sha.lower():
             print(f"ERROR: SHA MISMATCH! Expected {args.sha} but remote PR HEAD is {head_sha}", file=sys.stderr)
             sys.exit(1)
         else:
@@ -247,7 +254,7 @@ def cmd_git_verify(args):
     # 3. Current SHA
     code, current_sha, _ = run_cmd(["git", "rev-parse", "HEAD"], cwd=cwd)
     print(f"Current HEAD SHA: {current_sha}")
-    if args.sha and current_sha != args.sha:
+    if args.sha and current_sha.lower() != args.sha.lower():
         print(f"ERROR: Expected HEAD SHA '{args.sha}', found '{current_sha}'", file=sys.stderr)
         sys.exit(1)
 
@@ -704,7 +711,7 @@ def wait_for_ci_runs(
                         runs = json.loads(stdout)
                         candidate_shas = {
                             r.get("headSha", "") for r in runs
-                            if r.get("headSha", "").startswith(sha)
+                            if r.get("headSha", "").lower().startswith(sha.lower())
                         }
                         if len(candidate_shas) > 1:
                             is_ambiguous_prefix = True
@@ -712,7 +719,7 @@ def wait_for_ci_runs(
                             full_sha = next(iter(candidate_shas))
                             matched = [
                                 r for r in runs
-                                if r.get("headSha", "") == full_sha and (
+                                if r.get("headSha", "").lower() == full_sha.lower() and (
                                     workflow is None or r.get("workflowName") == workflow or r.get("name") == workflow
                                 )
                             ]
@@ -876,9 +883,9 @@ def wait_for_ci_runs(
                     re_runs = json.loads(c_out)
                     for r in re_runs:
                         r_sha = r.get("headSha", "")
-                        if full_sha and r_sha != full_sha:
+                        if full_sha and r_sha.lower() != full_sha.lower():
                             continue
-                        if not full_sha and not r_sha.startswith(sha):
+                        if not full_sha and not r_sha.lower().startswith(sha.lower()):
                             continue
                         rid = r.get("databaseId") or r.get("id")
                         if rid and rid not in target_ids:
@@ -993,7 +1000,11 @@ def cmd_ci_wait(args):
         print("ERROR: Commit SHA prefix must be at least 7 characters.", file=sys.stderr)
         sys.exit(2)
 
-    repo = get_repo(getattr(args, "repo", None))
+    repo_dir = getattr(args, "repo_dir", None)
+    if repo_dir:
+        repo_dir = str(Path(repo_dir).resolve())
+
+    repo = get_repo(getattr(args, "repo", None), cwd=repo_dir)
     if not repo:
         print("ERROR: Could not determine GitHub repository. Specify --repo owner/repo.", file=sys.stderr)
         sys.exit(2)
@@ -1004,7 +1015,6 @@ def cmd_ci_wait(args):
     max_wait = getattr(args, "max_wait", 0)
     max_failures = getattr(args, "max_failures", 10)
     include_existing = getattr(args, "include_existing", False)
-    repo_dir = getattr(args, "repo_dir", None)
 
     code = wait_for_ci_runs(
         repo=repo,
@@ -1113,7 +1123,7 @@ def main():
 
     # Shared parser for ci wait and ci-wait
     p_wait_opts = argparse.ArgumentParser(add_help=False)
-    p_wait_opts.add_argument("--run-id", help="Database ID of the GitHub Actions workflow run to wait for")
+    p_wait_opts.add_argument("--run-id", type=int, help="Database ID of the GitHub Actions workflow run to wait for")
     p_wait_opts.add_argument("--sha", help="Commit SHA (or prefix >= 7 chars) to wait for matching workflow run(s)")
     p_wait_opts.add_argument("--branch", help="Branch name to wait for newest workflow run (ignores runs created >60s before invocation unless --include-existing is given; --sha or --run-id preferred after push)")
     p_wait_opts.add_argument("--include-existing", action="store_true", default=False, help="Include workflow runs created more than 60s before this command started")

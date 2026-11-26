@@ -31,7 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-3.8-flash-medium"
 DEFAULT_EFFORT = "medium"
 DEFAULT_TIMEOUT = 1800  # 30 minutes
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
@@ -85,6 +85,7 @@ def build_command(
     agy_bin: str,
     prompt_str: str,
     log_path: Path,
+    extra_dirs: Optional[List[str]] = None,
 ) -> List[str]:
     # In agy CLI, -p=<prompt> or --print=<prompt> passes the prompt in print mode
     cmd = [agy_bin, f"-p={prompt_str}"]
@@ -111,9 +112,15 @@ def build_command(
     if args.auto_approve:
         cmd.append("--dangerously-skip-permissions")
 
-    if args.add_dir:
-        for extra in args.add_dir:
-            cmd.extend(["--add-dir", str(Path(extra).resolve())])
+    if getattr(args, "print_timeout", None):
+        cmd.extend(["--print-timeout", args.print_timeout])
+
+    if getattr(args, "disable_slash_commands", False):
+        cmd.append("--disable-slash-commands")
+
+    all_dirs = list(args.add_dir or []) + list(extra_dirs or [])
+    for extra in all_dirs:
+        cmd.extend(["--add-dir", str(Path(extra).resolve())])
 
     if args.resume:
         cmd.extend(["--conversation", args.resume])
@@ -125,6 +132,9 @@ def build_command(
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Universal Headless Antigravity (AGY) Runner with context passing, modes, and telemetry.",
     )
@@ -144,6 +154,11 @@ def main() -> int:
     parser.add_argument(
         "--auto-approve", action="store_true",
         help="Auto-approve tool permissions (--dangerously-skip-permissions).",
+    )
+    parser.add_argument("--print-timeout", help="Duration passed to `agy --print-timeout` (e.g. 60s, 300s, 0s).")
+    parser.add_argument(
+        "--disable-slash-commands", action="store_true",
+        help="Disable slash command and skill expansion in print mode.",
     )
     parser.add_argument("-C", "--cd", "--cwd", dest="cwd", default=".", help="Working directory root.")
     parser.add_argument("--add-dir", action="append", help="Additional workspace directory (repeatable).")
@@ -177,14 +192,16 @@ def main() -> int:
     result_file = run_dir / "result.json"
 
     # Handle command-line character length bounds on Windows
+    extra_dirs: List[str] = []
     if len(prompt_text) > MAX_INLINE_CHARS:
         prompt_arg = (
             f"Please read the full instructions from the file '{prompt_file}' and execute the task described within."
         )
+        extra_dirs.append(str(run_dir))
     else:
         prompt_arg = prompt_text
 
-    cmd = build_command(args, agy_bin, prompt_arg, log_file)
+    cmd = build_command(args, agy_bin, prompt_arg, log_file, extra_dirs=extra_dirs)
 
     if args.dry_run:
         cmd_str = " ".join(f'"{c}"' if " " in c or "\n" in c else c for c in cmd)
@@ -221,9 +238,12 @@ def main() -> int:
 
     if args.output_format == "json" and raw_output:
         try:
-            payload = json.loads(raw_output)
-            response_body = payload.get("response", raw_output)
-            conversation_id = payload.get("conversation_id", conversation_id)
+            parsed = json.loads(raw_output)
+            if isinstance(parsed, dict):
+                payload = parsed
+                resp_val = payload.get("response")
+                response_body = "" if resp_val is None else str(resp_val)
+                conversation_id = payload.get("conversation_id", conversation_id)
         except json.JSONDecodeError:
             pass
 
@@ -231,7 +251,10 @@ def main() -> int:
     if timed_out:
         status = "timeout"
         exit_code = EXIT_TIMEOUT
-    elif proc.returncode == 0 and (args.output_format != "json" or agy_status == "SUCCESS" or response_body.strip()):
+    elif proc.returncode == 0 and (
+        args.output_format != "json"
+        or (agy_status != "ERROR" and (agy_status == "SUCCESS" or bool(response_body.strip())))
+    ):
         status = "success"
         exit_code = EXIT_OK
     else:

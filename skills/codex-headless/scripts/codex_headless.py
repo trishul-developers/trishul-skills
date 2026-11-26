@@ -67,10 +67,11 @@ def is_git_repo(path: Path) -> bool:
             ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
             text=True,
+            timeout=10,
             check=False,
         )
         return res.returncode == 0 and res.stdout.strip() == "true"
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
 
@@ -120,14 +121,20 @@ def build_command(
 ) -> List[str]:
     cmd = [codex_bin, "exec"]
 
+    # Place exec-level directory/sandbox flags before `resume`/`fork` subcommand
+    if not (args.resume or args.fork):
+        cmd.extend(["-s", args.sandbox])
+    cmd.extend(["-C", str(cwd)])
+    if not is_git_repo(cwd):
+        cmd.append("--skip-git-repo-check")
+    if args.add_dir:
+        for extra_dir in args.add_dir:
+            cmd.extend(["--add-dir", str(Path(extra_dir).resolve())])
+
     if args.resume:
         cmd.extend(["resume", args.resume])
     elif args.fork:
         cmd.extend(["fork", args.fork])
-    else:
-        cmd.extend(["-s", args.sandbox, "-C", str(cwd)])
-        if not is_git_repo(cwd):
-            cmd.append("--skip-git-repo-check")
 
     if args.model:
         cmd.extend(["-m", args.model])
@@ -141,10 +148,6 @@ def build_command(
 
     if args.worktree and not (args.resume or args.fork):
         cmd.append("--worktree")
-
-    if args.add_dir:
-        for extra_dir in args.add_dir:
-            cmd.extend(["--add-dir", str(Path(extra_dir).resolve())])
 
     if args.image:
         for img in args.image:
@@ -165,6 +168,9 @@ def build_command(
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Universal Headless Codex Runner with context passing, sandboxing, and telemetry.",
     )
@@ -256,7 +262,7 @@ def main() -> int:
 
     duration = round(time.monotonic() - start_time, 2)
     thread_id, usage = parse_events(events_file)
-    final_output = last_msg_file.read_text(encoding="utf-8") if last_msg_file.exists() else ""
+    final_output = last_msg_file.read_text(encoding="utf-8", errors="replace") if last_msg_file.exists() else ""
 
     if timed_out:
         status = "timeout"

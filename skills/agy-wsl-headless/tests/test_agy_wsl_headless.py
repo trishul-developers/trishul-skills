@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -14,9 +15,11 @@ import agy_wsl_headless as awh  # noqa: E402
 
 class AgyWslHeadlessTests(unittest.TestCase):
     def test_windows_to_wsl_path(self):
-        self.assertEqual(awh.windows_to_wsl_path(r"E:\Projects\trishul-tactical-engine"), "/mnt/e/Projects/trishul-tactical-engine")
-        self.assertEqual(awh.windows_to_wsl_path("C:/Users/tosum/file.md"), "/mnt/c/Users/tosum/file.md")
+        self.assertEqual(awh.windows_to_wsl_path(r"E:\Projects\demo"), "/mnt/e/Projects/demo")
+        self.assertEqual(awh.windows_to_wsl_path("C:/Users/demo/file.md"), "/mnt/c/Users/demo/file.md")
         self.assertEqual(awh.windows_to_wsl_path("/tmp/work"), "/tmp/work")
+        self.assertEqual(awh.windows_to_wsl_path(r"\\wsl.localhost\Ubuntu\home\user\proj"), "/home/user/proj")
+        self.assertEqual(awh.windows_to_wsl_path(r"\\wsl$\Ubuntu-22.04\tmp\work"), "/tmp/work")
 
     def test_swarm_defaults_in_dispatch_script(self):
         args = awh.parse_args(["--swarm", "-C", r"E:\Projects\demo", "Run swarm"])
@@ -25,7 +28,23 @@ class AgyWslHeadlessTests(unittest.TestCase):
         self.assertIn("--dangerously-skip-permissions", script)
         self.assertIn("--print-timeout 300s", script)
         self.assertIn("PROMPT_TEXT=$(cat /mnt/c/tmp/prompt.md)", script)
-        self.assertIn('agy -p="$PROMPT_TEXT"', script)
+        self.assertIn("timeout -k 10s 1800s agy -p=\"$PROMPT_TEXT\"", script)
+
+    def test_inline_json_schema_not_path_translated(self):
+        schema = '{"type":"object","properties":{"ok":{"type":"boolean"}}}'
+        args = awh.parse_args(["--json-schema", schema, "-C", "/tmp", "Check"])
+        script = awh.build_dispatch_script(args, "/tmp/prompt.md", "/tmp")
+        self.assertIn(f"--json-schema '{schema}'", script)
+        self.assertNotIn("/mnt/", script)
+
+    def test_missing_windows_cwd_exits_2(self):
+        if os.name != "nt":
+            self.skipTest("Windows-specific path check")
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "does-not-exist"
+            with self.assertRaises(SystemExit) as ctx:
+                awh.main(["-C", str(missing), "--dry-run", "hi"])
+            self.assertEqual(ctx.exception.code, 2)
 
     def test_dry_run_preserves_nested_quotes_in_prompt_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -48,13 +67,22 @@ class AgyWslHeadlessTests(unittest.TestCase):
     def _run_mocked(self, extra, stdout=b""):
         captured = {}
 
-        def fake_run(cmd, **kw):
+        class FakeProc:
+            returncode = 0
+            pid = 9999
+
+            def communicate(self, input=None, timeout=None):
+                captured["input"] = input
+                captured["timeout"] = timeout
+                return (stdout, b"")
+
+        def fake_popen(cmd, **kw):
             captured["cmd"], captured["kw"] = cmd, kw
-            return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr=b"")
+            return FakeProc()
 
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp) / "run"
-            with mock.patch.object(awh.subprocess, "run", fake_run):
+            with mock.patch.object(awh.subprocess, "Popen", fake_popen):
                 rc = awh.main(["--out-dir", str(out_dir), *extra])
             result = json.loads((out_dir / "result.json").read_text(encoding="utf-8"))
             prompt = (out_dir / "prompt.md").read_bytes()
@@ -63,7 +91,7 @@ class AgyWslHeadlessTests(unittest.TestCase):
     def test_stdin_is_lf_bytes_without_carriage_returns(self):
         rc, cap, _, _ = self._run_mocked(["-C", "/tmp", "hi"])
         self.assertEqual(rc, 0)
-        data = cap["kw"]["input"]
+        data = cap["input"]
         self.assertIsInstance(data, bytes)
         self.assertNotIn(b"\r", data)
         self.assertIn(b"set -euo pipefail\n", data)
@@ -76,7 +104,6 @@ class AgyWslHeadlessTests(unittest.TestCase):
         self.assertEqual(result["conversation_id"], "abc-123")
         self.assertEqual(result["usage"], {"in": 1})
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(result["conversation_id"], "abc-123")
 
     def test_exit_zero_with_error_status_and_no_response_is_failed(self):
         err = json.dumps({"conversation_id": "c1", "status": "ERROR", "response": "", "error": "boom"})
@@ -102,15 +129,16 @@ class AgyWslHeadlessTests(unittest.TestCase):
         self.assertEqual((rc, result["status"]), (0, "ok"))
 
     def test_env_note_only_for_windows_mounts(self):
-        _, _, _, mnt = self._run_mocked(["-C", r"E:\Projects\demo", "hi"])
-        self.assertIn(b"git.exe", mnt)
-        self.assertIn(b"dotnet.exe", mnt)
-        self.assertIn(b"</dev/null", mnt)
-        self.assertNotIn(b"\r", mnt)
+        with tempfile.TemporaryDirectory() as win_dir:
+            _, _, _, mnt = self._run_mocked(["-C", win_dir, "hi"])
+            self.assertIn(b"git.exe", mnt)
+            self.assertIn(b"dotnet.exe", mnt)
+            self.assertIn(b"</dev/null", mnt)
+            self.assertNotIn(b"\r", mnt)
+            _, _, _, off = self._run_mocked(["--no-env-note", "-C", win_dir, "hi"])
+            self.assertEqual(off, b"hi")
         _, _, _, plain = self._run_mocked(["-C", "/tmp", "hi"])
         self.assertEqual(plain, b"hi")
-        _, _, _, off = self._run_mocked(["--no-env-note", "-C", r"E:\Projects\demo", "hi"])
-        self.assertEqual(off, b"hi")
 
 
 if __name__ == "__main__":

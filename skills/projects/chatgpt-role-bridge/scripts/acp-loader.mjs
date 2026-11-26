@@ -85,15 +85,33 @@ if (acpRoot) {
     "STALE_SESSION_GENERATION", "DELIVERY_AMBIGUOUS", "IDEMPOTENCY_CONFLICT",
     "DELIVERY_DURABILITY_UNAVAILABLE"
   ];
-  ChatGptBrowserStrategy = class {};
-  LocalSessionStore = class {};
-  LifecycleStore = class {};
-  LifecycleManager = class {};
-  ChatGptSessionAdapter = class {};
-  isCanonicalConversationUrl = (url) => typeof url === "string" && url.includes("/c/");
-  validateChatGptLocator = (loc) => loc;
-  validateProjectLocator = (loc) => loc;
-  requirePositiveProjectAuthority = async () => true;
+  function missingAcpClass(name) {
+    return class {
+      constructor() {
+        throw new SessionHostError(
+          "ACP_UNAVAILABLE",
+          `agent-control-plane (ACP) build not found for ${name}; set ACP_ROOT or build ACP.`,
+        );
+      }
+    };
+  }
+  ChatGptBrowserStrategy = missingAcpClass("ChatGptBrowserStrategy");
+  LocalSessionStore = missingAcpClass("LocalSessionStore");
+  LifecycleStore = missingAcpClass("LifecycleStore");
+  LifecycleManager = missingAcpClass("LifecycleManager");
+  ChatGptSessionAdapter = missingAcpClass("ChatGptSessionAdapter");
+  isCanonicalConversationUrl = () => {
+    throw new SessionHostError("ACP_UNAVAILABLE", "agent-control-plane (ACP) build not found; set ACP_ROOT or build ACP.");
+  };
+  validateChatGptLocator = () => {
+    throw new SessionHostError("ACP_UNAVAILABLE", "agent-control-plane (ACP) build not found; set ACP_ROOT or build ACP.");
+  };
+  validateProjectLocator = () => {
+    throw new SessionHostError("ACP_UNAVAILABLE", "agent-control-plane (ACP) build not found; set ACP_ROOT or build ACP.");
+  };
+  requirePositiveProjectAuthority = async () => {
+    throw new SessionHostError("ACP_UNAVAILABLE", "agent-control-plane (ACP) build not found; set ACP_ROOT or build ACP.");
+  };
 }
 
 export {

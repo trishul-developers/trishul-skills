@@ -165,7 +165,7 @@
       "fallbacks": [
         {
           "provider": "agy",
-          "model": "gemini-3.8-flash-medium",
+          "model": "gemini-4-argon-medium",
           "effort": "medium",
           "mode": "accept-edits"
         },

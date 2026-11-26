@@ -26,7 +26,7 @@ description: Take an external art asset (vehicle model or map heightmap) from TT
 
 ## Stage 1: Requirements
 
-1. **Write or change the spec** in TTE `docs/design/art/` as a docs-only PR from your own worktree under `.claude/worktrees/`, cut from `origin/main`.
+1. **Write or change the spec** in TTE `docs/design/art/` as a docs-only PR from your own project worktree, cut from `origin/main`.
    - Put `[skip ci]` in the subject. The designer merges docs-only PRs without waiting for CI.
    - A new model in an existing family needs **no new spec**: the owner fills a model sheet.
    - Write a new spec only for a new family, a new asset kind (a map, say), or a deviation the family spec does not allow.
@@ -93,7 +93,7 @@ Send the manager the verdict in a few lines plus the file path. **The import sta
 
 ## Stage 3: Import (an implementor job in the shared Unity slot)
 
-The orchestrator dispatches the import brief when the Unity slot is free. The worker pushes nothing until the LFS gate passes. Steps, in the order PR 143 used:
+The orchestrator dispatches the import brief when the Unity slot is free (enforced via `unity-pipeline`'s `OSLock`). The worker pushes nothing until the LFS gate passes. Steps, in the order PR 143 used:
 
 0. **Git LFS** (already on `main` since PR 143). `.gitattributes` tracks `*.fbx *.FBX *.png *.PNG *.tga *.psd *.exr`, and `unity-ci.yml` checks out with `lfs: true` on the EditMode and PlayMode jobs.
    - **The gate before the first push:** `git lfs version`, then `git lfs ls-files` lists every FBX and PNG, then `git show HEAD:<one fbx>` shows a pointer (`version https://git-lfs…`).

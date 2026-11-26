@@ -25,6 +25,7 @@ import os
 import re
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -60,7 +61,7 @@ def read_json(p: Path) -> dict:
         return json.load(f)
 
 
-def load_profile(name: str | None, repo_dir: Path) -> dict:
+def load_profile(name: str | None, repo_dir: Path, required: bool = True) -> dict | None:
     """Project profile (rules, docs, role definitions) with the user's model config layered on top.
 
     Model slots come from, in rising priority: the project profile, the user's
@@ -71,7 +72,7 @@ def load_profile(name: str | None, repo_dir: Path) -> dict:
     if name:
         candidates += [Path(name), SKILL_DIR / "profiles" / f"{name}.json"]
     elif os.environ.get("AGENT_DELIVERY_PROFILE"):
-        return load_profile(os.environ["AGENT_DELIVERY_PROFILE"], repo_dir)
+        return load_profile(os.environ["AGENT_DELIVERY_PROFILE"], repo_dir, required=required)
     else:
         candidates.append(repo_dir / ".agent-delivery.json")
     prof = None
@@ -80,6 +81,8 @@ def load_profile(name: str | None, repo_dir: Path) -> dict:
             prof = read_json(c)
             break
     if prof is None:
+        if not required:
+            return None
         die("no profile found: pass --profile <name|path>, set AGENT_DELIVERY_PROFILE, "
             "or add .agent-delivery.json to the repository (start from the skill's profiles/example.json)")
     prof.setdefault("roles", {})
@@ -125,12 +128,19 @@ def cmd_models(a, prof, repo_dir):
     if a.action == "show":
         print(f"user model config: {up} ({'present' if up.is_file() else 'absent'})")
         fmt = lambda x: f"{x.get('provider')}:{x.get('model')}/{x.get('effort', '-')}"
-        for name, r in prof["roles"].items():
-            print(f"- {name} [{prof['_model_source'].get(name, 'none')}]: " + "  ->  ".join(fmt(s) for _, s in chain(r)))
+        if prof is not None:
+            for name, r in prof["roles"].items():
+                print(f"- {name} [{prof['_model_source'].get(name, 'none')}]: " + "  ->  ".join(fmt(s) for _, s in chain(r)))
+        elif up.is_file():
+            user = read_json(up)
+            for name, r in user.get("default", {}).get("roles", {}).items():
+                print(f"- {name} [user default]: " + "  ->  ".join(fmt(s) for _, s in chain(r)))
         return
     # set
     if not a.role or not a.primary:
         die("models set needs ROLE and --primary")
+    if prof is None and not a.all_projects:
+        die("no profile found: pass --profile, run inside a repo with .agent-delivery.json, or pass --all-projects")
     user = read_json(up) if up.is_file() else {}
     scope = user.setdefault("default", {}) if a.all_projects else         user.setdefault("projects", {}).setdefault(prof.get("project", "default"), {})
     entry = {"primary": parse_slot(a.primary)}
@@ -138,9 +148,10 @@ def cmd_models(a, prof, repo_dir):
     scope.setdefault("roles", {})[a.role] = entry
     up.parent.mkdir(parents=True, exist_ok=True)
     up.write_text(json.dumps(user, indent=2, ensure_ascii=False) + chr(10), encoding="utf-8")
-    append_log(prof, repo_dir, {"event": "models-set", "role": a.role,
-                                "scope": "all projects" if a.all_projects else prof.get("project"),
-                                "primary": a.primary, "fallbacks": a.fallback_slot or []})
+    if prof is not None:
+        append_log(prof, repo_dir, {"event": "models-set", "role": a.role,
+                                    "scope": "all projects" if a.all_projects else prof.get("project"),
+                                    "primary": a.primary, "fallbacks": a.fallback_slot or []})
     print(f"set {a.role} in {up}")
 
 
@@ -178,8 +189,12 @@ def norm_family(x: str) -> str:
         return x
     if x.startswith("claude"):
         return "claude"
-    if x in ("agy", "antigravity") or x.startswith("gemini"):
+    if x in ("agy", "agy-wsl", "antigravity") or x.startswith("gemini"):
         return "gemini"
+    if x.startswith("gpt-oss"):
+        return "oss"
+    if x.startswith("gpt-"):
+        return "codex"
     return x
 
 
@@ -252,7 +267,7 @@ def cmd_brief(a, prof, repo_dir):
     if missing and not a.allow_missing:
         die("brief is incomplete; set: " + ", ".join(missing))
     out_text = PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), text)
-    out = Path(a.out) if a.out else run_dir(prof, repo_dir) / "briefs" / f"{stamp()}-{tpl.stem}-{values.get('step', values.get('phase', 'x'))}.md"
+    out = Path(a.out) if a.out else run_dir(prof, repo_dir) / "briefs" / f"{stamp()}-{uuid.uuid4().hex[:6]}-{tpl.stem}-{values.get('step', values.get('phase', 'x'))}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(out_text, encoding="utf-8")
     meta = {k: values[k] for k in ("step", "worktree", "branch", "head", "round") if values.get(k)}
@@ -334,13 +349,16 @@ def cmd_run(a, prof, repo_dir):
             "to run it headless, or use --fallback")
     if provider in ("claude-native", "claude-advisor"):
         provider = "claude-headless"
-    out_dir = run_dir(prof, repo_dir) / "runs" / f"{stamp()}-{a.role}"
+    out_dir = run_dir(prof, repo_dir) / "runs" / f"{stamp()}-{uuid.uuid4().hex[:6]}-{a.role}"
     cmd = [sys.executable, str(runner_path(provider)), "--prompt-file", str(brief), "--out-dir", str(out_dir)]
     if slot.get("model"):
         cmd += ["-m", slot["model"]]
     cmd += ["-C", cwd]
     if provider == "codex":
-        cmd += ["-e", slot.get("effort", "high"), "-s", slot.get("sandbox", "read-only")]
+        sandbox = slot.get("sandbox", "read-only")
+        cmd += ["-e", slot.get("effort", "high"), "-s", sandbox]
+        if sandbox == "danger-full-access":
+            cmd.append("--allow-full-access")
         if a.resume:
             cmd += ["--resume", a.resume]
     elif provider == "agy":
@@ -384,8 +402,11 @@ def cmd_run(a, prof, repo_dir):
     if a.resume:
         ev["resume"] = "same-thread" if thread == a.resume else f"requested {a.resume}"
     log(ev)
+    last_msg_path = out_dir / "last_message.md"
+    if not last_msg_path.is_file() and (out_dir / "response.md").is_file():
+        last_msg_path = out_dir / "response.md"
     summary = {"dry_run": bool(a.dry_run), "exit_code": proc.returncode, "thread": thread, "run_dir": str(out_dir),
-               "last_message": str(out_dir / "last_message.md"), "usage": result.get("usage")}
+               "last_message": str(last_msg_path), "usage": result.get("usage")}
     print(json.dumps(summary, indent=2))
     return proc.returncode
 
@@ -420,7 +441,16 @@ def cmd_status(a, prof, repo_dir):
     if not f.is_file():
         print("run log is empty")
         return
-    events = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
+    events = []
+    for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+            if isinstance(obj, dict):
+                events.append(obj)
+        except json.JSONDecodeError:
+            continue
     print(f"run log: {f} ({len(events)} events)")
     per_step = {}
     for e in events:
@@ -475,7 +505,7 @@ def main() -> int:
 
     a = ap.parse_args()
     repo_dir = Path(a.repo_dir).resolve()
-    prof = load_profile(a.profile, repo_dir)
+    prof = load_profile(a.profile, repo_dir, required=(a.cmd != "models"))
     fn = {"roles": cmd_roles, "pick": cmd_pick, "brief": cmd_brief, "run": cmd_run, "log": cmd_log, "done": cmd_done, "status": cmd_status, "models": cmd_models}[a.cmd]
     return fn(a, prof, repo_dir) or 0
 

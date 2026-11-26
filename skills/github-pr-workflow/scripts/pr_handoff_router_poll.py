@@ -8,7 +8,6 @@ handoffs and exceptions wake a Codex chat.
 import argparse
 import hashlib
 import json
-import msvcrt
 import os
 import re
 import shutil
@@ -17,6 +16,12 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
+    import fcntl
 
 
 for stream in (sys.stdout, sys.stderr):
@@ -124,9 +129,18 @@ def executable(name):
 
 
 def command(argv):
-    result = subprocess.run(argv, cwd=ROOT, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace", timeout=45,
-                            creationflags=subprocess.CREATE_NO_WINDOW, check=False)
+    run_kwargs = dict(
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=45,
+        check=False,
+    )
+    if os.name == "nt" and hasattr(subprocess, "CREATE_NO_WINDOW"):
+        run_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    result = subprocess.run(argv, **run_kwargs)
     if result.returncode:
         raise RuntimeError(f"{Path(argv[0]).name} exited {result.returncode}: {result.stderr.strip()[:400]}")
     return result.stdout
@@ -310,7 +324,10 @@ def poll(dry_run):
             lock.flush()
         lock.seek(0)
         try:
-            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            if msvcrt is not None:
+                msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             return
         try:
@@ -454,7 +471,10 @@ def poll(dry_run):
             # remains unacknowledged. Idle polls never wake a model.
         finally:
             lock.seek(0)
-            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            if msvcrt is not None:
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 def main(argv=None):

@@ -20,50 +20,50 @@ This skill provides an authoritative, zero-dependency suite for GitHub Pull Requ
 
 ### 1. Digesting a CI Run or Branch (<50 lines)
 ```bash
-python "skills/github-pr-workflow/scripts/gh_helper.py" ci digest \
-  --repo "tosumitdhaka/trishul-tactical-engine" \
-  --branch "g02-presentation-orders-ux"
+python "<skill-dir>/scripts/gh_helper.py" ci digest \
+  --repo "<owner>/<repo>" \
+  --branch "<branch>"
 ```
 Or by run ID:
 ```bash
-python "skills/github-pr-workflow/scripts/gh_helper.py" ci digest \
-  --run-id 42323789243
+python "<skill-dir>/scripts/gh_helper.py" ci digest \
+  --run-id <run-id>
 ```
 
 ### 2. Safely Publishing a PR Comment from File
 ```bash
-python "skills/github-pr-workflow/scripts/gh_helper.py" comments post \
-  --repo "tosumitdhaka/trishul-tactical-engine" \
-  --pr 28 \
+python "<skill-dir>/scripts/gh_helper.py" comments post \
+  --repo "<owner>/<repo>" \
+  --pr <N> \
   --file "scratch/handoff-block.md"
 ```
 
 ### 3. Checking Local Git Status & SHA
 ```bash
-python "skills/github-pr-workflow/scripts/gh_helper.py" git verify \
+python "<skill-dir>/scripts/gh_helper.py" git verify \
   -C "<repo_dir>"
 ```
 
 ### 4. Watching for Role Assignments
 ```bash
-python "skills/github-pr-workflow/scripts/gh_watch.py" \
-  --repo "tosumitdhaka/trishul-tactical-engine" \
-  --pr 28 \
+python "<skill-dir>/scripts/gh_watch.py" \
+  --repo "<owner>/<repo>" \
+  --pr <N> \
   --role "IMPLEMENTOR-1" \
-  --state-file "state/pr28_watch.json"
+  --state-file ".local/pr_watch_state.json"
 ```
 
 ### 5. Waiting for CI Workflow Completion (`ci wait`)
 ```bash
-python "skills/github-pr-workflow/scripts/gh_helper.py" ci wait \
-  --repo "tosumitdhaka/trishul-tactical-engine" \
-  --sha 95ea658
+python "<skill-dir>/scripts/gh_helper.py" ci wait \
+  --repo "<owner>/<repo>" \
+  --sha <sha>
 ```
 Or by workflow run ID:
 ```bash
-python "skills/github-pr-workflow/scripts/gh_helper.py" ci wait \
-  --repo "tosumitdhaka/trishul-tactical-engine" \
-  --run-id 42575624916 \
+python "<skill-dir>/scripts/gh_helper.py" ci wait \
+  --repo "<owner>/<repo>" \
+  --run-id <run-id> \
   --interval 15
 ```
 
@@ -77,8 +77,8 @@ When an orchestrator or worker agent pushes commits to GitHub, CI starts asynchr
 In Claude Desktop / code assistant environments, launch the command with background execution enabled (`run_in_background: true` on the Bash / command execution tool) and end the turn immediately:
 
 ```bash
-python "C:\Users\tosum\.claude\skills\github-pr-workflow\scripts\gh_helper.py" ci wait \
-  --repo tosumitdhaka/trishul-tactical-engine \
+python "<skill-dir>/scripts/gh_helper.py" ci wait \
+  --repo "<owner>/<repo>" \
   --sha <sha>
 ```
 
@@ -94,13 +94,6 @@ When the background process completes, the environment wakes the chat with the e
 - **One Turn on Completion**: The model is only woken once the run finishes, consuming exactly **1 model turn** to inspect results and continue work.
 - **Quiet Execution**: The command prints nothing to stdout while polling (no screen redraw floods). In the event of persistent GitHub connectivity failures, a single warning line is emitted to stderr after 10 minutes of continuous outage.
 - **App Restarts**: If the client application or chat session restarts while a wait is in progress, background processes are terminated. The chat must re-issue the `ci wait` command upon resuming if the run is still in progress.
-
-### Parallel Operation with `hub_wait`
-`ci wait` operates independently of and seamlessly alongside `hub_wait` (from the `hub-messenger` skill). A multi-agent coordinator can run both background tasks simultaneously:
-- `hub_wait` waits quietly for inbound agent mail / task handoffs.
-- `ci wait` waits quietly for remote GitHub Actions workflow completion.
-
-Whichever event completes first wakes the agent to take immediate action.
 
 ### Exit Codes
 

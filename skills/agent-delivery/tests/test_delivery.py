@@ -228,6 +228,56 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(st.returncode, 0, st.stderr)
         self.assertIn("S01.02: complete implementor ok", st.stdout)
 
+    def test_models_path_and_show_outside_repo(self):
+        empty_dir = self.root / "no-profile"
+        empty_dir.mkdir()
+        res = run_delivery(["models", "path"], empty_dir, self.models_path)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(res.stdout.strip(), str(self.models_path))
+
+        res_show = run_delivery(["models", "show"], empty_dir, self.models_path)
+        self.assertEqual(res_show.returncode, 0, res_show.stderr)
+        self.assertIn("user model config:", res_show.stdout)
+
+    def test_parallel_briefs_do_not_collide(self):
+        tpl = self.root / "tpl.md"
+        tpl.write_text("Step {{step}}", encoding="utf-8")
+        r1 = run_delivery(["brief", str(tpl), "--set", "step=S1"], self.repo, self.models_path)
+        r2 = run_delivery(["brief", str(tpl), "--set", "step=S1"], self.repo, self.models_path)
+        self.assertEqual(r1.returncode, 0, r1.stderr)
+        self.assertEqual(r2.returncode, 0, r2.stderr)
+        self.assertNotEqual(r1.stdout.strip(), r2.stdout.strip())
+
+    def test_response_md_fallback_in_summary(self):
+        sys.path.insert(0, str(DELIVERY_SCRIPT.parent))
+        import delivery  # noqa: E402
+        from unittest import mock
+
+        brief = self.root / "b.md"
+        brief.write_text("hi", encoding="utf-8")
+        self.profile["roles"]["implementor"]["primary"] = {"provider": "claude-headless", "model": "claude-sonnet-5-5"}
+        self.profile_path.write_text(json.dumps(self.profile), encoding="utf-8")
+
+        def fake_run(cmd, **kw):
+            out_dir = Path(cmd[cmd.index("--out-dir") + 1])
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "response.md").write_text("hello", encoding="utf-8")
+            (out_dir / "result.json").write_text(json.dumps({"status": "success", "session_id": "s1"}), encoding="utf-8")
+            return subprocess.CompletedProcess(cmd, 0)
+
+        ns = mock.Mock(
+            role="implementor", brief=str(brief), step="S1", cwd=str(self.repo),
+            round=None, implemented_by=None, fallback=0, auto_approve=False,
+            dry_run=False, headless=True, resume=None, timeout=60,
+        )
+        with mock.patch.object(delivery.subprocess, "run", fake_run):
+            rc = delivery.cmd_run(ns, self.profile, self.repo)
+        self.assertEqual(rc, 0)
+        runs_dir = self.repo / ".local" / "delivery" / "runs"
+        run_subdirs = list(runs_dir.iterdir())
+        self.assertEqual(len(run_subdirs), 1)
+        self.assertTrue((run_subdirs[0] / "response.md").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,7 +16,7 @@ The orchestrator cannot accept a phase; it runs this skill to verify repository 
 Run the automated assembler from your worktree:
 
 ```powershell
-python "skills/projects/tte-phase-evidence/scripts/assemble_phase_evidence.py" `
+python "<skill-dir>/scripts/assemble_phase_evidence.py" `
   --phase G01 `
   --base-ref origin/main `
   --output scratch/phase_evidence.md
@@ -53,7 +53,7 @@ The script automatically executes and formats:
 
 Once generated, publish to GitHub using the global `github-pr-workflow` helper:
 ```powershell
-python "skills/github-pr-workflow/scripts/gh_helper.py" comments post `
+python "<github-pr-workflow-skill-dir>/scripts/gh_helper.py" comments post `
   --issue <phase-issue-number> `
   --file scratch/phase_evidence.md
 ```

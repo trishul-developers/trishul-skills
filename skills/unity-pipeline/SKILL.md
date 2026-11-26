@@ -12,10 +12,10 @@ This skill provides an authoritative, end-to-end toolchain for Unity game and si
 ## Core Invariants
 
 ### 1. One Unity at a Time (Machine-Wide Lock)
-Unity locks its project Library and cache files; concurrent engine runs on the same machine corrupt state or crash. `unity_pipeline.py` enforces a machine-wide lock file under `%LOCALAPPDATA%\unity_pipeline.lock`:
-- Storing PID, start time, and project path.
+Unity locks its project Library and cache files; concurrent engine runs on the same machine corrupt state or crash. `unity_pipeline.py` enforces a machine-wide OS-level advisory lock (`OSLock`, using `msvcrt.locking` on Windows and `fcntl.flock` on POSIX) under `%LOCALAPPDATA%\unity_pipeline.lock` (or `$UNITY_LOCK_PATH`):
+- **Advisory OS lock + diagnostics**: The lock is held on an open OS file handle; diagnostics JSON (PID, start time, project path) is written for human inspection only.
 - **Live process check**: If held by another active process, `--lock-mode wait` (default) waits up to `--lock-timeout` (default 600s), while `--lock-mode exit` (or `--exit-if-locked`) aborts immediately with exit code 75 and a clear diagnostic message.
-- **Stale lock takeover**: If the recorded PID is dead, the stale lock is taken over automatically with a notice.
+- **Automatic crash recovery**: Because the lock is kernel-held on the open file handle, if the holding process terminates or crashes (`SIGKILL`, power loss), the OS automatically releases the lock—no stale PID checks or manual lock cleanup are needed.
 - **Reliable release**: The lock is always released on normal exit, unhandled errors, and Ctrl+C (`SIGINT`/`SIGTERM`/`atexit`).
 
 ### 2. Exact Editor Resolution

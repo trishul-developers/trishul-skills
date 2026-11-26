@@ -31,16 +31,16 @@ Run the helper script [process_zips.py](./scripts/process_zips.py):
 
 ```powershell
 # 1. Dry-run: check which zips in E:\Projects\military_assets\zips\ are not yet staged
-python .agents/skills/ingest-staging-zips/scripts/process_zips.py --dry-run
+python "<skill-dir>/scripts/process_zips.py" --dry-run
 
 # 2. Process all new/missing zips from E:\Projects\military_assets\zips\
-python .agents/skills/ingest-staging-zips/scripts/process_zips.py
+python "<skill-dir>/scripts/process_zips.py"
 
 # 3. Intake newly downloaded zips (moves them to E:\Projects\military_assets\zips\ first, then processes)
-python .agents/skills/ingest-staging-zips/scripts/process_zips.py --inbox "C:\Users\tosum\Downloads" --pattern "Prop_*.zip"
+python "<skill-dir>/scripts/process_zips.py" --inbox "<downloads-dir>" --pattern "Prop_*.zip"
 
 # 4. Force re-process specific keys (e.g. after a re-export)
-python .agents/skills/ingest-staging-zips/scripts/process_zips.py --keys T72B3 BMP2 --force
+python "<skill-dir>/scripts/process_zips.py" --keys T72B3 BMP2 --force
 ```
 
 ## What the Script Checks

@@ -41,12 +41,12 @@ When running **outside** an active Antigravity session (for example, from standa
 ## Quickstart Recipes
 
 The bundled script is located at:
-`~/.gemini/config/skills/agy-quota/scripts/check_quota.py`
+`<skill-dir>/scripts/check_quota.py`
 
 ### 1. View Full Account Plan & All Model Quotas
 
 ```bash
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py
+python3 <skill-dir>/scripts/check_quota.py
 ```
 
 Output:
@@ -78,13 +78,13 @@ Filter by exact model ID or case-insensitive substring:
 
 ```bash
 # Check Gemini 3.8 Flash High
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -m gemini-3.8-flash-high
+python3 <skill-dir>/scripts/check_quota.py -m gemini-3.8-flash-high
 
 # Check Claude models
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -m claude
+python3 <skill-dir>/scripts/check_quota.py -m claude
 
 # Check GPT-OSS
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -m gpt-oss-120b-medium
+python3 <skill-dir>/scripts/check_quota.py -m gpt-oss-120b-medium
 ```
 
 ---
@@ -93,10 +93,10 @@ python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -m gpt-oss-120b
 
 ```bash
 # Get JSON object for a specific model
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -m claude-sonnet-4-6 -f json
+python3 <skill-dir>/scripts/check_quota.py -m claude-sonnet-4-6 -f json
 
 # Get complete JSON payload including plan status and all models
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -f json
+python3 <skill-dir>/scripts/check_quota.py -f json
 ```
 
 Example JSON output for a model:
@@ -122,7 +122,7 @@ Example JSON output for a model:
 Extract just the remaining percentage for conditional checks:
 
 ```bash
-REMAINING=$(python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py -m gemini-3.8-flash-high -f quiet)
+REMAINING=$(python3 <skill-dir>/scripts/check_quota.py -m gemini-3.8-flash-high -f quiet)
 echo "Gemini Flash Remaining: $REMAINING"
 ```
 
@@ -131,7 +131,7 @@ echo "Gemini Flash Remaining: $REMAINING"
 ### 5. Check Credit Balances Only
 
 ```bash
-python3 ~/.gemini/config/skills/agy-quota/scripts/check_quota.py --credits-only
+python3 <skill-dir>/scripts/check_quota.py --credits-only
 ```
 
 ---
@@ -142,7 +142,7 @@ If calling via `curl` directly without Python:
 
 ```bash
 curl -sS -X POST \
-  "http://${ANTIGRAVITY_LS_ADDRESS:-localhost:5387}/exa.language_server_pb.LanguageServerService/GetUserStatus" \
+  "http://${ANTIGRAVITY_LS_ADDRESS:-localhost:46627}/exa.language_server_pb.LanguageServerService/GetUserStatus" \
   -H "Content-Type: application/json" \
   -H "x-codeium-csrf-token: ${ANTIGRAVITY_CSRF_TOKEN}" \
   -d '{}'
@@ -165,3 +165,4 @@ Key fields in response:
 | `--all` | | Include disabled models or models without active quota limits |
 | `--addr <host:port>` | | Override language server address (default: `$ANTIGRAVITY_LS_ADDRESS`) |
 | `--csrf <token>` | | Override CSRF token (default: `$ANTIGRAVITY_CSRF_TOKEN`) |
+| `--via-agy` | | Invoke `agy -p` when outside an active Antigravity session so LS env vars are populated |

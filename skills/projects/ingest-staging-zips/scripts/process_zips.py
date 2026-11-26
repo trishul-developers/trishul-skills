@@ -8,6 +8,7 @@ import hashlib
 import re
 import shutil
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -30,10 +31,18 @@ def sha256_file(path: Path) -> str:
 
 
 def derive_key(zip_path: Path) -> str:
-    """Derive asset key from <Key>_TTE_Staging.zip filename."""
+    """Derive asset key from <Key>_TTE_Staging.zip or the single top-level folder inside the zip."""
     name = zip_path.name
     if name.endswith("_TTE_Staging.zip"):
         return name[: -len("_TTE_Staging.zip")]
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        roots = {
+            info.filename.replace("\\", "/").split("/")[0]
+            for info in zf.infolist()
+            if info.filename.strip("/")
+        }
+        if len(roots) == 1:
+            return next(iter(roots))
     return zip_path.stem
 
 
@@ -110,9 +119,57 @@ def verify_provenance_hashes(asset_dir: Path) -> tuple[int, list[str]]:
     return checked, mismatches
 
 
+def verify_checksums_file(asset_dir: Path) -> tuple[int, list[str]]:
+    """Verify SHA-256 entries in CHECKSUMS.sha256 if present."""
+    csum_path = asset_dir / "CHECKSUMS.sha256"
+    if not csum_path.is_file():
+        return 0, []
+    checked = 0
+    mismatches: list[str] = []
+    for line in csum_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            continue
+        expected, rel = parts[0], parts[1].lstrip("*./\\").replace("\\", "/")
+        target = asset_dir / rel
+        if not target.is_file():
+            mismatches.append(f"Missing checksummed file: {rel}")
+            continue
+        actual = sha256_file(target)
+        checked += 1
+        if actual.lower() != expected.lower():
+            mismatches.append(f"{rel}: expected {expected}, got {actual}")
+    return checked, mismatches
+
+
 def validate_staging_dir(asset_dir: Path, key: str, expect_renders: bool) -> list[str]:
-    """Check Common §9 layout rules on the extracted staging folder."""
+    """Check Common §9 (single-asset), Kit Pack (Models/ + Textures/), or Runtime Pack (Assets/) rules."""
     issues: list[str] = []
+    is_kit_pack = (asset_dir / "Models").is_dir() and (asset_dir / "Textures").is_dir()
+    is_runtime_pack = (asset_dir / "Assets").is_dir() and not is_kit_pack
+
+    if is_runtime_pack:
+        if not list((asset_dir / "Assets").rglob("*")):
+            issues.append("Empty Assets/")
+        _, csum_err = verify_checksums_file(asset_dir)
+        issues.extend(csum_err)
+        return issues
+
+    if is_kit_pack:
+        for doc in ("DELIVERY.md", "PROVENANCE.md", "MANIFEST.json"):
+            if not (asset_dir / doc).is_file():
+                issues.append(f"Missing {doc}")
+        if not list((asset_dir / "Models").rglob("*.fbx")):
+            issues.append("No .fbx files in Models/")
+        if not list((asset_dir / "Textures").rglob("*.png")):
+            issues.append("No .png files in Textures/")
+        _, csum_err = verify_checksums_file(asset_dir)
+        issues.extend(csum_err)
+        return issues
+
     for doc in REQUIRED_DOCS:
         if not (asset_dir / doc).is_file():
             issues.append(f"Missing {doc}")
@@ -143,7 +200,7 @@ def process_zip(
     keep_renders_in_staging: bool,
     dry_run: bool,
 ) -> list[str]:
-    """Extract a single zip and split into military_assets (full) and tte-art-staging (Unity)."""
+    """Extract a single zip atomically and split into military_assets (full) and tte-art-staging (Unity)."""
     key = derive_key(zip_path)
     _, uncomp_bytes = validate_zip(zip_path, key)
 
@@ -158,51 +215,73 @@ def process_zip(
         print(f"[DRY-RUN] {key}: {uncomp_bytes / (1024 * 1024):.1f} MB -> staging + military_assets")
         return []
 
-    if target_dir.exists():
-        shutil.rmtree(target_dir)
+    staging_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=f".ingest-{key}-", dir=staging_root) as tmp_str:
+        tmp_root = Path(tmp_str)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmp_root)
 
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(staging_root)
+        extracted_dir = tmp_root / key
+        if not extracted_dir.is_dir():
+            raise FileNotFoundError(f"Expected extracted root '{key}' in {zip_path.name}")
 
-    # 1. Move source/ -> military_assets/Sources/<Key> & Tools/AssetSources/<Key>
-    src_dir = target_dir / "source"
-    if src_dir.is_dir():
-        for item in list(src_dir.iterdir()):
-            if item.is_file() and item.suffix.lower() in BLEND_EXTS:
-                dst_sources.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(item), str(dst_sources / item.name))
-            else:
-                dst_tools.mkdir(parents=True, exist_ok=True)
-                dest = dst_tools / item.name
-                if dest.exists():
-                    if dest.is_dir():
-                        shutil.rmtree(dest)
-                    else:
-                        dest.unlink()
-                shutil.move(str(item), str(dest))
-        shutil.rmtree(src_dir)
+        # 1. Move source/ -> military_assets/Sources/<Key> & Tools/AssetSources/<Key>
+        src_dir = extracted_dir / "source"
+        if src_dir.is_dir():
+            for item in list(src_dir.iterdir()):
+                if item.is_file() and item.suffix.lower() in BLEND_EXTS:
+                    dst_sources.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(item), str(dst_sources / item.name))
+                else:
+                    dst_tools.mkdir(parents=True, exist_ok=True)
+                    dest = dst_tools / item.name
+                    if dest.exists():
+                        if dest.is_dir():
+                            shutil.rmtree(dest)
+                        else:
+                            dest.unlink()
+                    shutil.move(str(item), str(dest))
+            shutil.rmtree(src_dir)
 
-    # 2. Copy handoff docs (*.md) -> Tools/AssetSources/<Key>
-    dst_tools.mkdir(parents=True, exist_ok=True)
-    for md in target_dir.glob("*.md"):
-        shutil.copy2(md, dst_tools / md.name)
+        # 2. Copy handoff docs (*.md, *.json, *.sha256) -> Tools/AssetSources/<Key>
+        dst_tools.mkdir(parents=True, exist_ok=True)
+        for doc_ext in ("*.md", "*.json", "*.sha256"):
+            for doc in extracted_dir.glob(doc_ext):
+                shutil.copy2(doc, dst_tools / doc.name)
 
-    # 3. Copy Unity objects (*.fbx + textures/) -> Exports/<Key>
-    dst_exports.mkdir(parents=True, exist_ok=True)
-    for fbx in target_dir.glob("*.fbx"):
-        shutil.copy2(fbx, dst_exports / fbx.name)
-    tex_dir = target_dir / "textures"
-    if tex_dir.is_dir():
-        copy_tree_contents(tex_dir, dst_exports / "textures")
+        # 3. Copy Unity objects -> Exports/<Key>
+        dst_exports.mkdir(parents=True, exist_ok=True)
+        is_kit_pack = (extracted_dir / "Models").is_dir() and (extracted_dir / "Textures").is_dir()
+        is_runtime_pack = (extracted_dir / "Assets").is_dir() and not is_kit_pack
+        if is_kit_pack:
+            for sub in ("Models", "Textures", "Metadata"):
+                sub_dir = extracted_dir / sub
+                if sub_dir.is_dir():
+                    copy_tree_contents(sub_dir, dst_exports / sub)
+        elif is_runtime_pack:
+            copy_tree_contents(extracted_dir / "Assets", dst_exports / "Assets")
+        else:
+            for fbx in extracted_dir.glob("*.fbx"):
+                shutil.copy2(fbx, dst_exports / fbx.name)
+            tex_dir = extracted_dir / "textures"
+            if tex_dir.is_dir():
+                copy_tree_contents(tex_dir, dst_exports / "textures")
 
-    # 4. Copy (or move) renders/ -> Docs/AssetPreviews/<Key>
-    rnd_dir = target_dir / "renders"
-    if rnd_dir.is_dir():
-        copy_tree_contents(rnd_dir, dst_previews)
-        if not keep_renders_in_staging:
-            shutil.rmtree(rnd_dir)
+        # 4. Copy (or move) renders/ or Evidence/ -> Docs/AssetPreviews/<Key>
+        for preview_name in ("renders", "Evidence"):
+            rnd_dir = extracted_dir / preview_name
+            if rnd_dir.is_dir():
+                copy_tree_contents(rnd_dir, dst_previews)
+                if not keep_renders_in_staging:
+                    shutil.rmtree(rnd_dir)
 
-    return validate_staging_dir(target_dir, key, expect_renders=keep_renders_in_staging)
+        issues = validate_staging_dir(extracted_dir, key, expect_renders=keep_renders_in_staging)
+
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        shutil.move(str(extracted_dir), str(target_dir))
+
+    return issues
 
 
 def matches_filters(key: str, patterns: list[str] | None) -> bool:
@@ -247,8 +326,12 @@ def main() -> int:
         print("All matching zip packages are already staged. Use --force to re-extract.")
         return 0
 
-    free_gb = shutil.disk_usage(args.staging_root).free / (1024 ** 3)
-    print(f"Selected {len(selected)} zip(s) to process (free space on target: {free_gb:.2f} GB).")
+    if not args.dry_run:
+        args.staging_root.mkdir(parents=True, exist_ok=True)
+        free_gb = shutil.disk_usage(args.staging_root).free / (1024 ** 3)
+        print(f"Selected {len(selected)} zip(s) to process (free space on target: {free_gb:.2f} GB).")
+    else:
+        print(f"Selected {len(selected)} zip(s) to process (dry-run).")
 
     all_issues: dict[str, list[str]] = {}
     for idx, z in enumerate(selected, 1):

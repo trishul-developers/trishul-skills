@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ChatGptBrowserStrategy,
   LocalSessionStore,
@@ -163,7 +164,7 @@ export class CloudRoleBridge {
       }
 
       const resourcePath = resolve(
-        dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")),
+        dirname(fileURLToPath(import.meta.url)),
         "..",
         "resources",
         def.bootstrapFile

@@ -10,7 +10,7 @@ From: manager. To: the {{phase}} orchestrator. You are this skill's driver for t
 - Manager (the session that started you): owner gates (merges), blockers, the phase-end report, and anything that needs the owner. Don't relay through the manager what the architect can answer.
 
 ## The skill
-- Read `agent-delivery/SKILL.md` first. Run the script with `-C {{repo_dir}}` (the main checkout, never a worktree), so there is one run log.
+- Read the `agent-delivery` skill's `SKILL.md` first. Run the script with `-C {{repo_dir}}` (the main checkout, never a worktree), so there is one run log.
 - Start with `roles -v` and `status`. Models come from the user config; don't copy model names from older briefs.
 
 ## The phase

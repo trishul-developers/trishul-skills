@@ -295,5 +295,93 @@ class TestUnityEditorResolution(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 1)
 
 
+class TestNUnitXmlParsing(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_passing_xml(self):
+        xml = self.tmp_path / "pass.xml"
+        xml.write_text(
+            '<test-run total="3" passed="3" failed="0" skipped="0" inconclusive="0" result="Passed" duration="1.25">'
+            '<test-case fullname="Ns.T1" result="Passed" />'
+            "</test-run>",
+            encoding="utf-8",
+        )
+        res = unity_pipeline.parse_nunit_xml(xml)
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["passed_count"], 3)
+
+    def test_inconclusive_or_failed_root_result_fails(self):
+        xml_inc = self.tmp_path / "inc.xml"
+        xml_inc.write_text(
+            '<test-run total="2" passed="1" failed="0" skipped="0" inconclusive="1" result="Inconclusive" duration="0.5">'
+            '<test-case fullname="Ns.T1" result="Passed" />'
+            '<test-case fullname="Ns.T2" result="Inconclusive"><reason><message>Needs setup</message></reason></test-case>'
+            "</test-run>",
+            encoding="utf-8",
+        )
+        res_inc = unity_pipeline.parse_nunit_xml(xml_inc)
+        self.assertFalse(res_inc["passed"])
+        self.assertEqual(res_inc["inconclusive_count"], 1)
+        self.assertIn("error", res_inc)
+        self.assertEqual(res_inc["failures"][0]["name"], "Ns.T2")
+
+        xml_root_fail = self.tmp_path / "root_fail.xml"
+        xml_root_fail.write_text(
+            '<test-run total="1" passed="1" failed="0" skipped="0" result="Failed" duration="0.5">'
+            '<test-case fullname="Ns.T1" result="Passed" />'
+            "</test-run>",
+            encoding="utf-8",
+        )
+        res_root_fail = unity_pipeline.parse_nunit_xml(xml_root_fail)
+        self.assertFalse(res_root_fail["passed"])
+        self.assertIn("error", res_root_fail)
+
+    def test_zero_tests_fails(self):
+        xml = self.tmp_path / "empty.xml"
+        xml.write_text('<test-run total="0" passed="0" failed="0" skipped="0" />', encoding="utf-8")
+        res = unity_pipeline.parse_nunit_xml(xml)
+        self.assertFalse(res["passed"])
+        self.assertIn("ZERO_TESTS_SELECTED", res["error"])
+
+
+class TestContractAudit(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.project_path = Path(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_unity_random_only_blocks_in_runtime(self):
+        runtime_cs = self.project_path / "Assets" / "Scripts" / "Trishul" / "Runtime" / "Sim.cs"
+        tests_cs = self.project_path / "Assets" / "Scripts" / "Trishul" / "Tests" / "SimTests.cs"
+        editor_cs = self.project_path / "Assets" / "Scripts" / "Trishul" / "Editor" / "Tool.cs"
+        for p in (runtime_cs, tests_cs, editor_cs):
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("var x = UnityEngine.Random.value;\n", encoding="utf-8")
+
+        ok, violations = unity_pipeline.run_contract_audit(self.project_path, diff_only=False)
+        self.assertFalse(ok)
+        self.assertEqual(len(violations), 1)
+        self.assertIn("Sim.cs", violations[0])
+
+    def test_diff_only_includes_untracked_cs_files(self):
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=self.project_path, check=True, capture_output=True)
+        runtime_cs = self.project_path / "Assets" / "Scripts" / "Trishul" / "Runtime" / "NewFile.cs"
+        runtime_cs.parent.mkdir(parents=True, exist_ok=True)
+        runtime_cs.write_text("var x = UnityEngine.Random.value;\n", encoding="utf-8")
+
+        ok, violations = unity_pipeline.run_contract_audit(self.project_path, diff_only=True)
+        self.assertFalse(ok)
+        self.assertTrue(any("NewFile.cs" in v for v in violations))
+
+
 if __name__ == "__main__":
     unittest.main()

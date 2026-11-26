@@ -121,7 +121,8 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
         if quantity == "penetration_rha":
             # penetration_rha can be either a scalar (constant mm) or a range-penetration table [[m, mm], ...]
             if is_valid_numeric_value(value):
-                pass  # Valid finite scalar penetration
+                if "xQuantity" in entry or "xUnit" in entry:
+                    errors.append(f"Key '{key}' is scalar; xQuantity/xUnit are only allowed on table entries.")
             elif isinstance(value, list) and len(value) > 0 and all(
                 isinstance(row, list) and len(row) == 2 and is_valid_numeric_value(row[0]) and is_valid_numeric_value(row[1])
                 for row in value
@@ -158,21 +159,34 @@ def validate_register_entry(entry: Dict[str, Any], known_sources: Set[str]) -> L
                 errors.append(f"Key '{key}' is scalar quantity '{quantity}' but has table list value.")
             elif not is_valid_numeric_value(value):
                 errors.append(f"Key '{key}' is scalar quantity '{quantity}'; value must be a finite number.")
+            if "xQuantity" in entry or "xUnit" in entry:
+                errors.append(f"Key '{key}' is scalar; xQuantity/xUnit are only allowed on table entries.")
+
+    # Evidence & confidence required on all entries
+    evidence = entry.get("evidence")
+    confidence = entry.get("confidence")
+    if not isinstance(evidence, str) or not evidence.strip():
+        errors.append(f"Key '{key}' missing non-empty 'evidence' field.")
+    if not isinstance(confidence, str) or not confidence.strip():
+        errors.append(f"Key '{key}' missing non-empty 'confidence' field.")
 
     # Placeholder rules
     if key.startswith("plc."):
-        if entry.get("evidence") != "GameplayApproximation":
+        if evidence != "GameplayApproximation":
             errors.append(f"Placeholder key '{key}' must have evidence: 'GameplayApproximation'.")
-        if entry.get("confidence") != "Estimated":
+        if confidence != "Estimated":
             errors.append(f"Placeholder key '{key}' must have confidence: 'Estimated'.")
     else:
         sources = entry.get("sources")
-        if not sources and entry.get("evidence") != "GameplayApproximation":
+        if not sources and evidence != "GameplayApproximation":
             errors.append(f"Production key '{key}' must reference at least one source key or be GameplayApproximation.")
         elif sources:
-            for s in sources:
-                if s not in known_sources:
-                    errors.append(f"Key '{key}' cites source '{s}' which is not defined in the 'sources' array.")
+            if not isinstance(sources, list):
+                errors.append(f"Key '{key}' 'sources' must be a list.")
+            else:
+                for s in sources:
+                    if s not in known_sources:
+                        errors.append(f"Key '{key}' cites source '{s}' which is not defined in the 'sources' array.")
 
     return errors
 
@@ -186,16 +200,29 @@ def audit_register_file(path: Path) -> Tuple[List[str], List[Tuple[str, int]]]:
     except Exception as e:
         return [f"Failed to parse JSON in {path}: {e}"], []
 
+    if not isinstance(data, dict):
+        return [f"{path}: root JSON must be an object."], []
+
     if data.get("registerVersion") != 1:
         errors.append(f"{path}: 'registerVersion' must be 1.")
 
-    sources_arr = data.get("sources", [])
-    known_sources = {s.get("key") for s in sources_arr if isinstance(s, dict) and s.get("key")}
+    if "sources" in data and not isinstance(data["sources"], list):
+        errors.append(f"{path}: 'sources' must be a list.")
+        sources_arr = []
+    else:
+        sources_arr = data.get("sources", [])
 
-    entries = data.get("entries", [])
-    if not isinstance(entries, list):
+    known_sources: Set[str] = set()
+    for s in sources_arr:
+        if not isinstance(s, dict) or not isinstance(s.get("key"), str) or not s.get("key").strip():
+            errors.append(f"{path}: source entry must be an object with a non-empty 'key'.")
+        else:
+            known_sources.add(s["key"])
+
+    if "entries" not in data or not isinstance(data.get("entries"), list):
         errors.append(f"{path}: 'entries' must be a list.")
         return errors, []
+    entries = data["entries"]
 
     for entry in entries:
         if not isinstance(entry, dict):
@@ -249,8 +276,8 @@ def audit_content_tree(content_dir: Path) -> int:
     register_files = list(content_dir.glob("**/Register/*.json"))
     asset_files = list(content_dir.glob("**/*.asset"))
     if not register_files and not asset_files:
-        print(f"Warning: No register JSON or .asset files found under {content_dir}")
-        return 0
+        print(f"Error: No register JSON or .asset files found under {content_dir}", file=sys.stderr)
+        return 1
 
     print(f"Found {len(register_files)} register JSON file(s) and {len(asset_files)} .asset file(s).")
 

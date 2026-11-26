@@ -16,11 +16,14 @@ This skill provides a programmatic, non-interactive execution harness for OpenAI
   - `read-only`: Code reviews, queries, and static inspections without file modifications.
   - `workspace-write` (default): Edits within the target project directory.
   - `danger-full-access`: Requires `--allow-full-access` flag.
-- **Context Injection**:
-  - Multi-directory write access via `--add-dir <DIR>`.
+- **Context & Execution Controls**:
+  - Working directory via `-C, --cd <DIR>` and additional writable directories via `--add-dir <DIR>`.
+  - Pass prompts inline, via `--prompt-file <FILE>`, or `-` for stdin.
   - Automatic isolation in a managed Git worktree via `--worktree`.
   - Multimodal input via repeatable `--image <PATH>`.
   - Output contract enforcement via `--output-schema <SCHEMA_FILE>`.
+  - Ephemeral runs via `--ephemeral` (do not persist session files to disk).
+  - Subprocess timeout via `--timeout <SECONDS>` (default: 1800).
 - **Session Continuity**: Resume or fork existing threads using `--resume <THREAD_ID>` or `--fork <THREAD_ID>`.
 - **Fault Tolerance**: Automatic recursive process tree cleanup on timeout (`taskkill /PID /T /F` on Windows) to prevent orphaned language servers or compile workers.
 
@@ -28,7 +31,7 @@ This skill provides a programmatic, non-interactive execution harness for OpenAI
 
 ### 1. Basic Read-Only Query / Code Review
 ```bash
-python "scripts/codex_headless.py" \
+python "<skill-dir>/scripts/codex_headless.py" \
   -m gpt-6.2-sol \
   -e high \
   -s read-only \
@@ -38,7 +41,7 @@ python "scripts/codex_headless.py" \
 
 ### 2. Large Implementation Brief via Prompt File
 ```bash
-python "scripts/codex_headless.py" \
+python "<skill-dir>/scripts/codex_headless.py" \
   -m gpt-6.2-sol \
   -e high \
   -s workspace-write \
@@ -49,24 +52,25 @@ python "scripts/codex_headless.py" \
 
 ### 3. Enforcing Structured JSON Output Schema
 ```bash
-python "scripts/codex_headless.py" \
+python "<skill-dir>/scripts/codex_headless.py" \
   -m gpt-6.1-terra \
   -e medium \
   -s read-only \
+  --ephemeral \
   --output-schema "schemas/audit-report.json" \
   --prompt-file "briefs/audit-request.md"
 ```
 
 ### 4. Resuming an Existing Thread
 ```bash
-python "scripts/codex_headless.py" \
+python "<skill-dir>/scripts/codex_headless.py" \
   --resume "01a1a10e-d6b3-7673-aa39-442645d464eb" \
   "Now implement the second test case and run the compilation check."
 ```
 
 ### 5. Dry-Run Verification (0 Quota Spent)
 ```bash
-python "scripts/codex_headless.py" \
+python "<skill-dir>/scripts/codex_headless.py" \
   -m gpt-6.2-sol -e ultra --worktree --dry-run "Test prompt"
 ```
 

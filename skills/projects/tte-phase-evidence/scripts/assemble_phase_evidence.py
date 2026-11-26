@@ -28,7 +28,30 @@ def run_cmd(cmd: List[str], cwd: Path) -> Tuple[int, str, str]:
     return res.returncode, res.stdout, res.stderr
 
 
-def check_preconditions(repo_dir: Path) -> List[str]:
+def _count_red_list_entries(content: str) -> int:
+    """Count bullet items and non-header Markdown table rows in a temporary red list."""
+    lines = content.splitlines()
+    count = 0
+    for idx, raw in enumerate(lines):
+        s = raw.strip()
+        if not s:
+            continue
+        if s.startswith("- ") or s.startswith("* "):
+            count += 1
+        elif s.startswith("|") and s.endswith("|"):
+            # Skip separator rows (|---|---|) and the header row immediately above a separator
+            inner = s.strip("|").replace("-", "").replace(":", "").replace(" ", "").replace("|", "")
+            if not inner:
+                continue
+            if idx + 1 < len(lines):
+                nxt = lines[idx + 1].strip()
+                if nxt.startswith("|") and re.fullmatch(r"[\|\s:\-]+", nxt):
+                    continue
+            count += 1
+    return count
+
+
+def check_preconditions(repo_dir: Path, phase: Optional[str] = None) -> List[str]:
     """Check for forbidden markers in Assets/Scripts and temporary red lists."""
     findings = []
 
@@ -43,27 +66,43 @@ def check_preconditions(repo_dir: Path) -> List[str]:
         if len(lines) > 10:
             findings.append(f"  ... and {len(lines) - 10} more markers.")
 
-    # 2. Check temporary red list
+    # 2. Check temporary red list (phase-scoped when phase is provided)
     plan_dir = repo_dir / "docs" / "implementation" / "plan_v2"
     if plan_dir.exists():
-        for f in plan_dir.glob("*_temporary_red_list.md"):
+        phase_prefix = f"{phase.lower()}_" if phase else None
+        for f in sorted(plan_dir.glob("*_temporary_red_list.md")):
+            fname = f.name.lower()
+            if phase_prefix and not (fname.startswith(phase_prefix) or fname == "temporary_red_list.md"):
+                continue
             content = f.read_text(encoding="utf-8", errors="replace").strip()
-            # check if there are test entries in red list
-            entries = [line for line in content.splitlines() if line.strip().startswith("-") or line.strip().startswith("*")]
-            if entries:
-                findings.append(f"Temporary red list {f.name} is not empty ({len(entries)} entries remaining).")
+            entry_count = _count_red_list_entries(content)
+            if entry_count > 0:
+                findings.append(f"Temporary red list {f.name} is not empty ({entry_count} entries remaining).")
 
     return findings
 
 
+def resolve_base_ref(repo_dir: Path, phase: str, explicit_base_ref: Optional[str]) -> str:
+    """Resolve explicit base_ref, or '<phase>-base' tag if present, else 'origin/main'."""
+    if explicit_base_ref:
+        return explicit_base_ref
+    tag_name = f"{phase}-base"
+    code, _, _ = run_cmd(["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{tag_name}"], repo_dir)
+    if code == 0:
+        return tag_name
+    return "origin/main"
+
+
 def get_step_table(repo_dir: Path, base_ref: str) -> List[Dict[str, str]]:
     """Generate commit step table from base_ref..HEAD."""
-    code, stdout, _ = run_cmd(
+    code, stdout, stderr = run_cmd(
         ["git", "log", "--oneline", "--reverse", f"{base_ref}..HEAD"],
         repo_dir
     )
+    if code != 0:
+        raise RuntimeError(f"git log failed for '{base_ref}..HEAD': {stderr.strip() or stdout.strip()}")
     steps = []
-    if code == 0 and stdout.strip():
+    if stdout.strip():
         for line in stdout.strip().splitlines():
             parts = line.strip().split(" ", 1)
             sha = parts[0]
@@ -74,11 +113,13 @@ def get_step_table(repo_dir: Path, base_ref: str) -> List[Dict[str, str]]:
 
 def get_state_inventory_diff(repo_dir: Path, base_ref: str) -> str:
     """Extract diff on docs/implementation/state_inventory.md."""
-    code, stdout, _ = run_cmd(
+    code, stdout, stderr = run_cmd(
         ["git", "diff", f"{base_ref}...HEAD", "--", "docs/implementation/state_inventory.md"],
         repo_dir
     )
-    if code == 0 and stdout.strip():
+    if code != 0:
+        raise RuntimeError(f"git diff failed for '{base_ref}...HEAD': {stderr.strip() or stdout.strip()}")
+    if stdout.strip():
         return stdout.strip()
     return "No state inventory modifications detected."
 
@@ -182,7 +223,8 @@ def format_evidence_package(
     out.append("| :--- | :--- | :--- | :--- |")
     if steps:
         for idx, s in enumerate(steps, start=1):
-            out.append(f"| {phase}.{idx:02d} | `{s['sha']}` | {s['message']} | {coverage_status} |")
+            safe_msg = s["message"].replace("|", "\\|")
+            out.append(f"| {phase}.{idx:02d} | `{s['sha']}` | {safe_msg} | {coverage_status} |")
     else:
         out.append("| - | - | No commits found in range | - |")
     out.append("")
@@ -225,7 +267,7 @@ def main():
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Assemble phase-end acceptance evidence package for TTE")
     parser.add_argument("--phase", required=True, help="Phase identifier (e.g. G01, G02, P17)")
-    parser.add_argument("--base-ref", default="origin/main", help="Base ref for commit range and diffs (default: origin/main)")
+    parser.add_argument("--base-ref", default=None, help="Base ref for commit range and diffs (default: <phase>-base tag if present, else origin/main)")
     parser.add_argument("-C", "--repo-dir", default=".", help="Path to TTE repository root")
     parser.add_argument("--branch", help="PR branch name for CI status check")
     parser.add_argument("-o", "--output", help="File to write formatted evidence markdown to (default: stdout)")
@@ -237,21 +279,26 @@ def main():
         print(f"Error: {repo_dir} is not a git repository.", file=sys.stderr)
         sys.exit(1)
 
+    base_ref = resolve_base_ref(repo_dir, args.phase, args.base_ref)
+
     print(f"Auditing repository preconditions at {repo_dir}...")
-    precondition_warnings = check_preconditions(repo_dir)
+    precondition_warnings = check_preconditions(repo_dir, phase=args.phase)
 
-    print(f"Collecting step commits from {args.base_ref}..HEAD...")
-    steps = get_step_table(repo_dir, args.base_ref)
-
-    print("Extracting state_inventory.md diff...")
-    state_diff = get_state_inventory_diff(repo_dir, args.base_ref)
+    print(f"Collecting step commits from {base_ref}..HEAD...")
+    try:
+        steps = get_step_table(repo_dir, base_ref)
+        print("Extracting state_inventory.md diff...")
+        state_diff = get_state_inventory_diff(repo_dir, base_ref)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     print("Querying CI workflow status...")
     ci_passed, ci_status = check_ci_status(repo_dir, args.branch)
 
     evidence_text = format_evidence_package(
         phase=args.phase,
-        base_ref=args.base_ref,
+        base_ref=base_ref,
         repo_dir=repo_dir,
         steps=steps,
         state_diff=state_diff,

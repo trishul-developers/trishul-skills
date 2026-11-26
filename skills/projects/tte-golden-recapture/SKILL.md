@@ -39,20 +39,20 @@ Execute re-baselining at the close of an implementation batch:
 ### Step 1: Execute Golden Tests with Capture Directory
 Run the golden EditMode suites with `TTE_GOLDEN_ACTUAL_DIR` pointing to a scratch folder. Tests output their actual results to `golden-actual.txt`.
 
-From the TTE repository root, execute the native test runner:
+From the TTE repository root, prefer the global `unity-pipeline` runner so the machine-wide `OSLock` is respected:
 
 ```powershell
 $env:TTE_GOLDEN_ACTUAL_DIR = "scratch/golden"
 New-Item -ItemType Directory -Force -Path "scratch/golden"
 
-# Run targeted golden EditMode test suites via TTE native runner
-powershell -File ci/unity-run-tests.ps1 `
-  -Platform EditMode `
-  -OutDir "scratch/golden" `
-  -TestFilter "Trishul.Tests.EditMode.Perception;Trishul.Tests.EditMode.Comms;Trishul.Tests.EditMode.GroundMotionStatic"
+# Run targeted golden EditMode test suites via unity-pipeline (enforces OSLock)
+python "<unity-pipeline-skill-dir>/scripts/unity_pipeline.py" test `
+  -C "." `
+  --platform EditMode `
+  --filter "Trishul.Tests.EditMode.Perception;Trishul.Tests.EditMode.Comms;Trishul.Tests.EditMode.GroundMotionStatic"
 ```
 
-*(Alternatively, if invoking via the global `unity-pipeline` skill runner: `python "$HOME/.codex/skills/unity-pipeline/scripts/unity_pipeline.py" test --platform EditMode --filter "Trishul.Tests.EditMode.Perception,Trishul.Tests.EditMode.Comms,Trishul.Tests.EditMode.GroundMotionStatic"`)*
+*(Alternatively, if invoking the repo's native runner directly when no other Unity process is active: `powershell -File ci/unity-run-tests.ps1 -Platform EditMode -OutDir "scratch/golden" -TestFilter "Trishul.Tests.EditMode.Perception;Trishul.Tests.EditMode.Comms;Trishul.Tests.EditMode.GroundMotionStatic"`)*
 
 ### Step 2: Audit Moved Pins (Dry-Run Table)
 Review the diff without modifying files:
